@@ -56,7 +56,7 @@ struct ContentView: View {
         TabView {
 
             // MARK: - OGGI
-            NavigationStack {
+            NavigationView {
                 VStack {
                     List(matches) { match in
                         VStack(alignment: .leading, spacing: 8) {
@@ -67,11 +67,9 @@ struct ContentView: View {
                                 Button("Home (\(match.odds[0], specifier: "%.1f"))") {
                                     placeBet(match: match, outcome: .homeWin)
                                 }
-
                                 Button("Draw (\(match.odds[1], specifier: "%.1f"))") {
                                     placeBet(match: match, outcome: .draw)
                                 }
-
                                 Button("Away (\(match.odds[2], specifier: "%.1f"))") {
                                     placeBet(match: match, outcome: .awayWin)
                                 }
@@ -95,7 +93,7 @@ struct ContentView: View {
             }
 
             // MARK: - PIAZZATE
-            NavigationStack {
+            NavigationView {
                 VStack {
                     if placedBets.isEmpty {
                         Text("Nessuna scommessa piazzata")
@@ -104,7 +102,7 @@ struct ContentView: View {
                     } else {
                         List(placedBets) { bet in
                             Text(
-                                "\(bet.match.homeTeam) vs \(bet.match.awayTeam) — \(bet.outcome.rawValue) — $\(bet.amount)"
+                                "\(bet.match.homeTeam) vs \(bet.match.awayTeam) – \(bet.outcome.rawValue) – $\(bet.amount)"
                             )
                         }
                     }
@@ -118,11 +116,12 @@ struct ContentView: View {
             }
 
             // MARK: - LEGHE
-            NavigationStack {
+            NavigationView {
                 VStack {
                     Text("Leghe")
                         .font(.largeTitle)
                         .padding()
+
                     Text("Funzionalità in arrivo…")
                         .foregroundColor(.gray)
                 }
@@ -135,7 +134,7 @@ struct ContentView: View {
             }
 
             // MARK: - PROFILO
-            NavigationStack {
+            NavigationView {
                 VStack {
                     Text("Profilo")
                         .font(.largeTitle)
@@ -154,17 +153,19 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - TOOLBAR
+    // MARK: - TOOLBAR (FIXED PER IPA BUILD)
 
+    @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigationBarTrailing) {
-            Text("$\(balance, specifier: "%.2f")")
-                .foregroundColor(.green)
-                .font(.headline)
-        }
-        ToolbarItemGroup(placement: .navigationBarLeading) {
+        ToolbarItem(placement: .navigationBarLeading) {
             Text("SportPredix")
                 .font(.headline)
+        }
+
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Text("$\(balance, specifier: "%.2f")")
+                .font(.headline)
+                .foregroundColor(.green)
         }
     }
 
@@ -192,8 +193,10 @@ struct ContentView: View {
     }
 }
 
-// MARK: - PREVIEW
+// MARK: - PREVIEW (XCODE VECCHIO OK)
 
-#Preview {
-    ContentView()
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
 }
