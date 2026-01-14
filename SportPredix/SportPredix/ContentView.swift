@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  SportPredix
 //
-//  Versione unica con MVVM, EV, persistenza schedine + PROFILO + CALENDARIO DINAMICO
+//  Versione unica con MVVM, EV, persistenza schedine + PROFILO + CALENDARIO DINAMICO PERSISTENTE
 //
 
 import SwiftUI
@@ -69,9 +69,12 @@ final class BettingViewModel: ObservableObject {
     @Published var currentPicks: [BetPick] = []
     @Published var slips: [BetSlip] = []
 
-    private let slipsKey = "savedSlips"
+    // Partite salvate per ogni giorno
+    @Published var dailyMatches: [String: [Match]] = [:]
 
-    // Squadre per generazione dinamica
+    private let slipsKey = "savedSlips"
+    private let matchesKey = "savedMatches"
+
     private let teams = [
         "Napoli","Inter","Milan","Juventus","Roma","Lazio",
         "Liverpool","Chelsea","Arsenal","Man City","Tottenham",
@@ -85,12 +88,21 @@ final class BettingViewModel: ObservableObject {
 
         self.userName = UserDefaults.standard.string(forKey: "userName") ?? ""
         self.slips = loadSlips()
+        self.dailyMatches = loadMatches()
+
+        generateTodayIfNeeded()
     }
 
-    // MARK: - CALENDARIO
+    // MARK: - DATE HELPERS
 
     func dateForIndex(_ index: Int) -> Date {
         Calendar.current.date(byAdding: .day, value: index - 1, to: Date())!
+    }
+
+    func keyForDate(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: date)
     }
 
     func formattedDay(_ date: Date) -> String {
@@ -105,9 +117,9 @@ final class BettingViewModel: ObservableObject {
         return f.string(from: date)
     }
 
-    // MARK: - GENERAZIONE PARTITE DINAMICHE
+    // MARK: - MATCH GENERATION (PERSISTENT)
 
-    func matchesForSelectedDay() -> [Match] {
+    func generateMatchesForDate(_ date: Date) -> [Match] {
         var result: [Match] = []
 
         for _ in 0..<12 {
@@ -129,6 +141,45 @@ final class BettingViewModel: ObservableObject {
         }
 
         return result
+    }
+
+    func generateTodayIfNeeded() {
+        let todayKey = keyForDate(Date())
+
+        if dailyMatches[todayKey] == nil {
+            dailyMatches[todayKey] = generateMatchesForDate(Date())
+            saveMatches()
+        }
+    }
+
+    func matchesForSelectedDay() -> [Match] {
+        let date = dateForIndex(selectedDayIndex)
+        let key = keyForDate(date)
+
+        if let existing = dailyMatches[key] {
+            return existing
+        }
+
+        let newMatches = generateMatchesForDate(date)
+        dailyMatches[key] = newMatches
+        saveMatches()
+        return newMatches
+    }
+
+    // MARK: - SAVE / LOAD MATCHES
+
+    func saveMatches() {
+        if let data = try? JSONEncoder().encode(dailyMatches) {
+            UserDefaults.standard.set(data, forKey: matchesKey)
+        }
+    }
+
+    func loadMatches() -> [String: [Match]] {
+        guard let data = UserDefaults.standard.data(forKey: matchesKey),
+              let decoded = try? JSONDecoder().decode([String: [Match]].self, from: data) else {
+            return [:]
+        }
+        return decoded
     }
 
     // MARK: - SCOMMESSE
@@ -233,22 +284,21 @@ struct ContentView: View {
     // MARK: CALENDAR BAR
 
     private var calendarBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 16) {
             ForEach(0..<3) { index in
                 let date = vm.dateForIndex(index)
 
-                VStack(spacing: 2) {
+                VStack(spacing: 4) {
                     Text(vm.formattedDay(date))
-                        .font(.title3.bold())
+                        .font(.title2.bold())
                     Text(vm.formattedMonth(date))
                         .font(.caption)
                 }
                 .foregroundColor(.white)
-                .padding(.vertical, 8)
-                .padding(.horizontal, 16)
+                .frame(width: 90, height: 70)
                 .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(vm.selectedDayIndex == index ? Color.accentCyan : Color.white.opacity(0.2), lineWidth: 2)
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(vm.selectedDayIndex == index ? Color.accentCyan : Color.white.opacity(0.2), lineWidth: 3)
                 )
                 .onTapGesture { vm.selectedDayIndex = index }
             }
@@ -261,18 +311,19 @@ struct ContentView: View {
 
     private var matchList: some View {
         let matches = vm.matchesForSelectedDay()
+        let isYesterday = vm.selectedDayIndex == 0
 
         return ScrollView {
             VStack(spacing: 16) {
                 ForEach(matches) { match in
-                    matchCard(match)
+                    matchCard(match, disabled: isYesterday)
                 }
             }
             .padding()
         }
     }
 
-    private func matchCard(_ match: Match) -> some View {
+    private func matchCard(_ match: Match, disabled: Bool) -> some View {
         VStack(spacing: 10) {
             HStack {
                 Text(match.home).font(.headline)
@@ -286,9 +337,9 @@ struct ContentView: View {
             .foregroundColor(.white)
 
             HStack(spacing: 10) {
-                oddButton("1", match, .home, match.odds[0])
-                oddButton("X", match, .draw, match.odds[1])
-                oddButton("2", match, .away, match.odds[2])
+                oddButton("1", match, .home, match.odds[0], disabled)
+                oddButton("X", match, .draw, match.odds[1], disabled)
+                oddButton("2", match, .away, match.odds[2], disabled)
             }
         }
         .padding()
@@ -302,20 +353,24 @@ struct ContentView: View {
         )
     }
 
-    private func oddButton(_ label: String, _ match: Match, _ outcome: MatchOutcome, _ odd: Double) -> some View {
+    private func oddButton(_ label: String, _ match: Match, _ outcome: MatchOutcome, _ odd: Double, _ disabled: Bool) -> some View {
+
         Button {
-            vm.addPick(match: match, outcome: outcome, odd: odd)
+            if !disabled {
+                vm.addPick(match: match, outcome: outcome, odd: odd)
+            }
         } label: {
             VStack {
                 Text(label).bold()
                 Text(String(format: "%.2f", odd)).font(.caption)
             }
-            .foregroundColor(.black)
+            .foregroundColor(disabled ? .gray : .black)
             .frame(maxWidth: .infinity)
-            .padding(8)
-            .background(Color.accentCyan)
-            .cornerRadius(12)
+            .padding(10)
+            .background(disabled ? Color.white.opacity(0.15) : Color.accentCyan)
+            .cornerRadius(14)
         }
+        .disabled(disabled)
     }
 
     // MARK: PLACED BETS
@@ -501,7 +556,6 @@ struct SlipDetailView: View {
         }
     }
 }
-
 // MARK: - PROFILE VIEW
 
 struct ProfileView: View {
