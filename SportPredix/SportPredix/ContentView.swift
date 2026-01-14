@@ -5,9 +5,45 @@
 //  Created by Francesco on 12/01/26.
 //
 
+
 import SwiftUI
 
+// MARK: - MODELS
+
+enum MatchOutcome: String, CaseIterable, Identifiable {
+    case homeWin = "Home"
+    case draw = "Draw"
+    case awayWin = "Away"
+
+    var id: String { rawValue }
+
+    var index: Int {
+        switch self {
+        case .homeWin: return 0
+        case .draw: return 1
+        case .awayWin: return 2
+        }
+    }
+}
+
+struct Match: Identifiable {
+    let id = UUID()
+    let homeTeam: String
+    let awayTeam: String
+    let odds: [Double]
+}
+
+struct Bet: Identifiable {
+    let id = UUID()
+    let match: Match
+    let outcome: MatchOutcome
+    let amount: Double
+}
+
+// MARK: - VIEW
+
 struct ContentView: View {
+
     @State private var balance: Double = 1000.0
     @State private var matches: [Match] = [
         Match(homeTeam: "Team A", awayTeam: "Team B", odds: [2.0, 3.5, 4.0]),
@@ -18,29 +54,29 @@ struct ContentView: View {
 
     var body: some View {
         TabView {
-            // Oggi Tab
-            NavigationView {
+
+            // MARK: - OGGI
+            NavigationStack {
                 VStack {
                     List(matches) { match in
-                        VStack(alignment: .leading) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Text("\(match.homeTeam) vs \(match.awayTeam)")
                                 .font(.headline)
+
                             HStack {
-                                Button("Home Win (\(match.odds[0], specifier: "%.1f"))") {
+                                Button("Home (\(match.odds[0], specifier: "%.1f"))") {
                                     placeBet(match: match, outcome: .homeWin)
                                 }
-                                .buttonStyle(.bordered)
-                                Spacer()
+
                                 Button("Draw (\(match.odds[1], specifier: "%.1f"))") {
                                     placeBet(match: match, outcome: .draw)
                                 }
-                                .buttonStyle(.bordered)
-                                Spacer()
-                                Button("Away Win (\(match.odds[2], specifier: "%.1f"))") {
+
+                                Button("Away (\(match.odds[2], specifier: "%.1f"))") {
                                     placeBet(match: match, outcome: .awayWin)
                                 }
-                                .buttonStyle(.bordered)
                             }
+                            .buttonStyle(.bordered)
                         }
                     }
 
@@ -50,26 +86,16 @@ struct ContentView: View {
                     .buttonStyle(.borderedProminent)
                     .padding()
                 }
-                .navigationTitle("")
                 .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Text("SportPredix")
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Text("$\(balance, specifier: "%.2f")")
-                            .font(.headline)
-                            .foregroundColor(.green)
-                    }
+                    toolbarContent
                 }
             }
             .tabItem {
                 Label("Oggi", systemImage: "calendar")
             }
 
-            // Piazzate Tab
-            NavigationView {
+            // MARK: - PIAZZATE
+            NavigationStack {
                 VStack {
                     if placedBets.isEmpty {
                         Text("Nessuna scommessa piazzata")
@@ -77,77 +103,49 @@ struct ContentView: View {
                             .padding()
                     } else {
                         List(placedBets) { bet in
-                            Text("\(bet.match.homeTeam) vs \(bet.match.awayTeam) - \(bet.outcome.rawValue) - $\(bet.amount)")
+                            Text(
+                                "\(bet.match.homeTeam) vs \(bet.match.awayTeam) — \(bet.outcome.rawValue) — $\(bet.amount)"
+                            )
                         }
                     }
                 }
-                .navigationTitle("")
                 .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Text("SportPredix")
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Text("$\(balance, specifier: "%.2f")")
-                            .font(.headline)
-                            .foregroundColor(.green)
-                    }
+                    toolbarContent
                 }
             }
             .tabItem {
                 Label("Piazzate", systemImage: "list.bullet")
             }
 
-            // Leghe Tab
-            NavigationView {
+            // MARK: - LEGHE
+            NavigationStack {
                 VStack {
                     Text("Leghe")
                         .font(.largeTitle)
                         .padding()
-                    Text("Funzionalità in arrivo...")
+                    Text("Funzionalità in arrivo…")
                         .foregroundColor(.gray)
                 }
-                .navigationTitle("")
                 .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Text("SportPredix")
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Text("$\(balance, specifier: "%.2f")")
-                            .font(.headline)
-                            .foregroundColor(.green)
-                    }
+                    toolbarContent
                 }
             }
             .tabItem {
                 Label("Leghe", systemImage: "trophy")
             }
 
-            // Profilo Tab
-            NavigationView {
+            // MARK: - PROFILO
+            NavigationStack {
                 VStack {
                     Text("Profilo")
                         .font(.largeTitle)
                         .padding()
+
                     Text("Scommesse piazzate: \(placedBets.count)")
-                        .font(.title)
-                        .padding()
+                        .font(.title2)
                 }
-                .navigationTitle("")
                 .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Text("SportPredix")
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                    }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Text("$\(balance, specifier: "%.2f")")
-                            .font(.headline)
-                            .foregroundColor(.green)
-                    }
+                    toolbarContent
                 }
             }
             .tabItem {
@@ -156,13 +154,30 @@ struct ContentView: View {
         }
     }
 
-    private func placeBet(match: Match, outcome: MatchOutcome) {
-        // Simple bet placement - in a real app, you'd have amount input
-        let betAmount = 10.0
-        if balance >= betAmount {
-            balance -= betAmount
-            placedBets.append(Bet(match: match, outcome: outcome, amount: betAmount))
+    // MARK: - TOOLBAR
+
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItemGroup(placement: .navigationBarTrailing) {
+            Text("$\(balance, specifier: "%.2f")")
+                .foregroundColor(.green)
+                .font(.headline)
         }
+        ToolbarItemGroup(placement: .navigationBarLeading) {
+            Text("SportPredix")
+                .font(.headline)
+        }
+    }
+
+    // MARK: - LOGIC
+
+    private func placeBet(match: Match, outcome: MatchOutcome) {
+        let betAmount = 10.0
+        guard balance >= betAmount else { return }
+
+        balance -= betAmount
+        placedBets.append(
+            Bet(match: match, outcome: outcome, amount: betAmount)
+        )
     }
 
     private func simulateResults() {
@@ -174,9 +189,10 @@ struct ContentView: View {
             }
         }
         placedBets.removeAll()
-        // In a real app, you'd update match results and show them
     }
 }
+
+// MARK: - PREVIEW
 
 #Preview {
     ContentView()
