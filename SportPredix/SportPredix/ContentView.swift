@@ -2,16 +2,8 @@
 //  ContentView.swift
 //  SportPredix
 //
-//  Created by Formatiks Team on 12/01/26.
+//  Versione unica con MVVM, EV, persistenza schedine
 //
-
-//
-//  ContentView.swift
-//  SportPredix
-//
-//  Created by Formatiks Team on 12/01/26.
-//
-
 
 import SwiftUI
 
@@ -23,57 +15,145 @@ extension Color {
 
 // MARK: - MODELS
 
-enum MatchOutcome: String {
+enum MatchOutcome: String, Codable {
     case home = "1"
     case draw = "X"
     case away = "2"
 }
 
-struct Match: Identifiable {
-    let id = UUID()
+struct Match: Identifiable, Codable {
+    let id: UUID
     let home: String
     let away: String
     let time: String
     let odds: [Double]
+
+    init(id: UUID = UUID(), home: String, away: String, time: String, odds: [Double]) {
+        self.id = id
+        self.home = home
+        self.away = away
+        self.time = time
+        self.odds = odds
+    }
 }
 
-struct BetPick: Identifiable {
-    let id = UUID()
+struct BetPick: Identifiable, Codable {
+    let id: UUID
     let match: Match
     let outcome: MatchOutcome
     let odd: Double
+
+    init(id: UUID = UUID(), match: Match, outcome: MatchOutcome, odd: Double) {
+        self.id = id
+        self.match = match
+        self.outcome = outcome
+        self.odd = odd
+    }
 }
 
-struct BetSlip: Identifiable {
-    let id = UUID()
+struct BetSlip: Identifiable, Codable {
+    let id: UUID
     let picks: [BetPick]
     let stake: Double
     let totalOdd: Double
     let potentialWin: Double
-    let date = Date()
+    let date: Date
+
+    init(id: UUID = UUID(), picks: [BetPick], stake: Double, totalOdd: Double, potentialWin: Double, date: Date = Date()) {
+        self.id = id
+        self.picks = picks
+        self.stake = stake
+        self.totalOdd = totalOdd
+        self.potentialWin = potentialWin
+        self.date = date
+    }
+
+    var impliedProbability: Double {
+        1 / totalOdd
+    }
+
+    var expectedValue: Double {
+        potentialWin * impliedProbability - stake
+    }
+}
+
+// MARK: - VIEW MODEL
+
+final class BettingViewModel: ObservableObject {
+    @Published var selectedTab = 0
+    @Published var showSheet = false
+    @Published var showSlipDetail: BetSlip?
+
+    @Published var balance: Double {
+        didSet {
+            UserDefaults.standard.set(balance, forKey: "balance")
+        }
+    }
+
+    @Published var currentPicks: [BetPick] = []
+    @Published var slips: [BetSlip] = []
+
+    let matches: [Match] = [
+        Match(home: "Napoli", away: "Parma", time: "18:30", odds: [1.33, 4.20, 7.00]),
+        Match(home: "Inter", away: "Lecce", time: "20:45", odds: [1.19, 5.00, 10.0]),
+        Match(home: "Colonia", away: "Bayern Monaco", time: "20:30", odds: [6.50, 4.80, 1.24]),
+        Match(home: "Albacete", away: "Real Madrid", time: "21:00", odds: [9.00, 6.20, 1.24])
+    ]
+
+    private let slipsKey = "savedSlips"
+
+    init() {
+        let savedBalance = UserDefaults.standard.double(forKey: "balance")
+        self.balance = savedBalance == 0 ? 1000 : savedBalance
+        self.slips = loadSlips()
+    }
+
+    var totalOdd: Double {
+        currentPicks.map { $0.odd }.reduce(1, *)
+    }
+
+    func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
+        guard !currentPicks.contains(where: { $0.match.id == match.id }) else { return }
+        currentPicks.append(BetPick(match: match, outcome: outcome, odd: odd))
+    }
+
+    func removePick(_ pick: BetPick) {
+        currentPicks.removeAll { $0.id == pick.id }
+    }
+
+    func confirmSlip(stake: Double) {
+        let slip = BetSlip(
+            picks: currentPicks,
+            stake: stake,
+            totalOdd: totalOdd,
+            potentialWin: stake * totalOdd
+        )
+        balance -= stake
+        currentPicks.removeAll()
+        slips.insert(slip, at: 0)
+        saveSlips()
+    }
+
+    private func saveSlips() {
+        if let data = try? JSONEncoder().encode(slips) {
+            UserDefaults.standard.set(data, forKey: slipsKey)
+        }
+    }
+
+    private func loadSlips() -> [BetSlip] {
+        guard let data = UserDefaults.standard.data(forKey: slipsKey),
+              let decoded = try? JSONDecoder().decode([BetSlip].self, from: data) else {
+            return []
+        }
+        return decoded
+    }
 }
 
 // MARK: - MAIN VIEW
 
 struct ContentView: View {
 
-    @State private var selectedTab = 0
-    @State private var showSheet = false
-    @State private var showSlipDetail: BetSlip?
-
-    @State private var balance: Double =
-        UserDefaults.standard.double(forKey: "balance") == 0 ? 1000 :
-        UserDefaults.standard.double(forKey: "balance")
-
-    @State private var currentPicks: [BetPick] = []
-    @State private var slips: [BetSlip] = []
-
-    private let matches: [Match] = [
-        Match(home: "Napoli", away: "Parma", time: "18:30", odds: [1.33, 4.20, 7.00]),
-        Match(home: "Inter", away: "Lecce", time: "20:45", odds: [1.19, 5.00, 10.0]),
-        Match(home: "Colonia", away: "Bayern Monaco", time: "20:30", odds: [6.50, 4.80, 1.24]),
-        Match(home: "Albacete", away: "Real Madrid", time: "21:00", odds: [9.00, 6.20, 1.24])
-    ]
+    @StateObject private var vm = BettingViewModel()
 
     var body: some View {
         ZStack {
@@ -82,7 +162,7 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 header
 
-                if selectedTab == 0 {
+                if vm.selectedTab == 0 {
                     matchList
                 } else {
                     placedBets
@@ -91,23 +171,21 @@ struct ContentView: View {
                 bottomBar
             }
 
-            if !currentPicks.isEmpty {
+            if !vm.currentPicks.isEmpty {
                 floatingButton
             }
         }
-        .sheet(isPresented: $showSheet) {
+        .sheet(isPresented: $vm.showSheet) {
             BetSheet(
-                picks: $currentPicks,
-                balance: $balance
-            ) { slip in
-                slips.insert(slip, at: 0)
+                picks: $vm.currentPicks,
+                balance: $vm.balance,
+                totalOdd: vm.totalOdd
+            ) { stake in
+                vm.confirmSlip(stake: stake)
             }
         }
-        .sheet(item: $showSlipDetail) { slip in
+        .sheet(item: $vm.showSlipDetail) { slip in
             SlipDetailView(slip: slip)
-        }
-        .onChange(of: balance) {
-            UserDefaults.standard.set($0, forKey: "balance")
         }
     }
 
@@ -115,13 +193,13 @@ struct ContentView: View {
 
     private var header: some View {
         HStack {
-            Text(selectedTab == 0 ? "Calendario" : "Piazzate")
+            Text(vm.selectedTab == 0 ? "Calendario" : "Piazzate")
                 .font(.largeTitle.bold())
                 .foregroundColor(.white)
 
             Spacer()
 
-            Text("€\(balance, specifier: "%.2f")")
+            Text("€\(vm.balance, specifier: "%.2f")")
                 .foregroundColor(.accentCyan)
                 .bold()
         }
@@ -133,37 +211,49 @@ struct ContentView: View {
     private var matchList: some View {
         ScrollView {
             VStack(spacing: 16) {
-                ForEach(matches) { match in
-                    VStack(spacing: 10) {
-                        HStack {
-                            Text(match.home)
-                            Spacer()
-                            Text(match.time).bold()
-                            Spacer()
-                            Text(match.away)
-                        }
-                        .foregroundColor(.white)
-
-                        HStack(spacing: 10) {
-                            oddButton("1", match, .home, match.odds[0])
-                            oddButton("X", match, .draw, match.odds[1])
-                            oddButton("2", match, .away, match.odds[2])
-                        }
-                    }
-                    .padding()
-                    .background(Color.white.opacity(0.06))
-                    .cornerRadius(16)
+                ForEach(vm.matches) { match in
+                    matchCard(match)
                 }
             }
             .padding()
         }
     }
 
+    private func matchCard(_ match: Match) -> some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text(match.home)
+                    .font(.headline)
+                Spacer()
+                Text(match.time)
+                    .font(.subheadline.bold())
+                    .foregroundColor(.accentCyan)
+                Spacer()
+                Text(match.away)
+                    .font(.headline)
+            }
+            .foregroundColor(.white)
+
+            HStack(spacing: 10) {
+                oddButton("1", match, .home, match.odds[0])
+                oddButton("X", match, .draw, match.odds[1])
+                oddButton("2", match, .away, match.odds[2])
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        )
+    }
+
     private func oddButton(_ label: String, _ match: Match, _ outcome: MatchOutcome, _ odd: Double) -> some View {
         Button {
-            if !currentPicks.contains(where: { $0.match.id == match.id }) {
-                currentPicks.append(BetPick(match: match, outcome: outcome, odd: odd))
-            }
+            vm.addPick(match: match, outcome: outcome, odd: odd)
         } label: {
             VStack {
                 Text(label).bold()
@@ -182,16 +272,16 @@ struct ContentView: View {
     private var placedBets: some View {
         ScrollView {
             VStack(spacing: 12) {
-                if slips.isEmpty {
+                if vm.slips.isEmpty {
                     Text("Nessuna scommessa piazzata")
                         .foregroundColor(.gray)
                         .padding()
                 } else {
-                    ForEach(slips) { slip in
+                    ForEach(vm.slips) { slip in
                         Button {
-                            showSlipDetail = slip
+                            vm.showSlipDetail = slip
                         } label: {
-                            VStack(alignment: .leading) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text("Quota \(slip.totalOdd, specifier: "%.2f")")
                                     .foregroundColor(.accentCyan)
                                 Text("Puntata €\(slip.stake, specifier: "%.2f")")
@@ -229,13 +319,13 @@ struct ContentView: View {
 
     private func bottomItem(_ icon: String, _ title: String, _ index: Int) -> some View {
         Button {
-            selectedTab = index
+            vm.selectedTab = index
         } label: {
             VStack {
                 Image(systemName: icon)
                 Text(title).font(.caption)
             }
-            .foregroundColor(selectedTab == index ? .accentCyan : .white)
+            .foregroundColor(vm.selectedTab == index ? .accentCyan : .white)
         }
     }
 
@@ -246,15 +336,27 @@ struct ContentView: View {
             Spacer()
             HStack {
                 Spacer()
-                Button {
-                    showSheet = true
-                } label: {
-                    Image(systemName: "list.bullet.rectangle")
-                        .foregroundColor(.black)
-                        .padding(16)
-                        .background(Color.accentCyan)
-                        .clipShape(Circle())
-                        .shadow(radius: 10)
+                ZStack(alignment: .topTrailing) {
+                    Button {
+                        vm.showSheet = true
+                    } label: {
+                        Image(systemName: "list.bullet.rectangle")
+                            .foregroundColor(.black)
+                            .padding(16)
+                            .background(Color.accentCyan)
+                            .clipShape(Circle())
+                            .shadow(radius: 10)
+                    }
+
+                    if !vm.currentPicks.isEmpty {
+                        Text("\(vm.currentPicks.count)")
+                            .font(.caption2.bold())
+                            .padding(4)
+                            .background(Color.red)
+                            .clipShape(Circle())
+                            .foregroundColor(.white)
+                            .offset(x: 8, y: -8)
+                    }
                 }
                 .padding(.trailing, 20)
                 .padding(.bottom, 90)
@@ -269,13 +371,10 @@ struct BetSheet: View {
 
     @Binding var picks: [BetPick]
     @Binding var balance: Double
-    let onConfirm: (BetSlip) -> Void
+    let totalOdd: Double
+    let onConfirm: (Double) -> Void
 
     @State private var stake: Double = 1
-
-    private var totalOdd: Double {
-        picks.map { $0.odd }.reduce(1, *)
-    }
 
     var body: some View {
         ZStack {
@@ -298,6 +397,9 @@ struct BetSheet: View {
                     }
                 }
 
+                Text("Quota totale \(totalOdd, specifier: "%.2f")")
+                    .foregroundColor(.accentCyan)
+
                 Text("Importo €\(stake, specifier: "%.2f")")
                     .foregroundColor(.white)
 
@@ -305,15 +407,7 @@ struct BetSheet: View {
                     .accentColor(.accentCyan)
 
                 Button("Conferma selezione") {
-                    let slip = BetSlip(
-                        picks: picks,
-                        stake: stake,
-                        totalOdd: totalOdd,
-                        potentialWin: stake * totalOdd
-                    )
-                    balance -= stake
-                    picks.removeAll()
-                    onConfirm(slip)
+                    onConfirm(stake)
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
@@ -350,6 +444,10 @@ struct SlipDetailView: View {
                 Text("Quota: \(slip.totalOdd, specifier: "%.2f")")
                 Text("Puntata: €\(slip.stake, specifier: "%.2f")")
                 Text("Vincita potenziale: €\(slip.potentialWin, specifier: "%.2f")")
+
+                Text("Probabilità implicita: \((slip.impliedProbability * 100), specifier: "%.1f")%")
+                Text("Expected Value: €\(slip.expectedValue, specifier: "%.2f")")
+                    .foregroundColor(slip.expectedValue >= 0 ? .green : .red)
             }
             .foregroundColor(.accentCyan)
             .padding()
