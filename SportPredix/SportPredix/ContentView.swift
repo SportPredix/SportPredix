@@ -5,7 +5,6 @@
 //  Created by Formatiks Team on 12/01/26.
 //
 
-
 import SwiftUI
 
 // MARK: - MODELS
@@ -32,7 +31,7 @@ struct ContentView: View {
 
                 // 🔹 PARTITE FAKE DEL GIORNO
                 List {
-                    ForEach(generateMatches(for: selectedDate)) { match in
+                    ForEach(generateMatches(for: selectedDate), id: \.id) { match in
                         VStack(alignment: .leading, spacing: 8) {
                             Text("\(match.home) - \(match.away)")
                                 .font(.headline)
