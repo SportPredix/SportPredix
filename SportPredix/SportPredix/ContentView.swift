@@ -8,70 +8,75 @@
 
 import SwiftUI
 
+// MARK: - THEME
+
+extension Color {
+    static let accentCyan = Color(red: 68/255, green: 224/255, blue: 203/255)
+}
+
 // MARK: - MODELS
+
+enum MatchOutcome: String, CaseIterable {
+    case home = "1"
+    case draw = "X"
+    case away = "2"
+}
 
 struct Match: Identifiable {
     let id = UUID()
     let home: String
     let away: String
     let time: String
+    let odds: [Double]
 }
 
-struct League: Identifiable {
+struct Bet: Identifiable {
     let id = UUID()
-    let name: String
-    let country: String
+    let match: Match
+    let outcome: MatchOutcome
+    let amount: Double
 }
 
 // MARK: - MAIN VIEW
 
 struct ContentView: View {
 
-    @State private var selectedDay: Int = 0
+    // MARK: STATE
 
-    private let days = [
-        ("LIVE", "•"),
-        ("MAR", "13 Gen"),
-        ("OGGI", "14 Gen"),
-        ("GIO", "15 Gen"),
-        ("VEN", "16 Gen")
-    ]
+    @State private var selectedDay = 2
+    @State private var selectedTab = 0
+    @State private var balance: Double = UserDefaults.standard.double(forKey: "balance") == 0 ? 1000 : UserDefaults.standard.double(forKey: "balance")
+    @State private var bets: [Bet] = []
 
-    private let matches: [Match] = [
-        Match(home: "Napoli", away: "Parma", time: "18:30"),
-        Match(home: "Inter", away: "Lecce", time: "20:45"),
-        Match(home: "Albacete", away: "Real Madrid", time: "21:00"),
-        Match(home: "Colonia", away: "Bayern Monaco", time: "20:30")
-    ]
+    // MARK: DATA
 
-    private let leagues: [League] = [
-        League(name: "Serie A", country: "Italia"),
-        League(name: "EFL Trophy", country: "Inghilterra"),
-        League(name: "Copa Del Rey", country: "Spagna")
+    private let days = ["LIVE", "MAR\n13", "OGGI\n14", "GIO\n15", "VEN\n16"]
+
+    private let matchesByDay: [[Match]] = [
+        [],
+        [],
+        [
+            Match(home: "Napoli", away: "Parma", time: "18:30", odds: [1.60, 3.90, 5.50]),
+            Match(home: "Inter", away: "Lecce", time: "20:45", odds: [1.40, 4.20, 7.00]),
+            Match(home: "Roma", away: "Udinese", time: "21:00", odds: [1.90, 3.60, 4.00])
+        ],
+        [],
+        []
     ]
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            VStack(spacing: 16) {
-
+            VStack(spacing: 0) {
                 header
-
-                daySelector
-
-                ScrollView {
-                    VStack(spacing: 24) {
-
-                        favouriteMatchesSection
-
-                        allMatchesSection
-                    }
-                    .padding(.horizontal)
-                }
-
-                bottomTab
+                calendar
+                content
+                bottomBar
             }
+        }
+        .onChange(of: balance) {
+            UserDefaults.standard.set($0, forKey: "balance")
         }
     }
 
@@ -80,174 +85,188 @@ struct ContentView: View {
     private var header: some View {
         HStack {
             Text("Calendario")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+                .font(.largeTitle.bold())
                 .foregroundColor(.white)
 
             Spacer()
 
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.white)
-                .padding(10)
-                .background(Color.white.opacity(0.1))
-                .clipShape(Circle())
-
-            Text("1,7K")
-                .foregroundColor(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.1))
-                .clipShape(Capsule())
+            Text("$\(balance, specifier: "%.2f")")
+                .fontWeight(.bold)
+                .foregroundColor(.accentCyan)
         }
-        .padding(.horizontal)
+        .padding()
     }
 
-    // MARK: - DAY SELECTOR
+    // MARK: - CALENDAR
 
-    private var daySelector: some View {
+    private var calendar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
                 ForEach(days.indices, id: \.self) { index in
-                    let day = days[index]
-
-                    VStack {
-                        Text(day.0)
-                            .fontWeight(.bold)
-                        Text(day.1)
-                            .font(.caption)
-                    }
-                    .foregroundColor(selectedDay == index ? .black : .white)
-                    .padding()
-                    .background(
-                        selectedDay == index
-                        ? Color.green
-                        : Color.white.opacity(0.1)
-                    )
-                    .cornerRadius(14)
-                    .onTapGesture {
-                        selectedDay = index
-                    }
+                    Text(days[index])
+                        .multilineTextAlignment(.center)
+                        .fontWeight(.bold)
+                        .foregroundColor(selectedDay == index ? .black : .white)
+                        .frame(width: 70, height: 60)
+                        .background(
+                            selectedDay == index
+                            ? Color.accentCyan
+                            : Color.white.opacity(0.1)
+                        )
+                        .cornerRadius(14)
+                        .onTapGesture {
+                            selectedDay = index
+                        }
                 }
             }
             .padding(.horizontal)
         }
     }
 
-    // MARK: - MATCH PREFERITI
+    // MARK: - CONTENT
 
-    private var favouriteMatchesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-
-            HStack {
-                Label("Match preferiti", systemImage: "star.fill")
-                    .foregroundColor(.white)
-                Spacer()
-                Text("Vedi tutti ›")
-                    .foregroundColor(.gray)
+    private var content: some View {
+        ScrollView {
+            if selectedTab == 0 {
+                serieASection
+            } else {
+                betsSection
             }
+        }
+    }
 
-            VStack(spacing: 16) {
-                ForEach(matches) { match in
-                    matchRow(match)
+    // MARK: - SERIE A
+
+    private var serieASection: some View {
+        VStack(spacing: 16) {
+            DisclosureGroup {
+                VStack(spacing: 12) {
+                    ForEach(matchesByDay[selectedDay]) { match in
+                        matchCard(match)
+                    }
+
+                    if matchesByDay[selectedDay].isEmpty {
+                        Text("Nessuna partita")
+                            .foregroundColor(.gray)
+                            .padding()
+                    }
+                }
+            } label: {
+                HStack {
+                    Text("Serie A")
+                        .foregroundColor(.white)
+                        .font(.headline)
+                    Spacer()
+                    Text("Italia")
+                        .foregroundColor(.gray)
                 }
             }
             .padding()
             .background(Color.white.opacity(0.05))
             .cornerRadius(20)
         }
+        .padding()
     }
 
-    private func matchRow(_ match: Match) -> some View {
-        HStack {
-            Text(match.home)
-                .foregroundColor(.white)
+    private func matchCard(_ match: Match) -> some View {
+        VStack(spacing: 8) {
+            HStack {
+                Text(match.home)
+                Spacer()
+                Text(match.time).bold()
+                Spacer()
+                Text(match.away)
+            }
+            .foregroundColor(.white)
 
-            Spacer()
-
-            Text(match.time)
-                .foregroundColor(.white)
-                .fontWeight(.bold)
-
-            Spacer()
-
-            Text(match.away)
-                .foregroundColor(.white)
-        }
-        .padding(.vertical, 6)
-    }
-
-    // MARK: - ALL MATCHES
-
-    private var allMatchesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-
-            Label("Tutte le partite", systemImage: "soccerball")
-                .foregroundColor(.white)
-
-            ForEach(leagues) { league in
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text(league.name)
-                            .foregroundColor(.white)
-                            .fontWeight(.bold)
-                        Text(league.country)
-                            .foregroundColor(.gray)
-                            .font(.caption)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.down")
-                        .foregroundColor(.gray)
+            HStack(spacing: 12) {
+                oddsButton("1", match.odds[0]) {
+                    placeBet(match, .home)
                 }
-                .padding()
-                .background(Color.white.opacity(0.05))
-                .cornerRadius(18)
+                oddsButton("X", match.odds[1]) {
+                    placeBet(match, .draw)
+                }
+                oddsButton("2", match.odds[2]) {
+                    placeBet(match, .away)
+                }
             }
         }
+        .padding()
+        .background(Color.white.opacity(0.08))
+        .cornerRadius(14)
     }
 
-    // MARK: - BOTTOM TAB
+    private func oddsButton(_ title: String, _ odd: Double, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack {
+                Text(title).bold()
+                Text(String(format: "%.2f", odd))
+                    .font(.caption)
+            }
+            .foregroundColor(.black)
+            .frame(maxWidth: .infinity)
+            .padding(8)
+            .background(Color.accentCyan)
+            .cornerRadius(10)
+        }
+    }
 
-    private var bottomTab: some View {
+    // MARK: - BETS
+
+    private var betsSection: some View {
+        VStack(spacing: 12) {
+            if bets.isEmpty {
+                Text("Nessuna schedina")
+                    .foregroundColor(.gray)
+                    .padding()
+            } else {
+                ForEach(bets) { bet in
+                    Text("\(bet.match.home) vs \(bet.match.away) – \(bet.outcome.rawValue) – $\(bet.amount)")
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(14)
+                }
+            }
+        }
+        .padding()
+    }
+
+    // MARK: - BOTTOM BAR
+
+    private var bottomBar: some View {
         HStack {
-
-            tabItem(icon: "calendar", title: "Calendario", selected: true)
-
+            bottomItem("calendar", "Calendario", 0)
             Spacer()
-
-            tabItem(icon: "list.bullet.rectangle", title: "Palinsesto")
-
-            Spacer()
-
-            Circle()
-                .fill(Color.green)
-                .frame(width: 56, height: 56)
-                .overlay(
-                    Image(systemName: "leaf.fill")
-                        .foregroundColor(.black)
-                )
-
-            Spacer()
-
-            tabItem(icon: "trophy", title: "Leghe")
-
-            Spacer()
-
-            tabItem(icon: "person", title: "Profilo")
+            bottomItem("list.bullet", "Piazzate", 1)
         }
         .padding()
         .background(.ultraThinMaterial)
+        .cornerRadius(26)
+        .padding(.horizontal)
+        .padding(.bottom, 8)
     }
 
-    private func tabItem(icon: String, title: String, selected: Bool = false) -> some View {
-        VStack {
-            Image(systemName: icon)
-                .foregroundColor(selected ? .green : .white)
-            Text(title)
-                .font(.caption)
-                .foregroundColor(selected ? .green : .white)
+    private func bottomItem(_ icon: String, _ title: String, _ index: Int) -> some View {
+        Button {
+            selectedTab = index
+        } label: {
+            VStack {
+                Image(systemName: icon)
+                Text(title).font(.caption)
+            }
+            .foregroundColor(selectedTab == index ? .accentCyan : .white)
         }
+    }
+
+    // MARK: - LOGIC
+
+    private func placeBet(_ match: Match, _ outcome: MatchOutcome) {
+        let amount = 10.0
+        guard balance >= amount else { return }
+
+        balance -= amount
+        bets.append(Bet(match: match, outcome: outcome, amount: amount))
     }
 }
 
