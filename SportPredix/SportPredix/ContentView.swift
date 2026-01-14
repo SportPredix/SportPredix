@@ -10,6 +10,7 @@ import SwiftUI
 // MARK: - MODELS
 
 struct Match: Identifiable {
+    // Modello singolo, conforme a Identifiable
     let id = UUID()
     let home: String
     let away: String
@@ -20,6 +21,7 @@ struct Match: Identifiable {
 
 struct ContentView: View {
 
+    // Stato attuale della data selezionata
     @State private var selectedDate: Date = Date()
 
     var body: some View {
@@ -29,9 +31,10 @@ struct ContentView: View {
                 // 🔹 CALENDARIO PICCOLO
                 SmallCalendarView(selectedDate: $selectedDate)
 
-                // 🔹 PARTITE FAKE DEL GIORNO
+                // 🔹 ELENCO PARTITE DEL GIORNO SELEZIONATO
                 List {
-                    ForEach(generateMatches(for: selectedDate), id: \.id) { match in
+                    // ForEach con identificazione esplicita
+                    ForEach(generateMatches(for: selectedDate)) { match in
                         VStack(alignment: .leading, spacing: 8) {
                             Text("\(match.home) - \(match.away)")
                                 .font(.headline)
@@ -39,7 +42,7 @@ struct ContentView: View {
                             HStack(spacing: 12) {
                                 ForEach(0..<3, id: \.self) { index in
                                     Button {
-                                        // in futuro: aggiunta pronostico
+                                        // Eventuale gestione interazione utente
                                     } label: {
                                         Text(match.odds[index], specifier: "%.2f")
                                             .frame(maxWidth: .infinity)
@@ -62,10 +65,10 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - MATCH GENERATOR (FAKE)
+    // MARK: - GENERA PARTITE
 
     func generateMatches(for date: Date) -> [Match] {
-        // Cambiano automaticamente in base al giorno
+        // Calcolo semplificato delle partite del giorno
         let day = Calendar.current.component(.day, from: date)
 
         return [
@@ -75,7 +78,9 @@ struct ContentView: View {
         ]
     }
 
+    // Funzione per generare quote casuali
     func randomOdds(seed: Int) -> [Double] {
+        // Generatore prevedibile per testabilità
         srand48(seed)
         return [
             Double(drand48() * 1.5 + 1.5),
@@ -85,7 +90,7 @@ struct ContentView: View {
     }
 }
 
-// MARK: - SMALL CALENDAR
+// MARK: - VISTA CALENDARIO PICCOLO
 
 struct SmallCalendarView: View {
 
@@ -97,7 +102,7 @@ struct SmallCalendarView: View {
     var body: some View {
         HStack(spacing: 16) {
             ForEach(range, id: \.self) { offset in
-                let date = calendar.date(byAdding: .day, value: offset, to: selectedDate)!
+                let date = calendar.date(byAdding: .day, value: offset, to: Date())!
 
                 VStack(spacing: 6) {
                     Text(dayName(from: date))
@@ -139,7 +144,7 @@ struct SmallCalendarView: View {
     }
 }
 
-// MARK: - COLOR EXTENSION
+// MARK: - ESTENSIONE COLORI
 
 extension Color {
     init(hex: String) {
