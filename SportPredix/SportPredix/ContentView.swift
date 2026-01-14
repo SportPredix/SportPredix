@@ -18,7 +18,7 @@ enum Outcome: String, Codable, CaseIterable {
 }
 
 struct Match: Identifiable, Codable {
-    var id = UUID()
+    var id: UUID = UUID()
     let home: String
     let away: String
     let date: Date
@@ -26,7 +26,7 @@ struct Match: Identifiable, Codable {
 }
 
 struct Prediction: Identifiable, Codable {
-    var id = UUID()
+    var id: UUID = UUID()
     let match: Match
     let outcome: Outcome
 }
@@ -38,7 +38,7 @@ enum SlipResult: String, Codable {
 }
 
 struct BetSlip: Identifiable, Codable {
-    var id = UUID()
+    var id: UUID = UUID()
     let predictions: [Prediction]
     let stake: Double
     let totalOdds: Double
@@ -47,24 +47,25 @@ struct BetSlip: Identifiable, Codable {
     let result: SlipResult
 }
 
-// MARK: - STORAGE (SAFE)
+// MARK: - STORAGE
 
 enum Storage {
 
     static func save<T: Codable>(_ value: T, key: String) {
-        let data = try? JSONEncoder().encode(value)
-        UserDefaults.standard.set(data, forKey: key)
+        if let data = try? JSONEncoder().encode(value) {
+            UserDefaults.standard.set(data, forKey: key)
+        }
     }
 
     static func load<T: Codable>(_ key: String, as type: T.Type) -> T? {
-        guard
-            let data = UserDefaults.standard.data(forKey: key),
-            let decoded = try? JSONDecoder().decode(type, from: data)
-        else { return nil }
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let decoded = try? JSONDecoder().decode(type, from: data) else {
+            return nil
+        }
         return decoded
     }
 
-    // IMMAGINI (SAFE)
+    // immagini safe
     static func saveImage(_ image: UIImage, key: String) {
         UserDefaults.standard.set(image.pngData(), forKey: key)
     }
@@ -86,7 +87,7 @@ struct ContentView: View {
     @State private var selectedDate: Date = Date()
     @State private var showBetSheet = false
 
-    // PROFILO
+    // profilo
     @State private var profileName: String = Storage.load("profileName", as: String.self) ?? ""
     @State private var profileImage: UIImage? = Storage.loadImage(key: "profileImage")
     @State private var photoItem: PhotosPickerItem?
@@ -110,9 +111,16 @@ struct ContentView: View {
         .sheet(isPresented: $showBetSheet) {
             BetSheet(predictions: $predictions, balance: $balance, slips: $slips)
         }
-        .onChange(of: slips) { Storage.save(slips, key: "slips") }
-        .onChange(of: balance) { Storage.save(balance, key: "balance") }
-        .onChange(of: profileName) { Storage.save(profileName, key: "profileName") }
+        // FIX: niente Equatable
+        .onChange(of: slips.count) {
+            Storage.save(slips, key: "slips")
+        }
+        .onChange(of: balance) {
+            Storage.save(balance, key: "balance")
+        }
+        .onChange(of: profileName) {
+            Storage.save(profileName, key: "profileName")
+        }
         .onChange(of: photoItem) {
             Task {
                 if let data = try? await photoItem?.loadTransferable(type: Data.self),
@@ -124,7 +132,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - CALENDAR
+    // MARK: - CALENDAR TAB
 
     var calendarTab: some View {
         NavigationView {
@@ -132,25 +140,27 @@ struct ContentView: View {
 
                 calendarStrip
 
-                List(generateMatches(for: selectedDate)) { match in
-                    VStack(alignment: .leading) {
-                        Text("\(match.home) – \(match.away)")
-                            .font(.headline)
+                List {
+                    ForEach(generateMatches(for: selectedDate)) { match in
+                        VStack(alignment: .leading) {
+                            Text("\(match.home) – \(match.away)")
+                                .font(.headline)
 
-                        HStack {
-                            ForEach(Outcome.allCases, id: \.self) { outcome in
-                                Button {
-                                    predictions.append(
-                                        Prediction(match: match, outcome: outcome)
-                                    )
-                                } label: {
-                                    VStack {
-                                        Text(outcome.rawValue)
-                                        Text(match.odds[outcome]!, specifier: "%.2f")
+                            HStack {
+                                ForEach(Outcome.allCases, id: \.self) { outcome in
+                                    Button {
+                                        predictions.append(
+                                            Prediction(match: match, outcome: outcome)
+                                        )
+                                    } label: {
+                                        VStack {
+                                            Text(outcome.rawValue)
+                                            Text(match.odds[outcome]!, specifier: "%.2f")
+                                        }
+                                        .padding(8)
+                                        .background(.ultraThinMaterial)
+                                        .cornerRadius(8)
                                     }
-                                    .padding(8)
-                                    .background(.ultraThinMaterial)
-                                    .cornerRadius(8)
                                 }
                             }
                         }
@@ -179,7 +189,7 @@ struct ContentView: View {
         .padding(.horizontal)
     }
 
-    // MARK: - SLIPS
+    // MARK: - SLIPS TAB
 
     var slipsTab: some View {
         NavigationView {
@@ -192,6 +202,7 @@ struct ContentView: View {
                         Text("€\(slip.stake, specifier: "%.2f") → €\(slip.potentialWin, specifier: "%.2f")")
                         Text(slip.result.rawValue.uppercased())
                             .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
@@ -199,7 +210,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - PROFILE
+    // MARK: - PROFILE TAB
 
     var profileTab: some View {
         NavigationView {
@@ -211,7 +222,8 @@ struct ContentView: View {
                         .clipShape(Circle())
                         .frame(width: 120, height: 120)
                 } else {
-                    Circle().fill(.gray.opacity(0.3))
+                    Circle()
+                        .fill(.gray.opacity(0.3))
                         .frame(width: 120, height: 120)
                 }
 
@@ -230,7 +242,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - BUTTON
+    // MARK: - FLOATING BUTTON
 
     var floatingBetButton: some View {
         Button {
@@ -248,8 +260,10 @@ struct ContentView: View {
 
     func generateMatches(for date: Date) -> [Match] {
         [
-            Match(home: "Napoli", away: "Roma", date: date, odds: [.home: 1.6, .draw: 3.9, .away: 5.5]),
-            Match(home: "Inter", away: "Lecce", date: date, odds: [.home: 1.3, .draw: 4.6, .away: 8.2])
+            Match(home: "Napoli", away: "Roma", date: date,
+                  odds: [.home: 1.60, .draw: 3.90, .away: 5.50]),
+            Match(home: "Inter", away: "Lecce", date: date,
+                  odds: [.home: 1.30, .draw: 4.60, .away: 8.20])
         ]
     }
 }
@@ -266,6 +280,7 @@ struct BetSheet: View {
 
     var body: some View {
         VStack {
+
             List {
                 ForEach(predictions) { p in
                     HStack {
@@ -274,15 +289,17 @@ struct BetSheet: View {
                         Text(p.outcome.rawValue)
                     }
                 }
-                .onDelete {
-                    predictions.remove(atOffsets: $0)
-                }
+                .onDelete { predictions.remove(atOffsets: $0) }
             }
 
-            Stepper("Importo €\(stake, specifier: "%.2f")", value: $stake, in: 1...balance)
+            Stepper("Importo €\(stake, specifier: "%.2f")",
+                    value: $stake,
+                    in: 1...balance)
 
             Button("Conferma") {
-                let odds = predictions.reduce(1) { $0 * ($1.match.odds[$1.outcome] ?? 1) }
+                let odds = predictions.reduce(1) {
+                    $0 * ($1.match.odds[$1.outcome] ?? 1)
+                }
                 let win = stake * odds
 
                 balance -= stake
@@ -321,7 +338,7 @@ struct SlipDetailView: View {
     }
 }
 
-// MARK: - UTIL
+// MARK: - UTILS
 
 extension Date {
     func isSameDay(as other: Date) -> Bool {
