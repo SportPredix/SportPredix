@@ -7,352 +7,157 @@
 
 
 import SwiftUI
-import PhotosUI
 
 // MARK: - MODELS
 
-enum Outcome: String, Codable, CaseIterable {
-    case home = "1"
-    case draw = "X"
-    case away = "2"
-}
-
-struct Match: Identifiable, Codable {
-    var id: UUID = UUID()
+struct Match: Identifiable {
+    let id = UUID()
     let home: String
     let away: String
-    let date: Date
-    let odds: [Outcome: Double]
-}
-
-struct Prediction: Identifiable, Codable {
-    var id: UUID = UUID()
-    let match: Match
-    let outcome: Outcome
-}
-
-enum SlipResult: String, Codable {
-    case pending
-    case won
-    case lost
-}
-
-struct BetSlip: Identifiable, Codable {
-    var id: UUID = UUID()
-    let predictions: [Prediction]
-    let stake: Double
-    let totalOdds: Double
-    let potentialWin: Double
-    let date: Date
-    let result: SlipResult
-}
-
-// MARK: - STORAGE
-
-enum Storage {
-
-    static func save<T: Codable>(_ value: T, key: String) {
-        if let data = try? JSONEncoder().encode(value) {
-            UserDefaults.standard.set(data, forKey: key)
-        }
-    }
-
-    static func load<T: Codable>(_ key: String, as type: T.Type) -> T? {
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let decoded = try? JSONDecoder().decode(type, from: data) else {
-            return nil
-        }
-        return decoded
-    }
-
-    // immagini safe
-    static func saveImage(_ image: UIImage, key: String) {
-        UserDefaults.standard.set(image.pngData(), forKey: key)
-    }
-
-    static func loadImage(key: String) -> UIImage? {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
-        return UIImage(data: data)
-    }
+    let odds: [Double] // 1X2
 }
 
 // MARK: - MAIN VIEW
 
 struct ContentView: View {
 
-    @State private var balance: Double = Storage.load("balance", as: Double.self) ?? 1000
-    @State private var predictions: [Prediction] = []
-    @State private var slips: [BetSlip] = Storage.load("slips", as: [BetSlip].self) ?? []
-
     @State private var selectedDate: Date = Date()
-    @State private var showBetSheet = false
-
-    // profilo
-    @State private var profileName: String = Storage.load("profileName", as: String.self) ?? ""
-    @State private var profileImage: UIImage? = Storage.loadImage(key: "profileImage")
-    @State private var photoItem: PhotosPickerItem?
 
     var body: some View {
-        TabView {
-
-            calendarTab
-                .tabItem { Label("Oggi", systemImage: "calendar") }
-
-            slipsTab
-                .tabItem { Label("Piazzate", systemImage: "list.bullet.rectangle") }
-
-            profileTab
-                .tabItem { Label("Profilo", systemImage: "person.crop.circle") }
-        }
-        .tint(Color(hex: "#44E0CB"))
-        .overlay(alignment: .bottomTrailing) {
-            floatingBetButton
-        }
-        .sheet(isPresented: $showBetSheet) {
-            BetSheet(predictions: $predictions, balance: $balance, slips: $slips)
-        }
-        // FIX: niente Equatable
-        .onChange(of: slips.count) {
-            Storage.save(slips, key: "slips")
-        }
-        .onChange(of: balance) {
-            Storage.save(balance, key: "balance")
-        }
-        .onChange(of: profileName) {
-            Storage.save(profileName, key: "profileName")
-        }
-        .onChange(of: photoItem) {
-            Task {
-                if let data = try? await photoItem?.loadTransferable(type: Data.self),
-                   let img = UIImage(data: data) {
-                    profileImage = img
-                    Storage.saveImage(img, key: "profileImage")
-                }
-            }
-        }
-    }
-
-    // MARK: - CALENDAR TAB
-
-    var calendarTab: some View {
         NavigationView {
-            VStack(spacing: 8) {
+            VStack(spacing: 16) {
 
-                calendarStrip
+                // 🔹 CALENDARIO PICCOLO
+                SmallCalendarView(selectedDate: $selectedDate)
 
+                // 🔹 PARTITE FAKE DEL GIORNO
                 List {
                     ForEach(generateMatches(for: selectedDate)) { match in
-                        VStack(alignment: .leading) {
-                            Text("\(match.home) – \(match.away)")
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("\(match.home) - \(match.away)")
                                 .font(.headline)
 
-                            HStack {
-                                ForEach(Outcome.allCases, id: \.self) { outcome in
+                            HStack(spacing: 12) {
+                                ForEach(0..<3) { index in
                                     Button {
-                                        predictions.append(
-                                            Prediction(match: match, outcome: outcome)
-                                        )
+                                        // in futuro: aggiunta pronostico
                                     } label: {
-                                        VStack {
-                                            Text(outcome.rawValue)
-                                            Text(match.odds[outcome]!, specifier: "%.2f")
-                                        }
-                                        .padding(8)
-                                        .background(.ultraThinMaterial)
-                                        .cornerRadius(8)
+                                        Text(match.odds[index], specifier: "%.2f")
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 8)
+                                            .background(Color(hex: "44E0CB").opacity(0.15))
+                                            .cornerRadius(8)
                                     }
                                 }
                             }
                         }
+                        .padding(.vertical, 6)
                     }
                 }
+                .listStyle(.plain)
+
+                Spacer()
             }
+            .padding(.top, 8)
             .navigationTitle("Serie A")
         }
     }
 
-    var calendarStrip: some View {
-        HStack {
-            ForEach(-1...1, id: \.self) { offset in
-                let day = Calendar.current.date(byAdding: .day, value: offset, to: selectedDate)!
-                Button {
-                    selectedDate = day
-                } label: {
-                    Text(day, style: .date)
-                        .font(.caption)
-                        .padding(8)
-                        .background(day.isSameDay(as: selectedDate) ? Color(hex: "#44E0CB") : .clear)
-                        .cornerRadius(10)
-                }
-            }
-        }
-        .padding(.horizontal)
-    }
-
-    // MARK: - SLIPS TAB
-
-    var slipsTab: some View {
-        NavigationView {
-            List(slips) { slip in
-                NavigationLink {
-                    SlipDetailView(slip: slip)
-                } label: {
-                    VStack(alignment: .leading) {
-                        Text("Multipla \(slip.predictions.count) eventi")
-                        Text("€\(slip.stake, specifier: "%.2f") → €\(slip.potentialWin, specifier: "%.2f")")
-                        Text(slip.result.rawValue.uppercased())
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .navigationTitle("Storico")
-        }
-    }
-
-    // MARK: - PROFILE TAB
-
-    var profileTab: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-
-                if let img = profileImage {
-                    Image(uiImage: img)
-                        .resizable()
-                        .clipShape(Circle())
-                        .frame(width: 120, height: 120)
-                } else {
-                    Circle()
-                        .fill(.gray.opacity(0.3))
-                        .frame(width: 120, height: 120)
-                }
-
-                PhotosPicker("Carica foto", selection: $photoItem, matching: .images)
-
-                TextField("Il tuo nome", text: $profileName)
-                    .textFieldStyle(.roundedBorder)
-                    .padding()
-
-                Text("Saldo: €\(balance, specifier: "%.2f")")
-                    .font(.title2)
-
-                Spacer()
-            }
-            .navigationTitle("Profilo")
-        }
-    }
-
-    // MARK: - FLOATING BUTTON
-
-    var floatingBetButton: some View {
-        Button {
-            showBetSheet = true
-        } label: {
-            Image(systemName: "bookmark.fill")
-                .padding()
-                .background(.ultraThinMaterial)
-                .clipShape(Circle())
-        }
-        .padding()
-    }
-
-    // MARK: - MATCH GENERATION
+    // MARK: - MATCH GENERATOR (FAKE)
 
     func generateMatches(for date: Date) -> [Match] {
-        [
-            Match(home: "Napoli", away: "Roma", date: date,
-                  odds: [.home: 1.60, .draw: 3.90, .away: 5.50]),
-            Match(home: "Inter", away: "Lecce", date: date,
-                  odds: [.home: 1.30, .draw: 4.60, .away: 8.20])
+        // Cambiano automaticamente in base al giorno
+        let day = Calendar.current.component(.day, from: date)
+
+        return [
+            Match(home: "Napoli", away: "Roma", odds: randomOdds(seed: day)),
+            Match(home: "Milan", away: "Inter", odds: randomOdds(seed: day + 1)),
+            Match(home: "Juventus", away: "Atalanta", odds: randomOdds(seed: day + 2))
+        ]
+    }
+
+    func randomOdds(seed: Int) -> [Double] {
+        srand48(seed)
+        return [
+            Double.random(in: 1.5...3.0),
+            Double.random(in: 2.8...4.0),
+            Double.random(in: 2.0...4.5)
         ]
     }
 }
 
-// MARK: - BET SHEET
+// MARK: - SMALL CALENDAR
 
-struct BetSheet: View {
+struct SmallCalendarView: View {
 
-    @Binding var predictions: [Prediction]
-    @Binding var balance: Double
-    @Binding var slips: [BetSlip]
+    @Binding var selectedDate: Date
 
-    @State private var stake: Double = 1
-
-    var body: some View {
-        VStack {
-
-            List {
-                ForEach(predictions) { p in
-                    HStack {
-                        Text("\(p.match.home) – \(p.match.away)")
-                        Spacer()
-                        Text(p.outcome.rawValue)
-                    }
-                }
-                .onDelete { predictions.remove(atOffsets: $0) }
-            }
-
-            Stepper("Importo €\(stake, specifier: "%.2f")",
-                    value: $stake,
-                    in: 1...balance)
-
-            Button("Conferma") {
-                let odds = predictions.reduce(1) {
-                    $0 * ($1.match.odds[$1.outcome] ?? 1)
-                }
-                let win = stake * odds
-
-                balance -= stake
-
-                slips.insert(
-                    BetSlip(
-                        predictions: predictions,
-                        stake: stake,
-                        totalOdds: odds,
-                        potentialWin: win,
-                        date: Date(),
-                        result: .pending
-                    ),
-                    at: 0
-                )
-
-                predictions.removeAll()
-            }
-            .buttonStyle(.borderedProminent)
-        }
-    }
-}
-
-// MARK: - DETAIL
-
-struct SlipDetailView: View {
-    let slip: BetSlip
+    private let calendar = Calendar.current
+    private let range = -1...1
 
     var body: some View {
-        List {
-            ForEach(slip.predictions) {
-                Text("\($0.match.home) – \($0.match.away) | \($0.outcome.rawValue)")
+        HStack(spacing: 16) {
+            ForEach(range, id: \.self) { offset in
+                let date = calendar.date(byAdding: .day, value: offset, to: Date())!
+
+                VStack(spacing: 6) {
+                    Text(dayName(from: date))
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+
+                    Text(dayNumber(from: date))
+                        .font(.headline)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(isSameDay(date) ? Color(hex: "44E0CB") : .clear)
+                        )
+                        .foregroundColor(isSameDay(date) ? .white : .primary)
+                }
+                .onTapGesture {
+                    selectedDate = date
+                }
             }
         }
-        .navigationTitle("Schedina")
+        .padding(.vertical, 6)
+    }
+
+    private func isSameDay(_ date: Date) -> Bool {
+        calendar.isDate(date, inSameDayAs: selectedDate)
+    }
+
+    private func dayNumber(from date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "d"
+        return f.string(from: date)
+    }
+
+    private func dayName(from date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "it_IT")
+        f.dateFormat = "EEE"
+        return f.string(from: date).uppercased()
     }
 }
 
-// MARK: - UTILS
-
-extension Date {
-    func isSameDay(as other: Date) -> Bool {
-        Calendar.current.isDate(self, inSameDayAs: other)
-    }
-}
+// MARK: - COLOR EXTENSION
 
 extension Color {
     init(hex: String) {
-        let v = Int(hex.dropFirst(), radix: 16) ?? 0
-        self.init(
-            red: Double((v >> 16) & 0xFF) / 255,
-            green: Double((v >> 8) & 0xFF) / 255,
-            blue: Double(v & 0xFF) / 255
-        )
+        let hex = hex.trimmingCharacters(in: .alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+
+        let r = Double((int >> 16) & 0xFF) / 255
+        let g = Double((int >> 8) & 0xFF) / 255
+        let b = Double(int & 0xFF) / 255
+
+        self.init(red: r, green: g, blue: b)
     }
+}
+
+// MARK: - PREVIEW
+
+#Preview {
+    ContentView()
 }
