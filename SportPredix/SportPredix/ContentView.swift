@@ -7,6 +7,7 @@
 
 
 import SwiftUI
+import PhotosUI
 
 // MARK: - MODELS
 
@@ -56,6 +57,17 @@ enum Storage {
         }
         return value
     }
+
+    static func saveImage(_ image: UIImage, key: String) {
+        if let data = image.pngData() {
+            UserDefaults.standard.set(data, forKey: key)
+        }
+    }
+
+    static func loadImage(key: String) -> UIImage? {
+        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        return UIImage(data: data)
+    }
 }
 
 // MARK: - CONTENT VIEW
@@ -70,6 +82,8 @@ struct ContentView: View {
     @State private var showBetSheet = false
 
     @State private var profileName: String = Storage.load("profileName", as: String.self) ?? ""
+    @State private var profileImage: UIImage? = Storage.loadImage(key: "profileImage")
+    @State private var pickerItem: PhotosPickerItem?
 
     var body: some View {
         TabView {
@@ -99,6 +113,15 @@ struct ContentView: View {
         }
         .onChange(of: balance) {
             Storage.save(balance, key: "balance")
+        }
+        .onChange(of: pickerItem) { _ in
+            Task {
+                if let data = try? await pickerItem?.loadTransferable(type: Data.self),
+                   let img = UIImage(data: data) {
+                    profileImage = img
+                    Storage.saveImage(img, key: "profileImage")
+                }
+            }
         }
     }
 
@@ -154,16 +177,23 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - PROFILE TAB (SOLO NOME)
+    // MARK: - PROFILE TAB
 
     var profileTab: some View {
         NavigationView {
             VStack(spacing: 20) {
 
-                Image(systemName: "person.crop.circle.fill")
-                    .resizable()
-                    .frame(width: 120, height: 120)
-                    .foregroundColor(.gray.opacity(0.5))
+                if let img = profileImage {
+                    Image(uiImage: img)
+                        .resizable()
+                        .clipShape(Circle())
+                        .frame(width: 120, height: 120)
+                } else {
+                    Circle().fill(.gray.opacity(0.3))
+                        .frame(width: 120, height: 120)
+                }
+
+                PhotosPicker("Cambia foto", selection: $pickerItem, matching: .images)
 
                 TextField("Il tuo nome", text: $profileName)
                     .textFieldStyle(.roundedBorder)
@@ -202,11 +232,13 @@ struct ContentView: View {
                 Button {
                     selectedDate = date
                 } label: {
-                    Text(date, style: .date)
-                        .font(.caption)
-                        .padding(8)
-                        .background(date.isSameDay(as: selectedDate) ? Color(hex: "#44E0CB") : .clear)
-                        .cornerRadius(10)
+                    VStack {
+                        Text(date, style: .date)
+                            .font(.caption)
+                    }
+                    .padding(8)
+                    .background(date.isSameDay(as: selectedDate) ? Color(hex: "#44E0CB") : .clear)
+                    .cornerRadius(10)
                 }
             }
         }
