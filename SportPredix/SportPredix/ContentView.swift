@@ -17,6 +17,22 @@ enum MatchOutcome: String, Codable {
     case home = "1"
     case draw = "X"
     case away = "2"
+    case homeDraw = "1X"
+    case homeAway = "12"
+    case drawAway = "X2"
+    case over25 = "Over 2.5"
+    case under25 = "Under 2.5"
+}
+
+struct Odds: Codable {
+    let home: Double
+    let draw: Double
+    let away: Double
+    let homeDraw: Double
+    let homeAway: Double
+    let drawAway: Double
+    let over25: Double
+    let under25: Double
 }
 
 struct Match: Identifiable, Codable {
@@ -24,8 +40,9 @@ struct Match: Identifiable, Codable {
     let home: String
     let away: String
     let time: String
-    let odds: [Double]
+    let odds: Odds
     var result: MatchOutcome?
+    var goals: Int?
 }
 
 struct BetPick: Identifiable, Codable {
@@ -132,11 +149,18 @@ final class BettingViewModel: ObservableObject {
             let minute = ["00","15","30","45"].randomElement()!
             let time = "\(hour):\(minute)"
 
-            let odds = [
-                Double.random(in: 1.20...2.50),
-                Double.random(in: 2.80...4.50),
-                Double.random(in: 2.50...7.00)
-            ]
+            let odds = Odds(
+                home: Double.random(in: 1.20...2.50),
+                draw: Double.random(in: 2.80...4.50),
+                away: Double.random(in: 2.50...7.00),
+                homeDraw: Double.random(in: 1.10...1.50),
+                homeAway: Double.random(in: 1.15...1.30),
+                drawAway: Double.random(in: 1.20...1.60),
+                over25: Double.random(in: 1.70...2.20),
+                under25: Double.random(in: 1.70...2.20)
+            )
+
+            let goals = Int.random(in: 0...6)
 
             let possibleResults: [MatchOutcome] = [.home, .draw, .away]
             let randomResult = possibleResults.randomElement()!
@@ -147,7 +171,8 @@ final class BettingViewModel: ObservableObject {
                 away: away,
                 time: time,
                 odds: odds,
-                result: randomResult
+                result: randomResult,
+                goals: goals
             ))
         }
 
@@ -198,7 +223,7 @@ final class BettingViewModel: ObservableObject {
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
 
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
-        guard !currentPicks.contains(where: { $0.match.id == match.id }) else { return }
+        guard !currentPicks.contains(where: { $0.match.id == match.id && $0.outcome == outcome }) else { return }
         currentPicks.append(BetPick(id: UUID(), match: match, outcome: outcome, odd: odd))
     }
 
@@ -244,7 +269,20 @@ final class BettingViewModel: ObservableObject {
         if slip.isEvaluated { return slip }
 
         let allCorrect = slip.picks.allSatisfy { pick in
-            pick.match.result == pick.outcome
+            switch pick.outcome {
+            case .home, .draw, .away:
+                return pick.match.result == pick.outcome
+            case .homeDraw:
+                return pick.match.result == .home || pick.match.result == .draw
+            case .homeAway:
+                return pick.match.result == .home || pick.match.result == .away
+            case .drawAway:
+                return pick.match.result == .draw || pick.match.result == .away
+            case .over25:
+                return (pick.match.goals ?? 0) > 2
+            case .under25:
+                return (pick.match.goals ?? 0) <= 2
+            }
         }
 
         updatedSlip.isWon = allCorrect
@@ -284,6 +322,8 @@ struct ContentView: View {
     @StateObject private var vm = BettingViewModel()
     @Namespace private var animationNamespace
 
+    @State private var selectedMatch: Match?
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -317,8 +357,7 @@ struct ContentView: View {
                 totalOdd: vm.totalOdd
             ) { stake in vm.confirmSlip(stake: stake) }
         }
-        .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
-    }
+        .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }        .sheet(item: $selectedMatch) { MatchDetailView(match: $0, vm: vm) }    }
 
     // MARK: HEADER
 
@@ -392,12 +431,6 @@ struct ContentView: View {
                 Text(match.away).font(.headline)
             }
             .foregroundColor(.white)
-
-            HStack(spacing: 10) {
-                oddButton("1", match, .home, match.odds[0], disabled)
-                oddButton("X", match, .draw, match.odds[1], disabled)
-                oddButton("2", match, .away, match.odds[2], disabled)
-            }
         }
         .padding()
         .background(
@@ -408,6 +441,11 @@ struct ContentView: View {
                         .stroke(Color.white.opacity(0.08), lineWidth: 1)
                 )
         )
+        .onTapGesture {
+            if !disabled {
+                selectedMatch = match
+            }
+        }
     }
 
     private func oddButton(_ label: String, _ match: Match, _ outcome: MatchOutcome, _ odd: Double, _ disabled: Bool) -> some View {
@@ -716,6 +754,11 @@ struct SlipDetailView: View {
                                     Text("Risultato reale: \(result.rawValue)")
                                         .foregroundColor(.white)
                                 }
+
+                                if let goals = pick.match.goals {
+                                    Text("Gol totali: \(goals)")
+                                        .foregroundColor(.gray)
+                                }
                             }
                             .padding()
                             .frame(maxWidth: .infinity)
@@ -767,7 +810,85 @@ struct SlipDetailView: View {
     }
 }
 
-// MARK: - PROFILE VIEW
+// MARK: - MATCH DETAIL VIEW
+
+struct MatchDetailView: View {
+    let match: Match
+    let vm: BettingViewModel
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                Text("\(match.home) vs \(match.away)")
+                    .font(.largeTitle.bold())
+                    .foregroundColor(.white)
+
+                Text("Orario: \(match.time)")
+                    .foregroundColor(.accentCyan)
+
+                ScrollView {
+                    VStack(spacing: 16) {
+                        oddsSection(title: "1X2", odds: [
+                            ("1", .home, match.odds.home),
+                            ("X", .draw, match.odds.draw),
+                            ("2", .away, match.odds.away)
+                        ])
+
+                        oddsSection(title: "Doppie Chance", odds: [
+                            ("1X", .homeDraw, match.odds.homeDraw),
+                            ("12", .homeAway, match.odds.homeAway),
+                            ("X2", .drawAway, match.odds.drawAway)
+                        ])
+
+                        oddsSection(title: "Over/Under 2.5", odds: [
+                            ("Over 2.5", .over25, match.odds.over25),
+                            ("Under 2.5", .under25, match.odds.under25)
+                        ])
+                    }
+                    .padding(.horizontal)
+                }
+
+                Spacer()
+            }
+            .padding()
+        }
+    }
+
+    private func oddsSection(title: String, odds: [(String, MatchOutcome, Double)]) -> some View {
+        VStack(spacing: 10) {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.white)
+
+            HStack(spacing: 10) {
+                ForEach(odds, id: \.0) { label, outcome, odd in
+                    oddButton(label, outcome, odd)
+                }
+            }
+        }
+        .padding()
+        .background(Color.white.opacity(0.06))
+        .cornerRadius(14)
+    }
+
+    private func oddButton(_ label: String, _ outcome: MatchOutcome, _ odd: Double) -> some View {
+        Button {
+            vm.addPick(match: match, outcome: outcome, odd: odd)
+        } label: {
+            VStack {
+                Text(label).bold()
+                Text(String(format: "%.2f", odd)).font(.caption)
+            }
+            .foregroundColor(.black)
+            .frame(maxWidth: .infinity)
+            .padding(10)
+            .background(Color.accentCyan)
+            .cornerRadius(14)
+        }
+    }
+}
 
 struct ProfileView: View {
 
