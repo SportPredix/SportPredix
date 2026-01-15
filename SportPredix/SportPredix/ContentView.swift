@@ -192,6 +192,7 @@ final class BettingViewModel: ObservableObject {
         }
         return decoded
     }
+
     // MARK: - BETTING
 
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
@@ -336,6 +337,7 @@ struct ContentView: View {
         }
         .padding()
     }
+
     // MARK: CALENDAR BAR
 
     private var calendarBar: some View {
@@ -369,7 +371,7 @@ struct ContentView: View {
         let isYesterday = vm.selectedDayIndex == 0
 
         return ScrollView {
-            LazyVStack(spacing: 16) {
+            VStack(spacing: 16) {
                 ForEach(matches) { match in
                     matchCard(match, disabled: isYesterday)
                 }
@@ -428,11 +430,11 @@ struct ContentView: View {
         .disabled(disabled)
     }
 
-    // MARK: PLACED BETS (SCROLLABILE)
+    // MARK: PLACED BETS
 
     private var placedBets: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            VStack(spacing: 12) {
                 if vm.slips.isEmpty {
                     Text("Nessuna scommessa piazzata")
                         .foregroundColor(.gray)
@@ -542,6 +544,7 @@ struct ContentView: View {
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(isSelected ? .accentCyan : .white.opacity(0.7))
                         .scaleEffect(isSelected ? 1.15 : 1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
                 }
 
                 if isSelected {
@@ -558,6 +561,7 @@ struct ContentView: View {
         }
     }
 }
+
 // MARK: - BET SHEET
 
 struct BetSheet: View {
@@ -759,7 +763,7 @@ struct SlipDetailView: View {
     }
 }
 
-// MARK: - PROFILE VIEW
+// MARK: - PROFILE VIEW (VERSIONE MODERNA + STATISTICHE PIAZZATE/VINTE/PERSE)
 
 struct ProfileView: View {
 
