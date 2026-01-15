@@ -96,12 +96,12 @@ final class BettingViewModel: ObservableObject {
     @Published var crazyTimeRotation: Double = 0
     @Published var scratchCards: [ScratchCard] = []
     @Published var scratching = false
-
+    
     private let slipsKey = "savedSlips"
     private let matchesKey = "savedMatches"
     private let teams = ["Napoli","Inter","Milan","Juventus","Roma","Lazio","Liverpool","Chelsea","Arsenal","Man City","Tottenham","Real Madrid","Barcellona","Atletico","Valencia","Bayern","Dortmund","Leipzig","Leverkusen"]
     private let crazyTimeSegments = ["1", "2", "5", "10", "BONUS", "1", "2", "5", "10", "BONUS", "1", "2"]
-
+    
     init() {
         let savedBalance = UserDefaults.standard.double(forKey: "balance")
         self.balance = savedBalance == 0 ? 1000 : savedBalance
@@ -110,29 +110,29 @@ final class BettingViewModel: ObservableObject {
         self.dailyMatches = loadMatches()
         generateTodayIfNeeded()
     }
-
+    
     func dateForIndex(_ index: Int) -> Date {
         Calendar.current.date(byAdding: .day, value: index - 1, to: Date())!
     }
-
+    
     func keyForDate(_ date: Date) -> String {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         return f.string(from: date)
     }
-
+    
     func formattedDay(_ date: Date) -> String {
         let f = DateFormatter()
         f.dateFormat = "d"
         return f.string(from: date)
     }
-
+    
     func formattedMonth(_ date: Date) -> String {
         let f = DateFormatter()
         f.dateFormat = "MMM"
         return f.string(from: date)
     }
-
+    
     func generateMatchesForDate(_ date: Date) -> [Match] {
         var result: [Match] = []
         for _ in 0..<12 {
@@ -150,7 +150,7 @@ final class BettingViewModel: ObservableObject {
         }
         return result
     }
-
+    
     func generateTodayIfNeeded() {
         let todayKey = keyForDate(Date())
         if dailyMatches[todayKey] == nil {
@@ -158,7 +158,7 @@ final class BettingViewModel: ObservableObject {
             saveMatches()
         }
     }
-
+    
     func matchesForSelectedDay() -> [String: [Match]] {
         let date = dateForIndex(selectedDayIndex)
         let key = keyForDate(date)
@@ -170,21 +170,21 @@ final class BettingViewModel: ObservableObject {
         saveMatches()
         return Dictionary(grouping: newMatches) { $0.time }
     }
-
+    
     func saveMatches() {
         if let data = try? JSONEncoder().encode(dailyMatches) {
             UserDefaults.standard.set(data, forKey: matchesKey)
         }
     }
-
+    
     func loadMatches() -> [String: [Match]] {
         guard let data = UserDefaults.standard.data(forKey: matchesKey),
               let decoded = try? JSONDecoder().decode([String: [Match]].self, from: data) else { return [:] }
         return decoded
     }
-
+    
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
-
+    
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
         if let index = currentPicks.firstIndex(where: { $0.match.id == match.id && $0.outcome == outcome }) {
             currentPicks.remove(at: index)
@@ -192,11 +192,11 @@ final class BettingViewModel: ObservableObject {
             currentPicks.append(BetPick(id: UUID(), match: match, outcome: outcome, odd: odd))
         }
     }
-
+    
     func removePick(_ pick: BetPick) {
         currentPicks.removeAll { $0.id == pick.id }
     }
-
+    
     func confirmSlip(stake: Double) {
         let slip = BetSlip(id: UUID(), picks: currentPicks, stake: stake, totalOdd: totalOdd, potentialWin: stake * totalOdd, date: Date(), isWon: nil, isEvaluated: false)
         balance -= stake
@@ -204,19 +204,19 @@ final class BettingViewModel: ObservableObject {
         slips.insert(slip, at: 0)
         saveSlips()
     }
-
+    
     private func saveSlips() {
         if let data = try? JSONEncoder().encode(slips) {
             UserDefaults.standard.set(data, forKey: slipsKey)
         }
     }
-
+    
     private func loadSlips() -> [BetSlip] {
         guard let data = UserDefaults.standard.data(forKey: slipsKey),
               let decoded = try? JSONDecoder().decode([BetSlip].self, from: data) else { return [] }
         return decoded
     }
-
+    
     func evaluateSlip(_ slip: BetSlip) -> BetSlip {
         var updatedSlip = slip
         if slip.isEvaluated { return slip }
@@ -235,29 +235,62 @@ final class BettingViewModel: ObservableObject {
         if allCorrect { balance += slip.potentialWin }
         return updatedSlip
     }
-
+    
     func evaluateAllSlips() {
         slips = slips.map { evaluateSlip($0) }
         saveSlips()
     }
-
+    
     var totalBetsCount: Int { slips.count }
     var totalWins: Int { slips.filter { $0.isWon == true }.count }
     var totalLosses: Int { slips.filter { $0.isWon == false }.count }
-
+    
+    // ========== CRAZY TIME CORRETTO ==========
     func spinCrazyTime(bet: String) {
-        guard balance >= 10 else { return }
+        // Debug
+        print("=== CRAZY TIME START ===")
+        print("Puntata selezionata: \(bet)")
+        print("Saldo prima: \(balance)")
+        print("Già in rotazione: \(crazyTimeSpinning)")
+        
+        // Controlli
+        guard balance >= 10 else {
+            print("ERRORE: Saldo insufficiente")
+            return
+        }
+        
+        guard !crazyTimeSpinning else {
+            print("ERRORE: Già in rotazione")
+            return
+        }
+        
+        // Setup
         crazyTimeBet = bet
         balance -= 10
         crazyTimeSpinning = true
         crazyTimeResult = nil
+        
+        // Reset rotazione
+        crazyTimeRotation = 0
+        
+        print("Avvio animazione rotazione...")
+        
+        // Animazione
         withAnimation(.linear(duration: 3)) {
             crazyTimeRotation += 360 * 5
         }
+        
+        // Risultato dopo 3 secondi
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            // Genera risultato casuale
             let result = self.crazyTimeSegments.randomElement()!
+            print("Risultato rotazione: \(result)")
+            
+            // Aggiorna stato
             self.crazyTimeResult = result
             self.crazyTimeSpinning = false
+            
+            // Calcola vincita
             if result == bet {
                 var winAmount = 0.0
                 switch bet {
@@ -269,59 +302,125 @@ final class BettingViewModel: ObservableObject {
                 default: break
                 }
                 self.balance += winAmount
+                print("HAI VINTO! +€\(winAmount)")
+            } else {
+                print("Nessuna vincita questa volta")
             }
         }
     }
-
+    
+    // ========== GRATTA E VINCI CORRETTO ==========
     func initializeScratchCard() {
-        guard balance >= 5 else { return }
+        print("=== INIZIALIZZAZIONE GRATTA E VINCI ===")
+        
+        guard balance >= 5 else {
+            print("ERRORE: Saldo insufficiente (minimo €5)")
+            return
+        }
+        
         balance -= 5
         scratching = true
+        
         let symbols = ["🍒", "🍋", "🍊", "🔔", "💎", "7️⃣"]
-        scratchCards = (0..<9).map { i in
-            ScratchCard(id: i, symbol: symbols.randomElement()!, revealed: false)
+        
+        // Genera 9 simboli con alcune ripetizioni per aumentare chance
+        var cards: [ScratchCard] = []
+        for i in 0..<9 {
+            let symbol = symbols.randomElement()!
+            cards.append(ScratchCard(id: i, symbol: symbol, revealed: false))
         }
+        
+        // DEBUG: Mostra i simboli generati
+        let symbolList = cards.map { $0.symbol }.joined(separator: " ")
+        print("Carte generate: \(symbolList)")
+        
+        scratchCards = cards
+        print("Gioco inizializzato, saldo attuale: \(balance)")
     }
-
+    
     func revealCard(id: Int) {
-        guard scratching else { return }
+        guard scratching, !scratchCards.isEmpty else {
+            print("ERRORE: Non è possibile grattare ora")
+            return
+        }
+        
         if let index = scratchCards.firstIndex(where: { $0.id == id }) {
-            scratchCards[index].revealed = true
-            if scratchCards.allSatisfy({ $0.revealed }) {
+            // Evita di grattare una carta già rivelata
+            if scratchCards[index].revealed {
+                return
+            }
+            
+            print("Grattando carta \(id)...")
+            
+            // Crea una nuova array con la carta aggiornata
+            var updatedCards = scratchCards
+            updatedCards[index].revealed = true
+            
+            // Aggiorna la proprietà @Published
+            scratchCards = updatedCards
+            
+            // Controlla se tutte le carte sono state grattate
+            let allRevealed = scratchCards.allSatisfy { $0.revealed }
+            print("Carte rivelate: \(scratchCards.filter { $0.revealed }.count)/9")
+            
+            if allRevealed {
+                print("Tutte le carte rivelate, controllo vincita...")
                 checkScratchWin()
                 scratching = false
             }
         }
     }
-
+    
+    @MainActor
     private func checkScratchWin() {
+        print("=== CONTROLLO VINCITA GRATTA E VINCI ===")
+        
         var symbolCounts: [String: Int] = [:]
         scratchCards.forEach { card in
             symbolCounts[card.symbol, default: 0] += 1
+            print("Simbolo: \(card.symbol)")
         }
+        
+        print("Conteggi simboli: \(symbolCounts)")
+        
         var winAmount = 0.0
-        symbolCounts.forEach { symbol, count in
+        
+        for (symbol, count) in symbolCounts {
             if count >= 3 {
                 switch symbol {
-                case "💎": winAmount += 100
-                case "7️⃣": winAmount += 50
-                case "🔔": winAmount += 30
+                case "💎": 
+                    winAmount += 100
+                    print("💎 Trovato \(count)x -> +€100")
+                case "7️⃣": 
+                    winAmount += 50
+                    print("7️⃣ Trovato \(count)x -> +€50")
+                case "🔔": 
+                    winAmount += 30
+                    print("🔔 Trovato \(count)x -> +€30")
                 default:
-                    if count >= 5 { winAmount += 20 }
-                    else { winAmount += 10 }
+                    if count >= 5 {
+                        winAmount += 20
+                        print("\(symbol) Trovato \(count)x (5+) -> +€20")
+                    } else {
+                        winAmount += 10
+                        print("\(symbol) Trovato \(count)x (3-4) -> +€10")
+                    }
                 }
             }
         }
+        
         if winAmount > 0 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.balance += winAmount
-            }
+            print("VINCITA TOTALE: €\(winAmount)")
+            balance += winAmount
+        } else {
+            print("Nessuna combinazione vincente")
         }
     }
-
+    
     func resetScratchCard() {
         scratchCards = []
         scratching = false
+        print("Gratta e Vinci resettato")
     }
 }
 
@@ -330,7 +429,7 @@ final class BettingViewModel: ObservableObject {
 struct ContentView: View {
     @StateObject private var vm = BettingViewModel()
     @Namespace private var animationNamespace
-
+    
     var body: some View {
         NavigationView {
             ZStack {
@@ -359,7 +458,7 @@ struct ContentView: View {
             .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
         }
     }
-
+    
     private var header: some View {
         HStack {
             Text(vm.selectedTab == 0 ? "Calendario" : vm.selectedTab == 1 ? "Piazzate" : vm.selectedTab == 2 ? "Giochi" : "Profilo")
@@ -372,7 +471,7 @@ struct ContentView: View {
         }
         .padding()
     }
-
+    
     private var gamesView: some View {
         Group {
             if let game = vm.activeGame {
@@ -386,7 +485,7 @@ struct ContentView: View {
             }
         }
     }
-
+    
     private var gameSelectionView: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -419,7 +518,7 @@ struct ContentView: View {
                     .cornerRadius(24)
                 }
                 .buttonStyle(ScaleButtonStyle())
-
+                
                 Button {
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                         vm.activeGame = "scratch"
@@ -453,15 +552,19 @@ struct ContentView: View {
             .padding()
         }
     }
-
+    
+    // ========== CRAZY TIME VIEW CORRETTA ==========
     private var crazyTimeView: some View {
         ScrollView {
             VStack(spacing: 24) {
+                // Header
                 HStack {
                     Button {
                         withAnimation {
                             vm.activeGame = nil
                             vm.crazyTimeResult = nil
+                            vm.crazyTimeBet = nil
+                            vm.crazyTimeSpinning = false
                         }
                     } label: {
                         HStack {
@@ -469,58 +572,135 @@ struct ContentView: View {
                             Text("Indietro")
                         }
                         .foregroundColor(.accentCyan)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(10)
                     }
                     Spacer()
+                    
+                    if vm.crazyTimeSpinning {
+                        Text("Rotazione...")
+                            .foregroundColor(.accentYellow)
+                    }
                 }
+                .padding(.horizontal)
+                
+                // Ruota
                 ZStack {
+                    // Ruota principale
                     Circle()
-                        .fill(LinearGradient(colors: [.red, .orange, .yellow, .pink], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .fill(LinearGradient(colors: [.red, .orange, .yellow, .pink], 
+                              startPoint: .topLeading, endPoint: .bottomTrailing))
                         .frame(width: 280, height: 280)
                         .overlay(Circle().stroke(Color.accentYellow, lineWidth: 8))
                         .shadow(color: .yellow.opacity(0.5), radius: 20)
                         .rotationEffect(.degrees(vm.crazyTimeRotation))
-                    VStack {
-                        Text(vm.crazyTimeSpinning ? "🎰" : (vm.crazyTimeResult ?? "?"))
-                            .font(.system(size: 72))
-                    }
+                    
+                    // Centro ruota
+                    Circle()
+                        .fill(Color.black.opacity(0.8))
+                        .frame(width: 100, height: 100)
+                        .overlay(
+                            Text(vm.crazyTimeSpinning ? "🎰" : (vm.crazyTimeResult ?? "?"))
+                                .font(.system(size: vm.crazyTimeSpinning ? 48 : 60))
+                                .foregroundColor(.white)
+                        )
                 }
+                
+                // Freccia indicatrice (FISSA)
                 Image(systemName: "arrowtriangle.down.fill")
-                    .font(.system(size: 30))
+                    .font(.system(size: 40))
                     .foregroundColor(.accentYellow)
-                    .offset(y: -150)
+                    .offset(y: -140)
+                
+                // Messaggio risultato
                 if let result = vm.crazyTimeResult, !vm.crazyTimeSpinning {
-                    Text(result == vm.crazyTimeBet ? "🎉 HAI VINTO!" : "😢 Riprova!")
-                        .font(.title.bold())
-                        .foregroundColor(result == vm.crazyTimeBet ? .green : .red)
-                        .padding()
-                        .background(Color.white.opacity(0.1))
-                        .cornerRadius(16)
+                    VStack(spacing: 12) {
+                        if result == vm.crazyTimeBet {
+                            Text("🎉 HAI VINTO!")
+                                .font(.title.bold())
+                                .foregroundColor(.green)
+                            
+                            if let bet = vm.crazyTimeBet {
+                                Text("+€\(winAmountForBet(bet: bet), specifier: "%.0f")")
+                                    .font(.title2)
+                                    .foregroundColor(.accentYellow)
+                            }
+                        } else {
+                            Text("😢 Riprova!")
+                                .font(.title.bold())
+                                .foregroundColor(.red)
+                            
+                            Text("Hai puntato \(vm.crazyTimeBet ?? "-"), è uscito \(result)")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .padding()
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(16)
+                    .transition(.scale)
                 }
-                HStack(spacing: 12) {
-                    ForEach(["1", "2", "5", "10", "BONUS"], id: \.self) { bet in
-                        Button {
-                            vm.spinCrazyTime(bet: bet)
-                        } label: {
-                            Text(bet)
-                                .font(.title2.bold())
+                
+                // Pulsanti di puntata
+                VStack(spacing: 16) {
+                    Text("Scegli la tua puntata (€10)")
+                        .foregroundColor(.white)
+                        .font(.headline)
+                    
+                    HStack(spacing: 12) {
+                        ForEach(["1", "2", "5", "10", "BONUS"], id: \.self) { bet in
+                            Button {
+                                if !vm.crazyTimeSpinning && vm.balance >= 10 {
+                                    vm.spinCrazyTime(bet: bet)
+                                }
+                            } label: {
+                                VStack(spacing: 4) {
+                                    Text(bet)
+                                        .font(.title2.bold())
+                                    Text("x\(winMultiplierForBet(bet: bet))")
+                                        .font(.caption)
+                                        .opacity(0.9)
+                                }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 70)
-                                .background(bet == "BONUS" ? LinearGradient(colors: [.purple, .pink], startPoint: .top, endPoint: .bottom) : LinearGradient(colors: [.accentYellow, .orange], startPoint: .top, endPoint: .bottom))
+                                .background(
+                                    bet == "BONUS" ? 
+                                    LinearGradient(colors: [.purple, .pink], startPoint: .top, endPoint: .bottom) : 
+                                    LinearGradient(colors: [.accentYellow, .orange], startPoint: .top, endPoint: .bottom)
+                                )
                                 .foregroundColor(bet == "BONUS" ? .white : .black)
                                 .cornerRadius(16)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(vm.crazyTimeBet == bet ? Color.accentCyan : Color.clear, lineWidth: 3)
+                                )
+                                .shadow(color: vm.crazyTimeBet == bet ? .accentCyan.opacity(0.5) : .clear, radius: 5)
+                            }
+                            .disabled(vm.crazyTimeSpinning || vm.balance < 10)
+                            .opacity((vm.crazyTimeSpinning || vm.balance < 10) ? 0.5 : 1)
                         }
-                        .disabled(vm.crazyTimeSpinning || vm.balance < 10)
-                        .opacity(vm.crazyTimeSpinning || vm.balance < 10 ? 0.5 : 1)
                     }
+                    .padding(.horizontal)
+                    
+                    // Info saldo
+                    Text("Saldo: €\(vm.balance, specifier: "%.2f")")
+                        .foregroundColor(vm.balance >= 10 ? .accentCyan : .red)
+                        .font(.subheadline)
                 }
+                
+                Spacer()
             }
             .padding()
         }
     }
-
+    
+    // ========== GRATTA E VINCI VIEW CORRETTA ==========
     private var scratchCardView: some View {
         ScrollView {
             VStack(spacing: 24) {
+                // Header
                 HStack {
                     Button {
                         withAnimation {
@@ -533,64 +713,162 @@ struct ContentView: View {
                             Text("Indietro")
                         }
                         .foregroundColor(.accentCyan)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(10)
                     }
                     Spacer()
-                }
-                if vm.scratchCards.isEmpty {
-                    Button {
-                        vm.initializeScratchCard()
-                    } label: {
-                        Text("Gioca (€5)")
-                            .font(.title.bold())
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 24)
-                            .background(LinearGradient(colors: [.green, .mint], startPoint: .leading, endPoint: .trailing))
-                            .foregroundColor(.white)
-                            .cornerRadius(20)
+                    
+                    if vm.scratching && !vm.scratchCards.isEmpty {
+                        Text("Gratta le carte!")
+                            .foregroundColor(.accentCyan)
+                            .font(.subheadline)
                     }
-                    .disabled(vm.balance < 5)
-                    .opacity(vm.balance < 5 ? 0.5 : 1)
+                }
+                .padding(.horizontal)
+                
+                if vm.scratchCards.isEmpty {
+                    // Schermata iniziale
+                    VStack(spacing: 30) {
+                        Text("✨ Gratta e Vinci")
+                            .font(.largeTitle.bold())
+                            .foregroundColor(.white)
+                        
+                        Text("Gratta 9 carte e trova 3+ simboli uguali per vincere!")
+                            .foregroundColor(.white.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                        
+                        VStack(spacing: 15) {
+                            Text("💎 = €100")
+                            Text("7️⃣ = €50")
+                            Text("🔔 = €30")
+                            Text("5+ simboli uguali = €20")
+                            Text("3-4 simboli uguali = €10")
+                        }
+                        .foregroundColor(.accentYellow)
+                        .font(.headline)
+                        
+                        Button {
+                            vm.initializeScratchCard()
+                        } label: {
+                            Text("GIOCA (€5)")
+                                .font(.title.bold())
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 20)
+                                .background(
+                                    LinearGradient(colors: [.green, .mint], 
+                                                  startPoint: .leading, endPoint: .trailing)
+                                )
+                                .foregroundColor(.white)
+                                .cornerRadius(20)
+                                .shadow(color: .green.opacity(0.5), radius: 10)
+                        }
+                        .disabled(vm.balance < 5)
+                        .opacity(vm.balance < 5 ? 0.5 : 1)
+                        
+                        Text("Saldo: €\(vm.balance, specifier: "%.2f")")
+                            .foregroundColor(vm.balance >= 5 ? .accentCyan : .red)
+                    }
+                    .padding()
                 } else {
-                    LazyVGrid(columns: [GridItem(), GridItem(), GridItem()], spacing: 12) {
-                        ForEach(vm.scratchCards) { card in
-                            Button {
-                                vm.revealCard(id: card.id)
-                            } label: {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(card.revealed ? Color.white.opacity(0.15) : LinearGradient(colors: [.gray, .gray.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                        .frame(height: 100)
-                                    Text(card.revealed ? card.symbol : "?")
-                                        .font(.system(size: 50))
+                    // Griglia di carte
+                    VStack(spacing: 20) {
+                        Text("Gratta tutte le carte!")
+                            .font(.title2.bold())
+                            .foregroundColor(.white)
+                        
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 12) {
+                            ForEach(vm.scratchCards) { card in
+                                Button {
+                                    if vm.scratching && !card.revealed {
+                                        withAnimation(.spring(response: 0.3)) {
+                                            vm.revealCard(id: card.id)
+                                        }
+                                    }
+                                } label: {
+                                    ZStack {
+                                        // Carta non grattata
+                                        if !card.revealed {
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .fill(
+                                                    LinearGradient(
+                                                        colors: [.gray.opacity(0.8), .gray],
+                                                        startPoint: .topLeading,
+                                                        endPoint: .bottomTrailing
+                                                    )
+                                                )
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 16)
+                                                        .stroke(Color.white.opacity(0.3), lineWidth: 2)
+                                                )
+                                            
+                                            Text("?")
+                                                .font(.system(size: 50, weight: .bold))
+                                                .foregroundColor(.white)
+                                        } 
+                                        // Carta grattata
+                                        else {
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .fill(Color.white.opacity(0.15))
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 16)
+                                                        .stroke(Color.accentCyan.opacity(0.5), lineWidth: 2)
+                                                )
+                                            
+                                            Text(card.symbol)
+                                                .font(.system(size: 50))
+                                                .scaleEffect(1.1)
+                                        }
+                                    }
+                                    .frame(height: 100)
+                                    .shadow(color: card.revealed ? .accentCyan.opacity(0.3) : .clear, radius: 5)
+                                }
+                                .disabled(card.revealed || !vm.scratching)
+                                .scaleEffect(card.revealed ? 0.95 : 1.0)
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        // Pulsante nuova partita
+                        if vm.scratchCards.allSatisfy({ $0.revealed }) {
+                            VStack(spacing: 15) {
+                                Text("Partita terminata!")
+                                    .font(.headline)
+                                    .foregroundColor(.accentCyan)
+                                
+                                Button {
+                                    vm.resetScratchCard()
+                                } label: {
+                                    Text("NUOVA PARTITA")
+                                        .font(.headline.bold())
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(Color.blue)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(16)
                                 }
                             }
-                            .disabled(card.revealed || !vm.scratching)
+                            .padding(.top)
                         }
-                    }
-                    Button {
-                        vm.resetScratchCard()
-                    } label: {
-                        Text("Nuova Partita")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(16)
-                    }
-                    VStack(spacing: 8) {
-                        Text("Trova 3+ simboli uguali per vincere!")
+                        
+                        // Contatore carte grattate
+                        let revealedCount = vm.scratchCards.filter { $0.revealed }.count
+                        Text("Carte grattate: \(revealedCount)/9")
                             .foregroundColor(.white.opacity(0.7))
-                        Text("💎=€100 | 7️⃣=€50 | 🔔=€30 | 5+=€20 | 3+=€10")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.5))
+                            .font(.subheadline)
                     }
                 }
             }
             .padding()
         }
     }
-
+    
     private var calendarBar: some View {
         HStack(spacing: 16) {
             ForEach(0..<3) { index in
@@ -609,7 +887,7 @@ struct ContentView: View {
         .padding(.horizontal)
         .padding(.bottom, 8)
     }
-
+    
     private var matchList: some View {
         let groupedMatches = vm.matchesForSelectedDay()
         let isYesterday = vm.selectedDayIndex == 0
@@ -632,7 +910,7 @@ struct ContentView: View {
         .id(vm.selectedDayIndex)
         .transition(.opacity)
     }
-
+    
     private func matchCard(_ match: Match, disabled: Bool) -> some View {
         NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
             VStack(spacing: 10) {
@@ -648,7 +926,7 @@ struct ContentView: View {
         }
         .disabled(disabled)
     }
-
+    
     private var placedBets: some View {
         ScrollView {
             VStack(spacing: 12) {
@@ -676,7 +954,7 @@ struct ContentView: View {
             .padding()
         }
     }
-
+    
     private var floatingButton: some View {
         VStack {
             Spacer()
@@ -706,7 +984,7 @@ struct ContentView: View {
             }
         }
     }
-
+    
     private var bottomBar: some View {
         ZStack {
             VisualEffectBlur(blurStyle: .systemUltraThinMaterialDark)
@@ -733,7 +1011,7 @@ struct ContentView: View {
         .frame(height: 85)
         .padding(.bottom, 4)
     }
-
+    
     private func bottomItem(index: Int) -> some View {
         let isSelected = vm.selectedTab == index
         let icons = ["calendar", "list.bullet", "gamepad.fill", "person.crop.circle"]
@@ -772,6 +1050,29 @@ struct ContentView: View {
             }
         }
     }
+    
+    // Funzioni helper per Crazy Time
+    private func winAmountForBet(bet: String) -> Double {
+        switch bet {
+        case "1": return 20
+        case "2": return 30
+        case "5": return 60
+        case "10": return 120
+        case "BONUS": return 200
+        default: return 0
+        }
+    }
+    
+    private func winMultiplierForBet(bet: String) -> Double {
+        switch bet {
+        case "1": return 2.0
+        case "2": return 3.0
+        case "5": return 6.0
+        case "10": return 12.0
+        case "BONUS": return 20.0
+        default: return 1.0
+        }
+    }
 }
 
 struct VisualEffectBlur: UIViewRepresentable {
@@ -799,13 +1100,13 @@ struct BetSheet: View {
     let onConfirm: (Double) -> Void
     @State private var stakeText: String = "1"
     @Environment(\.dismiss) var dismiss
-
+    
     var stake: Double {
         Double(stakeText.replacingOccurrences(of: ",", with: ".")) ?? 0
     }
     var impliedProbability: Double { 1 / totalOdd }
     var expectedValue: Double { (stake * totalOdd * impliedProbability) - stake }
-
+    
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -934,7 +1235,7 @@ struct MatchDetailView: View {
     let match: Match
     @ObservedObject var vm: BettingViewModel
     @Environment(\.presentationMode) var presentationMode
-
+    
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -987,7 +1288,7 @@ struct MatchDetailView: View {
         .navigationTitle("Dettagli Partita")
         .navigationBarTitleDisplayMode(.inline)
     }
-
+    
     private func oddsSection(title: String, odds: [(String, MatchOutcome, Double)]) -> some View {
         VStack(spacing: 10) {
             Text(title).font(.headline).foregroundColor(.white)
@@ -1001,7 +1302,7 @@ struct MatchDetailView: View {
         .background(Color.white.opacity(0.06))
         .cornerRadius(14)
     }
-
+    
     private func oddButton(_ label: String, _ outcome: MatchOutcome, _ odd: Double) -> some View {
         let isSelected = vm.currentPicks.contains { $0.match.id == match.id && $0.outcome == outcome }
         return Button {
@@ -1027,7 +1328,7 @@ struct ProfileView: View {
     @Binding var userName: String
     @Binding var balance: Double
     @State private var showNameField = false
-
+    
     var initials: String {
         let parts = userName.split(separator: " ")
         if parts.count >= 2 {
@@ -1037,7 +1338,7 @@ struct ProfileView: View {
         }
         return "?"
     }
-
+    
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -1097,7 +1398,7 @@ struct ProfileView: View {
             }
         }
     }
-
+    
     private func settingRow(icon: String, title: String) -> some View {
         HStack {
             Image(systemName: icon).foregroundColor(.accentCyan).frame(width: 28)
@@ -1107,7 +1408,7 @@ struct ProfileView: View {
         }
         .padding(.vertical, 6)
     }
-
+    
     private func statRow(title: String, value: String) -> some View {
         HStack {
             Text(title).foregroundColor(.white)
