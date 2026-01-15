@@ -412,7 +412,7 @@ struct ContentView: View {
         .padding(.bottom, 8)
     }
 
-    // MARK: MATCH LIST
+    // MARK: MATCH LIST (CON ORARIO A SINISTRA)
 
     private var matchList: some View {
         let groupedMatches = vm.matchesForSelectedDay()
@@ -422,12 +422,15 @@ struct ContentView: View {
             VStack(spacing: 16) {
                 ForEach(groupedMatches.keys.sorted(), id: \.self) { time in
                     VStack(spacing: 10) {
+                        // ORARIO SPOSTATO A SINISTRA
                         HStack {
-                            Spacer()
                             Text(time)
                                 .font(.headline)
                                 .foregroundColor(.accentCyan)
+                            Spacer()
                         }
+                        .padding(.horizontal, 4)
+                        
                         ForEach(groupedMatches[time]!) { match in
                             matchCard(match, disabled: isYesterday)
                         }
@@ -535,12 +538,12 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - BOTTOM BAR (CON SFOCATURA COME NELL'IMMAGINE)
+    // MARK: - BOTTOM BAR (TOOLBAR ORIGINALE RIPRISTINATA)
 
     private var bottomBar: some View {
         ZStack {
             Rectangle()
-                .background(.ultraThinMaterial)
+                .fill(.ultraThinMaterial)
                 .frame(height: 70)
                 .cornerRadius(26)
                 .padding(.horizontal)
