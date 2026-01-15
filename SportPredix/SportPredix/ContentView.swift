@@ -424,13 +424,13 @@ struct ContentView: View {
                 HStack {
                     Text(match.home).font(.headline)
                     Spacer()
+                    Text(match.time)
+                        .font(.subheadline.bold())
+                        .foregroundColor(.accentCyan)
+                    Spacer()
                     Text(match.away).font(.headline)
                 }
                 .foregroundColor(.white)
-
-                Text(match.time)
-                    .font(.subheadline.bold())
-                    .foregroundColor(.accentCyan)
             }
             .padding()
             .background(
@@ -813,6 +813,8 @@ struct MatchDetailView: View {
     let match: Match
     let vm: BettingViewModel
 
+    @Environment(\.presentationMode) var presentationMode
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -851,6 +853,52 @@ struct MatchDetailView: View {
             }
             .padding()
         }
+        .overlay(
+            Group {
+                if !vm.currentPicks.isEmpty {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            ZStack(alignment: .topTrailing) {
+                                Button { vm.showSheet = true } label: {
+                                    Image(systemName: "list.bullet.rectangle")
+                                        .foregroundColor(.black)
+                                        .padding(16)
+                                        .background(Color.accentCyan)
+                                        .clipShape(Circle())
+                                        .shadow(radius: 10)
+                                }
+
+                                if !vm.currentPicks.isEmpty {
+                                    Text("\(vm.currentPicks.count)")
+                                        .font(.caption2.bold())
+                                        .padding(4)
+                                        .background(Color.red)
+                                        .clipShape(Circle())
+                                        .foregroundColor(.white)
+                                        .offset(x: 8, y: -8)
+                                }
+                            }
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 90)
+                        }
+                    }
+                }
+            }
+        )
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    presentationMode.wrappedValue.dismiss()
+                }) {
+                    Image(systemName: "chevron.left")
+                        .foregroundColor(.accentCyan)
+                        .font(.system(size: 20, weight: .semibold))
+                }
+            }
+        }
         .navigationTitle("Dettagli Partita")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -873,7 +921,9 @@ struct MatchDetailView: View {
     }
 
     private func oddButton(_ label: String, _ outcome: MatchOutcome, _ odd: Double) -> some View {
-        Button {
+        let isSelected = vm.currentPicks.contains { $0.match.id == match.id && $0.outcome == outcome }
+
+        return Button {
             vm.addPick(match: match, outcome: outcome, odd: odd)
         } label: {
             VStack {
@@ -883,7 +933,7 @@ struct MatchDetailView: View {
             .foregroundColor(.black)
             .frame(maxWidth: .infinity)
             .padding(10)
-            .background(Color.accentCyan)
+            .background(isSelected ? Color.red : Color.accentCyan)
             .cornerRadius(14)
         }
     }
