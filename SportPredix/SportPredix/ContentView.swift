@@ -25,7 +25,7 @@ struct Match: Identifiable, Codable {
     let away: String
     let time: String
     let odds: [Double]
-    var result: MatchOutcome?   // <-- RISULTATO PARTITA
+    var result: MatchOutcome?
 }
 
 struct BetPick: Identifiable, Codable {
@@ -43,7 +43,7 @@ struct BetSlip: Identifiable, Codable {
     let potentialWin: Double
     let date: Date
 
-    var isWon: Bool? = nil   // <-- ESITO SCHEDINA
+    var isWon: Bool? = nil
 
     var impliedProbability: Double { 1 / totalOdd }
     var expectedValue: Double { potentialWin * impliedProbability - stake }
@@ -116,6 +116,7 @@ final class BettingViewModel: ObservableObject {
         f.dateFormat = "MMM"
         return f.string(from: date)
     }
+
     // MARK: - MATCH GENERATION (CON RISULTATO CASUALE)
 
     func generateMatchesForDate(_ date: Date) -> [Match] {
@@ -136,7 +137,6 @@ final class BettingViewModel: ObservableObject {
                 Double.random(in: 2.50...7.00)
             ]
 
-            // RISULTATO CASUALE
             let possibleResults: [MatchOutcome] = [.home, .draw, .away]
             let randomResult = possibleResults.randomElement()!
 
@@ -255,6 +255,26 @@ final class BettingViewModel: ObservableObject {
         slips = slips.map { evaluateSlip($0) }
         saveSlips()
     }
+
+    // MARK: - STATISTICHE
+
+    var totalBetsCount: Int {
+        slips.count
+    }
+
+    var averageReturn: Double {
+        guard !slips.isEmpty else { return 0 }
+        let totalStake = slips.map { $0.stake }.reduce(0, +)
+        let totalReturn = slips.map { slip in
+            slip.isWon == true ? slip.potentialWin : 0
+        }.reduce(0, +)
+        guard totalStake > 0 else { return 0 }
+        return totalReturn / totalStake
+    }
+
+    var totalExpectedValue: Double {
+        slips.map { $0.expectedValue }.reduce(0, +)
+    }
 }
 
 // MARK: - MAIN VIEW
@@ -277,9 +297,10 @@ struct ContentView: View {
                     matchList
                 } else if vm.selectedTab == 1 {
                     placedBets
-                        .onAppear { vm.evaluateAllSlips() }   // <-- VALUTAZIONE AUTOMATICA
+                        .onAppear { vm.evaluateAllSlips() }
                 } else {
                     ProfileView(userName: $vm.userName, balance: $vm.balance)
+                        .environmentObject(vm)
                 }
 
                 bottomBar
@@ -298,6 +319,7 @@ struct ContentView: View {
         }
         .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
     }
+
     // MARK: HEADER
 
     private var header: some View {
@@ -539,7 +561,8 @@ struct ContentView: View {
         }
     }
 }
-// MARK: - BET SHEET (VERSIONE MIGLIORATA)
+
+// MARK: - BET SHEET
 
 struct BetSheet: View {
 
@@ -740,10 +763,11 @@ struct SlipDetailView: View {
     }
 }
 
-// MARK: - PROFILE VIEW (VERSIONE MODERNA)
+// MARK: - PROFILE VIEW (VERSIONE MODERNA + STATISTICHE REALI)
 
 struct ProfileView: View {
 
+    @EnvironmentObject var vm: BettingViewModel
     @Binding var userName: String
     @Binding var balance: Double
 
@@ -769,7 +793,6 @@ struct ProfileView: View {
                     // MARK: - HEADER CARD
                     VStack(spacing: 16) {
 
-                        // Avatar
                         ZStack {
                             Circle()
                                 .fill(Color.accentCyan.opacity(0.25))
@@ -781,12 +804,10 @@ struct ProfileView: View {
                         }
                         .padding(.top, 20)
 
-                        // Username
                         Text(userName.isEmpty ? "Utente" : userName)
                             .font(.title.bold())
                             .foregroundColor(.white)
 
-                        // Balance
                         Text("Saldo: €\(balance, specifier: "%.2f")")
                             .font(.title3.bold())
                             .foregroundColor(.accentCyan)
@@ -849,9 +870,15 @@ struct ProfileView: View {
                             .foregroundColor(.white)
 
                         VStack(spacing: 12) {
-                            statRow(title: "Scommesse piazzate", value: "\(0)")
-                            statRow(title: "Rendimento medio", value: "—")
-                            statRow(title: "Expected Value totale", value: "—")
+                            statRow(title: "Scommesse piazzate", value: "\(vm.totalBetsCount)")
+
+                            let avg = vm.averageReturn
+                            let avgText = avg == 0 ? "—" : "\(String(format: "%.2f", avg))x"
+                            statRow(title: "Rendimento medio", value: avgText)
+
+                            let ev = vm.totalExpectedValue
+                            let evText = "€\(String(format: "%.2f", ev))"
+                            statRow(title: "Expected Value totale", value: evText)
                         }
                         .padding()
                         .background(Color.white.opacity(0.05))
@@ -866,8 +893,6 @@ struct ProfileView: View {
             }
         }
     }
-
-    // MARK: - COMPONENTI
 
     private func settingRow(icon: String, title: String) -> some View {
         HStack {
