@@ -44,6 +44,7 @@ struct BetSlip: Identifiable, Codable {
     let date: Date
 
     var isWon: Bool? = nil
+    var isEvaluated: Bool = false
 
     var impliedProbability: Double { 1 / totalOdd }
     var expectedValue: Double { potentialWin * impliedProbability - stake }
@@ -213,7 +214,8 @@ final class BettingViewModel: ObservableObject {
             totalOdd: totalOdd,
             potentialWin: stake * totalOdd,
             date: Date(),
-            isWon: nil
+            isWon: nil,
+            isEvaluated: false
         )
         balance -= stake
         currentPicks.removeAll()
@@ -238,11 +240,15 @@ final class BettingViewModel: ObservableObject {
     func evaluateSlip(_ slip: BetSlip) -> BetSlip {
         var updatedSlip = slip
 
+        // già valutata → non tocco saldo né stato
+        if slip.isEvaluated { return slip }
+
         let allCorrect = slip.picks.allSatisfy { pick in
             pick.match.result == pick.outcome
         }
 
         updatedSlip.isWon = allCorrect
+        updatedSlip.isEvaluated = true
 
         if allCorrect {
             balance += slip.potentialWin
@@ -262,18 +268,12 @@ final class BettingViewModel: ObservableObject {
         slips.count
     }
 
-    var averageReturn: Double {
-        guard !slips.isEmpty else { return 0 }
-        let totalStake = slips.map { $0.stake }.reduce(0, +)
-        let totalReturn = slips.map { slip in
-            slip.isWon == true ? slip.potentialWin : 0
-        }.reduce(0, +)
-        guard totalStake > 0 else { return 0 }
-        return totalReturn / totalStake
+    var totalWins: Int {
+        slips.filter { $0.isWon == true }.count
     }
 
-    var totalExpectedValue: Double {
-        slips.map { $0.expectedValue }.reduce(0, +)
+    var totalLosses: Int {
+        slips.filter { $0.isWon == false }.count
     }
 }
 
@@ -763,7 +763,7 @@ struct SlipDetailView: View {
     }
 }
 
-// MARK: - PROFILE VIEW (VERSIONE MODERNA + STATISTICHE REALI)
+// MARK: - PROFILE VIEW (VERSIONE MODERNA + STATISTICHE PIAZZATE/VINTE/PERSE)
 
 struct ProfileView: View {
 
@@ -871,14 +871,8 @@ struct ProfileView: View {
 
                         VStack(spacing: 12) {
                             statRow(title: "Scommesse piazzate", value: "\(vm.totalBetsCount)")
-
-                            let avg = vm.averageReturn
-                            let avgText = avg == 0 ? "—" : "\(String(format: "%.2f", avg))x"
-                            statRow(title: "Rendimento medio", value: avgText)
-
-                            let ev = vm.totalExpectedValue
-                            let evText = "€\(String(format: "%.2f", ev))"
-                            statRow(title: "Expected Value totale", value: evText)
+                            statRow(title: "Vinte", value: "\(vm.totalWins)")
+                            statRow(title: "Perse", value: "\(vm.totalLosses)")
                         }
                         .padding()
                         .background(Color.white.opacity(0.05))
