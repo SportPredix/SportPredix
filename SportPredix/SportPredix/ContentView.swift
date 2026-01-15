@@ -249,10 +249,30 @@ final class BettingViewModel: ObservableObject {
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
 
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
-        if let index = currentPicks.firstIndex(where: { $0.match.id == match.id && $0.outcome == outcome }) {
-            currentPicks.remove(at: index)
-        } else {
-            currentPicks.append(BetPick(id: UUID(), match: match, outcome: outcome, odd: odd))
+        // Controlla se esiste già una pick per questa partita
+        let existingPickIndex = currentPicks.firstIndex(where: { $0.match.id == match.id })
+        
+        // Determina a quale sezione appartiene l'outcome selezionato
+        let selectedOutcomeSection = getSectionForOutcome(outcome)
+        
+        // Rimuovi tutte le pick della stessa sezione per questa partita
+        currentPicks.removeAll { pick in
+            pick.match.id == match.id && getSectionForOutcome(pick.outcome) == selectedOutcomeSection
+        }
+        
+        // Aggiungi la nuova pick
+        currentPicks.append(BetPick(id: UUID(), match: match, outcome: outcome, odd: odd))
+    }
+
+    // Funzione per determinare la sezione di un outcome
+    private func getSectionForOutcome(_ outcome: MatchOutcome) -> String {
+        switch outcome {
+        case .home, .draw, .away:
+            return "1X2"
+        case .homeDraw, .homeAway, .drawAway:
+            return "DoppiaChance"
+        case .over05, .under05, .over15, .under15, .over25, .under25, .over35, .under35, .over45, .under45:
+            return "OverUnder"
         }
     }
 
