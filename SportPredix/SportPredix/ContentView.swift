@@ -358,6 +358,7 @@ struct ContentView: View {
         }
         .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
         }
+        .accentColor(Color.accentCyan)
     }
 
     private var header: some View {
@@ -420,13 +421,14 @@ struct ContentView: View {
 
     private func matchCard(_ match: Match, disabled: Bool) -> some View {
         NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
-            VStack(spacing: 10) {
-                HStack {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(match.home).font(.headline)
-                    Spacer()
                     Text(match.away).font(.headline)
                 }
                 .foregroundColor(.white)
+
+                Spacer()
 
                 Text(match.time)
                     .font(.subheadline.bold())
@@ -439,8 +441,6 @@ struct ContentView: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                    )
-            )
         }
         .disabled(disabled)
     }
@@ -850,6 +850,37 @@ struct MatchDetailView: View {
                 Spacer()
             }
             .padding()
+
+            if !vm.currentPicks.isEmpty {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        ZStack(alignment: .topTrailing) {
+                            Button { vm.showSheet = true } label: {
+                                Image(systemName: "list.bullet.rectangle")
+                                    .foregroundColor(.black)
+                                    .padding(16)
+                                    .background(Color.accentCyan)
+                                    .clipShape(Circle())
+                                    .shadow(radius: 10)
+                            }
+
+                            if !vm.currentPicks.isEmpty {
+                                Text("\(vm.currentPicks.count)")
+                                    .font(.caption2.bold())
+                                    .padding(4)
+                                    .background(Color.red)
+                                    .clipShape(Circle())
+                                    .foregroundColor(.white)
+                                    .offset(x: 8, y: -8)
+                            }
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 90)
+                    }
+                }
+            }
         }
         .navigationTitle("Dettagli Partita")
         .navigationBarTitleDisplayMode(.inline)
@@ -873,7 +904,9 @@ struct MatchDetailView: View {
     }
 
     private func oddButton(_ label: String, _ outcome: MatchOutcome, _ odd: Double) -> some View {
-        Button {
+        let isSelected = vm.currentPicks.contains { $0.match.id == match.id && $0.outcome == outcome }
+        
+        return Button {
             vm.addPick(match: match, outcome: outcome, odd: odd)
         } label: {
             VStack {
@@ -883,7 +916,7 @@ struct MatchDetailView: View {
             .foregroundColor(.black)
             .frame(maxWidth: .infinity)
             .padding(10)
-            .background(Color.accentCyan)
+            .background(isSelected ? Color.white : Color.accentCyan)
             .cornerRadius(14)
         }
     }
