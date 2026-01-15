@@ -814,7 +814,7 @@ struct SlipDetailView: View {
 
 struct MatchDetailView: View {
     let match: Match
-    let vm: BettingViewModel
+    @ObservedObject var vm: BettingViewModel
 
     @Environment(\.presentationMode) var presentationMode
 
