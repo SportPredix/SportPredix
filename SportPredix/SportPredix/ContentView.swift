@@ -392,9 +392,34 @@ struct ContentView: View {
                 bottomBar
             }
 
-            if !vm.currentPicks.isEmpty {
-                floatingButton
-                    .transition(.scale.combined(with: .opacity))
+            // FLOATING BUTTON PER LE SCHEDINE (PIÙ IN BASSO SULLA TOOLBAR)
+            if !vm.currentPicks.isEmpty && vm.selectedTab != 3 {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        ZStack(alignment: .topTrailing) {
+                            Button { vm.showSheet = true } label: {
+                                Image(systemName: "rectangle.stack.fill")
+                                    .foregroundColor(.black)
+                                    .padding(16)
+                                    .background(Color.accentCyan)
+                                    .clipShape(Circle())
+                                    .shadow(radius: 10)
+                            }
+
+                            Text("\(vm.currentPicks.count)")
+                                .font(.caption2.bold())
+                                .padding(4)
+                                .background(Color.red)
+                                .clipShape(Circle())
+                                .foregroundColor(.white)
+                                .offset(x: 8, y: -8)
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 20) // POSIZIONE PIÙ IN BASSO
+                    }
+                }
             }
         }
         .sheet(isPresented: $vm.showSheet) {
@@ -542,39 +567,6 @@ struct ContentView: View {
                 }
             }
             .padding()
-        }
-    }
-
-    // MARK: FLOATING BUTTON
-
-    private var floatingButton: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Spacer()
-                ZStack(alignment: .topTrailing) {
-                    Button { vm.showSheet = true } label: {
-                        Image(systemName: "list.bullet.rectangle")
-                            .foregroundColor(.black)
-                            .padding(16)
-                            .background(Color.accentCyan)
-                            .clipShape(Circle())
-                            .shadow(radius: 10)
-                    }
-
-                    if !vm.currentPicks.isEmpty {
-                        Text("\(vm.currentPicks.count)")
-                            .font(.caption2.bold())
-                            .padding(4)
-                            .background(Color.red)
-                            .clipShape(Circle())
-                            .foregroundColor(.white)
-                            .offset(x: 8, y: -8)
-                    }
-                }
-                .padding(.trailing, 20)
-                .padding(.bottom, 90)
-            }
         }
     }
 
@@ -753,6 +745,7 @@ struct BetSheet: View {
     let onConfirm: (Double) -> Void
 
     @State private var stakeText: String = "1"
+    @Environment(\.presentationMode) var presentationMode
 
     var stake: Double {
         Double(stakeText.replacingOccurrences(of: ",", with: ".")) ?? 0
@@ -844,6 +837,7 @@ struct BetSheet: View {
                     Button(action: {
                         guard stake > 0, stake <= balance else { return }
                         onConfirm(stake)
+                        presentationMode.wrappedValue.dismiss()
                     }) {
                         Text("Conferma schedina")
                             .bold()
@@ -858,6 +852,14 @@ struct BetSheet: View {
                 Spacer()
             }
             .padding()
+            .gesture(
+                DragGesture()
+                    .onEnded { value in
+                        if value.translation.width > 100 {
+                            presentationMode.wrappedValue.dismiss()
+                        }
+                    }
+            )
         }
     }
 }
@@ -1057,7 +1059,7 @@ struct MatchDetailView: View {
                 }
             }
             
-            // FLOATING BUTTON
+            // FLOATING BUTTON (SOLO QUI, PIÙ IN BASSO)
             if !vm.currentPicks.isEmpty {
                 VStack {
                     Spacer()
@@ -1065,7 +1067,7 @@ struct MatchDetailView: View {
                         Spacer()
                         ZStack(alignment: .topTrailing) {
                             Button { vm.showSheet = true } label: {
-                                Image(systemName: "list.bullet.rectangle")
+                                Image(systemName: "rectangle.stack.fill")
                                     .foregroundColor(.black)
                                     .padding(16)
                                     .background(Color.accentCyan)
@@ -1073,24 +1075,30 @@ struct MatchDetailView: View {
                                     .shadow(radius: 10)
                             }
                             
-                            if !vm.currentPicks.isEmpty {
-                                Text("\(vm.currentPicks.count)")
-                                    .font(.caption2.bold())
-                                    .padding(4)
-                                    .background(Color.red)
-                                    .clipShape(Circle())
-                                    .foregroundColor(.white)
-                                    .offset(x: 8, y: -8)
-                            }
+                            Text("\(vm.currentPicks.count)")
+                                .font(.caption2.bold())
+                                .padding(4)
+                                .background(Color.red)
+                                .clipShape(Circle())
+                                .foregroundColor(.white)
+                                .offset(x: 8, y: -8)
                         }
                         .padding(.trailing, 20)
-                        .padding(.bottom, 90)
+                        .padding(.bottom, 20) // POSIZIONE PIÙ IN BASSO SULLA TOOLBAR
                     }
                 }
             }
         }
         .navigationBarBackButtonHidden(true)
         .navigationBarHidden(true)
+        .gesture(
+            DragGesture()
+                .onEnded { value in
+                    if value.translation.width > 100 {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
+        )
     }
     
     // MARK: - SEZIONI QUOTE
