@@ -322,10 +322,9 @@ struct ContentView: View {
     @StateObject private var vm = BettingViewModel()
     @Namespace private var animationNamespace
 
-    @State private var selectedMatch: Match?
-
     var body: some View {
-        ZStack {
+        NavigationView {
+            ZStack {
             Color.black.ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -357,9 +356,9 @@ struct ContentView: View {
                 totalOdd: vm.totalOdd
             ) { stake in vm.confirmSlip(stake: stake) }
         }
-        .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }        .sheet(item: $selectedMatch) { MatchDetailView(match: $0, vm: vm) }    }
-
-    // MARK: HEADER
+        .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
+        }
+    }
 
     private var header: some View {
         HStack {
@@ -420,32 +419,30 @@ struct ContentView: View {
     }
 
     private func matchCard(_ match: Match, disabled: Bool) -> some View {
-        VStack(spacing: 10) {
-            HStack {
-                Text(match.home).font(.headline)
-                Spacer()
+        NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
+            VStack(spacing: 10) {
+                HStack {
+                    Text(match.home).font(.headline)
+                    Spacer()
+                    Text(match.away).font(.headline)
+                }
+                .foregroundColor(.white)
+
                 Text(match.time)
                     .font(.subheadline.bold())
                     .foregroundColor(.accentCyan)
-                Spacer()
-                Text(match.away).font(.headline)
             }
-            .foregroundColor(.white)
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white.opacity(0.06))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    )
+            )
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.06))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                )
-        )
-        .onTapGesture {
-            if !disabled {
-                selectedMatch = match
-            }
-        }
+        .disabled(disabled)
     }
 
     private func oddButton(_ label: String, _ match: Match, _ outcome: MatchOutcome, _ odd: Double, _ disabled: Bool) -> some View {
@@ -854,6 +851,8 @@ struct MatchDetailView: View {
             }
             .padding()
         }
+        .navigationTitle("Dettagli Partita")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private func oddsSection(title: String, odds: [(String, MatchOutcome, Double)]) -> some View {
