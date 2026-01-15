@@ -113,7 +113,6 @@ final class BettingViewModel: ObservableObject {
         f.dateFormat = "MMM"
         return f.string(from: date)
     }
-
     // MARK: - MATCH GENERATION
 
     func generateMatchesForDate(_ date: Date) -> [Match] {
@@ -260,7 +259,6 @@ struct ContentView: View {
         }
         .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
     }
-
     // MARK: HEADER
 
     private var header: some View {
@@ -437,7 +435,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - BOTTOM BAR (VERSIONE MIGLIORATA + ANIMAZIONI)
+    // MARK: - BOTTOM BAR (ANIMATA)
 
     private var bottomBar: some View {
         ZStack {
@@ -496,7 +494,6 @@ struct ContentView: View {
         }
     }
 }
-
 // MARK: - BET SHEET (VERSIONE MIGLIORATA)
 
 struct BetSheet: View {
@@ -525,6 +522,7 @@ struct BetSheet: View {
             Color.black.ignoresSafeArea()
 
             VStack(spacing: 20) {
+
                 Capsule()
                     .fill(Color.gray)
                     .frame(width: 40, height: 5)
@@ -542,11 +540,14 @@ struct BetSheet: View {
                                     Text("\(pick.match.home) - \(pick.match.away)")
                                         .font(.headline)
                                         .foregroundColor(.white)
+
                                     Text("Esito: \(pick.outcome.rawValue) | Quota: \(pick.odd, specifier: "%.2f")")
                                         .font(.subheadline)
                                         .foregroundColor(.gray)
                                 }
+
                                 Spacer()
+
                                 Button {
                                     picks.removeAll { $0.id == pick.id }
                                 } label: {
@@ -573,6 +574,7 @@ struct BetSheet: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Importo:")
                         .foregroundColor(.white)
+
                     TextField("Inserisci importo", text: $stakeText)
                         .keyboardType(.decimalPad)
                         .padding()
@@ -595,6 +597,136 @@ struct BetSheet: View {
                         .background(Color.green)
                         .foregroundColor(.black)
                         .cornerRadius(16)
+                }
+
+                Spacer()
+            }
+            .padding()
+        }
+    }
+}
+
+// MARK: - SLIP DETAIL VIEW
+
+struct SlipDetailView: View {
+    let slip: BetSlip
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            VStack(spacing: 20) {
+
+                Capsule()
+                    .fill(Color.gray)
+                    .frame(width: 40, height: 5)
+                    .padding(.top, 8)
+
+                Text("Dettaglio scommessa")
+                    .font(.title2.bold())
+                    .foregroundColor(.accentCyan)
+
+                ForEach(slip.picks) { pick in
+                    VStack(spacing: 10) {
+
+                        Text("\(pick.match.home) - \(pick.match.away)")
+                            .font(.headline)
+                            .foregroundColor(.white)
+
+                        Text("Orario: \(pick.match.time)")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+
+                        Text("Esito giocato: \(pick.outcome.rawValue)")
+                            .font(.subheadline)
+                            .foregroundColor(.accentCyan)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(14)
+                }
+
+                VStack(spacing: 12) {
+
+                    HStack {
+                        Text("Quota totale:")
+                        Spacer()
+                        Text("\(slip.totalOdd, specifier: "%.2f")")
+                    }
+
+                    HStack {
+                        Text("Puntata:")
+                        Spacer()
+                        Text("€\(slip.stake, specifier: "%.2f")")
+                    }
+
+                    HStack {
+                        Text("Vincita potenziale:")
+                        Spacer()
+                        Text("€\(slip.potentialWin, specifier: "%.2f")")
+                    }
+
+                    HStack {
+                        Text("Probabilità implicita:")
+                        Spacer()
+                        Text("\((slip.impliedProbability * 100), specifier: "%.1f")%")
+                    }
+
+                    HStack {
+                        Text("Expected Value:")
+                        Spacer()
+                        Text("€\(slip.expectedValue, specifier: "%.2f")")
+                            .foregroundColor(slip.expectedValue >= 0 ? .green : .red)
+                    }
+
+                }
+                .font(.body)
+                .foregroundColor(.white)
+                .padding()
+                .background(Color.white.opacity(0.05))
+                .cornerRadius(12)
+
+                Spacer()
+            }
+            .padding()
+        }
+    }
+}
+
+// MARK: - PROFILE VIEW
+
+struct ProfileView: View {
+
+    @Binding var userName: String
+    @Binding var balance: Double
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 24) {
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Nome utente")
+                        .foregroundColor(.gray)
+                        .font(.subheadline)
+
+                    TextField("Inserisci il tuo nome", text: $userName)
+                        .padding()
+                        .background(Color.white.opacity(0.08))
+                        .cornerRadius(12)
+                        .foregroundColor(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Saldo attuale")
+                        .foregroundColor(.gray)
+                        .font(.subheadline)
+
+                    Text("€\(balance, specifier: "%.2f")")
+                        .foregroundColor(.accentCyan)
+                        .font(.title2.bold())
                 }
 
                 Spacer()
