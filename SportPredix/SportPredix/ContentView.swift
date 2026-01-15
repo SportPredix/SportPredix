@@ -25,6 +25,7 @@ struct Match: Identifiable, Codable {
     let away: String
     let time: String
     let odds: [Double]
+    var result: MatchOutcome?   // <-- RISULTATO PARTITA
 }
 
 struct BetPick: Identifiable, Codable {
@@ -41,6 +42,8 @@ struct BetSlip: Identifiable, Codable {
     let totalOdd: Double
     let potentialWin: Double
     let date: Date
+
+    var isWon: Bool? = nil   // <-- ESITO SCHEDINA
 
     var impliedProbability: Double { 1 / totalOdd }
     var expectedValue: Double { potentialWin * impliedProbability - stake }
@@ -113,7 +116,7 @@ final class BettingViewModel: ObservableObject {
         f.dateFormat = "MMM"
         return f.string(from: date)
     }
-    // MARK: - MATCH GENERATION
+    // MARK: - MATCH GENERATION (CON RISULTATO CASUALE)
 
     func generateMatchesForDate(_ date: Date) -> [Match] {
         var result: [Match] = []
@@ -133,7 +136,18 @@ final class BettingViewModel: ObservableObject {
                 Double.random(in: 2.50...7.00)
             ]
 
-            result.append(Match(id: UUID(), home: home, away: away, time: time, odds: odds))
+            // RISULTATO CASUALE
+            let possibleResults: [MatchOutcome] = [.home, .draw, .away]
+            let randomResult = possibleResults.randomElement()!
+
+            result.append(Match(
+                id: UUID(),
+                home: home,
+                away: away,
+                time: time,
+                odds: odds,
+                result: randomResult
+            ))
         }
 
         return result
@@ -198,7 +212,8 @@ final class BettingViewModel: ObservableObject {
             stake: stake,
             totalOdd: totalOdd,
             potentialWin: stake * totalOdd,
-            date: Date()
+            date: Date(),
+            isWon: nil
         )
         balance -= stake
         currentPicks.removeAll()
@@ -216,6 +231,29 @@ final class BettingViewModel: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: slipsKey),
               let decoded = try? JSONDecoder().decode([BetSlip].self, from: data) else { return [] }
         return decoded
+    }
+
+    // MARK: - VALUTAZIONE SCHEDINE
+
+    func evaluateSlip(_ slip: BetSlip) -> BetSlip {
+        var updatedSlip = slip
+
+        let allCorrect = slip.picks.allSatisfy { pick in
+            pick.match.result == pick.outcome
+        }
+
+        updatedSlip.isWon = allCorrect
+
+        if allCorrect {
+            balance += slip.potentialWin
+        }
+
+        return updatedSlip
+    }
+
+    func evaluateAllSlips() {
+        slips = slips.map { evaluateSlip($0) }
+        saveSlips()
     }
 }
 
@@ -239,6 +277,7 @@ struct ContentView: View {
                     matchList
                 } else if vm.selectedTab == 1 {
                     placedBets
+                        .onAppear { vm.evaluateAllSlips() }   // <-- VALUTAZIONE AUTOMATICA
                 } else {
                     ProfileView(userName: $vm.userName, balance: $vm.balance)
                 }
@@ -389,6 +428,12 @@ struct ContentView: View {
                                 Text("Vincita potenziale €\(slip.potentialWin, specifier: "%.2f")")
                                     .foregroundColor(.gray)
                                     .font(.caption)
+
+                                if let won = slip.isWon {
+                                    Text(won ? "ESITO: VINTA" : "ESITO: PERSA")
+                                        .foregroundColor(won ? .green : .red)
+                                        .font(.headline)
+                                }
                             }
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -640,6 +685,11 @@ struct SlipDetailView: View {
                         Text("Esito giocato: \(pick.outcome.rawValue)")
                             .font(.subheadline)
                             .foregroundColor(.accentCyan)
+
+                        if let result = pick.match.result {
+                            Text("Risultato reale: \(result.rawValue)")
+                                .foregroundColor(.white)
+                        }
                     }
                     .padding()
                     .frame(maxWidth: .infinity)
@@ -667,19 +717,15 @@ struct SlipDetailView: View {
                         Text("€\(slip.potentialWin, specifier: "%.2f")")
                     }
 
-                    HStack {
-                        Text("Probabilità implicita:")
-                        Spacer()
-                        Text("\((slip.impliedProbability * 100), specifier: "%.1f")%")
+                    if let won = slip.isWon {
+                        HStack {
+                            Text("Esito schedina:")
+                            Spacer()
+                            Text(won ? "VINTA" : "PERSA")
+                                .foregroundColor(won ? .green : .red)
+                                .bold()
+                        }
                     }
-
-                    HStack {
-                        Text("Expected Value:")
-                        Spacer()
-                        Text("€\(slip.expectedValue, specifier: "%.2f")")
-                            .foregroundColor(slip.expectedValue >= 0 ? .green : .red)
-                    }
-
                 }
                 .font(.body)
                 .foregroundColor(.white)
@@ -803,7 +849,7 @@ struct ProfileView: View {
                             .foregroundColor(.white)
 
                         VStack(spacing: 12) {
-                            statRow(title: "Scommesse piazzate", value: "—")
+                            statRow(title: "Scommesse piazzate", value: "\(0)")
                             statRow(title: "Rendimento medio", value: "—")
                             statRow(title: "Expected Value totale", value: "—")
                         }
