@@ -223,8 +223,11 @@ final class BettingViewModel: ObservableObject {
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
 
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
-        guard !currentPicks.contains(where: { $0.match.id == match.id && $0.outcome == outcome }) else { return }
-        currentPicks.append(BetPick(id: UUID(), match: match, outcome: outcome, odd: odd))
+        if let index = currentPicks.firstIndex(where: { $0.match.id == match.id && $0.outcome == outcome }) {
+            currentPicks.remove(at: index)
+        } else {
+            currentPicks.append(BetPick(id: UUID(), match: match, outcome: outcome, odd: odd))
+        }
     }
 
     func removePick(_ pick: BetPick) {
@@ -930,10 +933,14 @@ struct MatchDetailView: View {
                 Text(label).bold()
                 Text(String(format: "%.2f", odd)).font(.caption)
             }
-            .foregroundColor(.black)
+            .foregroundColor(.white)
             .frame(maxWidth: .infinity)
             .padding(10)
-            .background(isSelected ? Color.red : Color.accentCyan)
+            .background(Color.clear)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(isSelected ? Color.accentCyan : Color.white.opacity(0.2), lineWidth: 3)
+            )
             .cornerRadius(14)
         }
     }
