@@ -249,14 +249,14 @@ final class BettingViewModel: ObservableObject {
                     print("❌ Errore API: \(error.localizedDescription)")
                     self?.apiError = "Errore di rete. Carico partite realistiche..."
                     // Fallback a partite realistiche se l'API fallisce
-                    self?.generateRealisticMatches()
+                    self?.loadFallbackMatches()
                     return
                 }
                 
                 guard let data = data else {
                     print("❌ Nessun dato ricevuto")
                     self?.apiError = "Nessun dato. Carico partite realistiche..."
-                    self?.generateRealisticMatches()
+                    self?.loadFallbackMatches()
                     return
                 }
                 
@@ -267,7 +267,7 @@ final class BettingViewModel: ObservableObject {
                     
                     if apiMatches.isEmpty {
                         print("⚠️ API vuota, uso fallback")
-                        self?.generateRealisticMatches()
+                        self?.loadFallbackMatches()
                     } else {
                         self?.processPublicAPIMatches(apiMatches)
                     }
@@ -277,12 +277,20 @@ final class BettingViewModel: ObservableObject {
                     
                     // Fallback sempre a partite realistiche
                     self?.apiError = "API non disponibile. Carico partite realistiche..."
-                    self?.generateRealisticMatches()
+                    self?.loadFallbackMatches()
                 }
             }
         }
         
         task.resume()
+    }
+    
+    private func loadFallbackMatches() {
+        let realisticMatches = generateRealisticMatches()
+        let todayKey = keyForDate(Date())
+        dailyMatches[todayKey] = realisticMatches
+        saveMatches()
+        lastUpdateTime = Date()
     }
     
     private func processPublicAPIMatches(_ apiMatches: [PublicAPIMatch]) {
