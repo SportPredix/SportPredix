@@ -59,6 +59,8 @@ struct Match: Identifiable, Codable {
     let odds: Odds
     var result: MatchOutcome?
     var goals: Int?
+    var competition: String? // Nuovo campo per l'API
+    var status: String? // Nuovo campo per l'API
 }
 
 struct BetPick: Identifiable, Codable {
@@ -81,6 +83,49 @@ struct BetSlip: Identifiable, Codable {
     
     var impliedProbability: Double { 1 / totalOdd }
     var expectedValue: Double { potentialWin * impliedProbability - stake }
+}
+
+// MARK: - API MODELS
+
+struct APIMatch: Codable {
+    let id: Int
+    let utcDate: String
+    let status: String
+    let homeTeam: APITeam
+    let awayTeam: APITeam
+    let score: APIScore
+    let competition: APICompetition
+    
+    enum CodingKeys: String, CodingKey {
+        case id, utcDate, status, homeTeam, awayTeam, score, competition
+    }
+}
+
+struct APITeam: Codable {
+    let id: Int
+    let name: String
+    let shortName: String?
+    let tla: String?
+}
+
+struct APIScore: Codable {
+    let winner: String?
+    let fullTime: APITimeScore?
+}
+
+struct APITimeScore: Codable {
+    let home: Int?
+    let away: Int?
+}
+
+struct APICompetition: Codable {
+    let id: Int
+    let name: String
+    let code: String
+}
+
+struct MatchesResponse: Codable {
+    let matches: [APIMatch]
 }
 
 // MARK: - VIEW MODEL
@@ -114,8 +159,14 @@ final class BettingViewModel: ObservableObject {
     
     @Published var dailyMatches: [String: [Match]] = [:]
     
+    // API Properties
+    @Published var isLoading = false
+    @Published var apiError: String?
+    @Published var useRealMatches = false
+    
     private let slipsKey = "savedSlips"
     private let matchesKey = "savedMatches"
+    private let useRealMatchesKey = "useRealMatches"
     
     private let teams = [
         "Napoli","Inter","Milan","Juventus","Roma","Lazio",
@@ -123,6 +174,10 @@ final class BettingViewModel: ObservableObject {
         "Real Madrid","Barcellona","Atletico","Valencia",
         "Bayern","Dortmund","Leipzig","Leverkusen"
     ]
+    
+    // API Config - INSERISCI LA TUA API KEY QUI
+    private let apiKey = "1509673c3a344745b0159b18dfbc0d1c" // Ottienila da https://www.football-data.org/
+    private let baseURL = "https://api.football-data.org/v4"
     
     init() {
         let savedBalance = UserDefaults.standard.double(forKey: "balance")
@@ -133,10 +188,162 @@ final class BettingViewModel: ObservableObject {
         self.notificationsEnabled = UserDefaults.standard.object(forKey: "notificationsEnabled") as? Bool ?? true
         self.privacyEnabled = UserDefaults.standard.object(forKey: "privacyEnabled") as? Bool ?? false
         
+        self.useRealMatches = UserDefaults.standard.object(forKey: useRealMatchesKey) as? Bool ?? false
+        
         self.slips = loadSlips()
         self.dailyMatches = loadMatches()
         
         generateTodayIfNeeded()
+        
+        // Se l'API key è presente e l'opzione è attiva, carica le partite reali
+        if useRealMatches && !apiKey.isEmpty {
+            fetchTodaysRealMatches()
+        }
+    }
+    
+    // MARK: - API FUNCTIONS
+    
+    func toggleRealMatches() {
+        useRealMatches.toggle()
+        UserDefaults.standard.set(useRealMatches, forKey: useRealMatchesKey)
+        
+        if useRealMatches && !apiKey.isEmpty {
+            fetchTodaysRealMatches()
+        } else if !useRealMatches {
+            // Torna alle partite simulate
+            generateTodayIfNeeded()
+        }
+    }
+    
+    func fetchTodaysRealMatches() {
+        guard !apiKey.isEmpty else {
+            apiError = "API key mancante. Ottienila da football-data.org"
+            return
+        }
+        
+        isLoading = true
+        apiError = nil
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let today = dateFormatter.string(from: Date())
+        
+        // URL per le partite di oggi
+        let urlString = "\(baseURL)/matches?dateFrom=\(today)&dateTo=\(today)"
+        
+        guard let url = URL(string: urlString) else {
+            apiError = "URL non valido"
+            isLoading = false
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.setValue(apiKey, forHTTPHeaderField: "X-Auth-Token")
+        
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                
+                if let error = error {
+                    self?.apiError = "Errore: \(error.localizedDescription)"
+                    return
+                }
+                
+                guard let data = data else {
+                    self?.apiError = "Nessun dato ricevuto"
+                    return
+                }
+                
+                do {
+                    let response = try JSONDecoder().decode(MatchesResponse.self, from: data)
+                    self?.processAPIMatches(response.matches)
+                } catch {
+                    self?.apiError = "Errore decodifica: \(error.localizedDescription)"
+                    print("JSON error: \(error)")
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("JSON ricevuto: \(jsonString)")
+                    }
+                }
+            }
+        }
+        
+        task.resume()
+    }
+    
+    private func processAPIMatches(_ apiMatches: [APIMatch]) {
+        let todayKey = keyForDate(Date())
+        var convertedMatches: [Match] = []
+        
+        for apiMatch in apiMatches {
+            // Converte la data UTC in orario locale
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+            dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+            
+            var timeString = "TBD"
+            if let date = dateFormatter.date(from: apiMatch.utcDate) {
+                let timeFormatter = DateFormatter()
+                timeFormatter.dateFormat = "HH:mm"
+                timeFormatter.timeZone = TimeZone.current
+                timeString = timeFormatter.string(from: date)
+            }
+            
+            // Crea quote casuali (l'API non fornisce quote reali nella versione gratuita)
+            let odds = Odds(
+                home: Double.random(in: 1.20...2.50),
+                draw: Double.random(in: 2.80...4.50),
+                away: Double.random(in: 2.50...7.00),
+                homeDraw: Double.random(in: 1.10...1.50),
+                homeAway: Double.random(in: 1.15...1.30),
+                drawAway: Double.random(in: 1.20...1.60),
+                over05: Double.random(in: 1.05...1.30),
+                under05: Double.random(in: 3.00...9.00),
+                over15: Double.random(in: 1.30...2.00),
+                under15: Double.random(in: 1.30...3.45),
+                over25: Double.random(in: 1.70...2.20),
+                under25: Double.random(in: 1.70...2.20),
+                over35: Double.random(in: 2.50...4.00),
+                under35: Double.random(in: 1.10...1.50),
+                over45: Double.random(in: 4.00...8.00),
+                under45: Double.random(in: 1.05...1.30)
+            )
+            
+            // Determina il risultato basato sul punteggio
+            var result: MatchOutcome?
+            var goals: Int?
+            
+            if let score = apiMatch.score.fullTime {
+                let homeGoals = score.home ?? 0
+                let awayGoals = score.away ?? 0
+                goals = homeGoals + awayGoals
+                
+                if homeGoals > awayGoals {
+                    result = .home
+                } else if awayGoals > homeGoals {
+                    result = .away
+                } else {
+                    result = .draw
+                }
+            }
+            
+            let match = Match(
+                id: UUID(),
+                home: apiMatch.homeTeam.name,
+                away: apiMatch.awayTeam.name,
+                time: timeString,
+                odds: odds,
+                result: result,
+                goals: goals,
+                competition: apiMatch.competition.name,
+                status: apiMatch.status
+            )
+            
+            convertedMatches.append(match)
+        }
+        
+        // Salva le partite
+        dailyMatches[todayKey] = convertedMatches
+        saveMatches()
     }
     
     // MARK: - DATE HELPERS
@@ -208,7 +415,9 @@ final class BettingViewModel: ObservableObject {
                 time: time,
                 odds: odds,
                 result: randomResult,
-                goals: goals
+                goals: goals,
+                competition: "Serie A",
+                status: "FINISHED"
             ))
         }
         
@@ -262,7 +471,7 @@ final class BettingViewModel: ObservableObject {
     
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
         // Controlla se esiste già una pick per questa partita
-        _ = currentPicks.firstIndex(where: { $0.match.id == match.id }) // Sostituisci con _
+        _ = currentPicks.firstIndex(where: { $0.match.id == match.id })
         
         // Determina a quale sezione appartiene l'outcome selezionato
         let selectedOutcomeSection = getSectionForOutcome(outcome)
@@ -427,7 +636,15 @@ struct ContentView: View {
                     
                     if vm.selectedTab == 0 {
                         calendarBar
-                        matchList
+                        
+                        // Aggiungi toggle per API
+                        if vm.isLoading {
+                            loadingView
+                        } else if let error = vm.apiError {
+                            errorView(error: error)
+                        } else {
+                            matchList
+                        }
                     } else if vm.selectedTab == 1 {
                         GamesView()
                     } else if vm.selectedTab == 2 {
@@ -441,7 +658,7 @@ struct ContentView: View {
                     bottomBar
                 }
                 
-                // FLOATING BUTTON PER LE SCHEDINE (PIÙ IN BASSO SULLA TOOLBAR)
+                // FLOATING BUTTON PER LE SCHEDINE
                 if !vm.currentPicks.isEmpty && vm.selectedTab != 3 {
                     VStack {
                         Spacer()
@@ -466,7 +683,7 @@ struct ContentView: View {
                                     .offset(x: 8, y: -8)
                             }
                             .padding(.trailing, 20)
-                            .padding(.bottom, 20) // POSIZIONE PIÙ IN BASSO
+                            .padding(.bottom, 20)
                         }
                     }
                 }
@@ -492,41 +709,119 @@ struct ContentView: View {
             
             Spacer()
             
-            Text("€\(vm.balance, specifier: "%.2f")")
-                .foregroundColor(.accentCyan)
-                .bold()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("€\(vm.balance, specifier: "%.2f")")
+                    .foregroundColor(.accentCyan)
+                    .bold()
+                
+                // Toggle per API
+                if vm.selectedTab == 0 {
+                    HStack {
+                        Text("API")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                        
+                        Toggle("", isOn: Binding(
+                            get: { vm.useRealMatches },
+                            set: { _ in vm.toggleRealMatches() }
+                        ))
+                        .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
+                        .labelsHidden()
+                        .scaleEffect(0.8)
+                    }
+                }
+            }
         }
         .padding()
+    }
+    
+    private var loadingView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            ProgressView()
+                .scaleEffect(1.5)
+                .tint(.accentCyan)
+            Text("Caricamento partite in corso...")
+                .foregroundColor(.white)
+            Spacer()
+        }
+    }
+    
+    private func errorView(error: String) -> some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 50))
+                .foregroundColor(.orange)
+            
+            Text("Errore API")
+                .font(.title2)
+                .foregroundColor(.white)
+            
+            Text(error)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            
+            Button("Riprova") {
+                vm.fetchTodaysRealMatches()
+            }
+            .padding()
+            .background(Color.accentCyan)
+            .foregroundColor(.black)
+            .cornerRadius(12)
+            
+            Button("Usa partite simulate") {
+                vm.useRealMatches = false
+            }
+            .padding()
+            .foregroundColor(.gray)
+            
+            Spacer()
+        }
     }
     
     // MARK: CALENDAR BAR
     
     private var calendarBar: some View {
-        HStack(spacing: 16) {
-            ForEach(0..<3) { index in
-                let date = vm.dateForIndex(index)
-                
-                VStack(spacing: 4) {
-                    Text(vm.formattedDay(date))
-                        .font(.title2.bold())
-                    Text(vm.formattedMonth(date))
-                        .font(.caption)
+        VStack(spacing: 12) {
+            HStack(spacing: 16) {
+                ForEach(0..<3) { index in
+                    let date = vm.dateForIndex(index)
+                    
+                    VStack(spacing: 4) {
+                        Text(vm.formattedDay(date))
+                            .font(.title2.bold())
+                        Text(vm.formattedMonth(date))
+                            .font(.caption)
+                    }
+                    .foregroundColor(.white)
+                    .frame(width: 90, height: 70)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(vm.selectedDayIndex == index ? Color.accentCyan : Color.white.opacity(0.2), lineWidth: 3)
+                    )
+                    .onTapGesture { vm.selectedDayIndex = index }
+                    .animation(.easeInOut, value: vm.selectedDayIndex)
                 }
-                .foregroundColor(.white)
-                .frame(width: 90, height: 70)
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(vm.selectedDayIndex == index ? Color.accentCyan : Color.white.opacity(0.2), lineWidth: 3)
-                )
-                .onTapGesture { vm.selectedDayIndex = index }
-                .animation(.easeInOut, value: vm.selectedDayIndex)
+            }
+            .padding(.horizontal)
+            
+            // Info API
+            if vm.useRealMatches {
+                Text("Partite reali da Football-Data.org")
+                    .font(.caption)
+                    .foregroundColor(.accentCyan)
+            } else {
+                Text("Partite simulate")
+                    .font(.caption)
+                    .foregroundColor(.gray)
             }
         }
-        .padding(.horizontal)
         .padding(.bottom, 8)
     }
     
-    // MARK: MATCH LIST (CON ORARIO A SINISTRA)
+    // MARK: MATCH LIST
     
     private var matchList: some View {
         let groupedMatches = vm.matchesForSelectedDay()
@@ -534,19 +829,22 @@ struct ContentView: View {
         
         return ScrollView {
             VStack(spacing: 16) {
-                ForEach(groupedMatches.keys.sorted(), id: \.self) { time in
-                    VStack(spacing: 10) {
-                        // ORARIO SPOSTATO A SINISTRA
-                        HStack {
-                            Text(time)
-                                .font(.headline)
-                                .foregroundColor(.accentCyan)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 4)
-                        
-                        ForEach(groupedMatches[time]!) { match in
-                            matchCard(match, disabled: isYesterday)
+                if groupedMatches.isEmpty {
+                    emptyMatchesView
+                } else {
+                    ForEach(groupedMatches.keys.sorted(), id: \.self) { time in
+                        VStack(spacing: 10) {
+                            HStack {
+                                Text(time)
+                                    .font(.headline)
+                                    .foregroundColor(.accentCyan)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 4)
+                            
+                            ForEach(groupedMatches[time]!) { match in
+                                matchCard(match, disabled: isYesterday)
+                            }
                         }
                     }
                 }
@@ -557,15 +855,81 @@ struct ContentView: View {
         .transition(.opacity)
     }
     
+    private var emptyMatchesView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+                .frame(height: 50)
+            
+            Image(systemName: "soccerball")
+                .font(.system(size: 60))
+                .foregroundColor(.accentCyan)
+            
+            Text("Nessuna partita oggi")
+                .font(.title2)
+                .foregroundColor(.white)
+            
+            Text("Prova con le partite simulate o verifica la tua API key")
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            
+            if vm.apiKey.isEmpty {
+                Button("Configura API Key") {
+                    // Qui potresti aprire una schermata di configurazione
+                    if let url = URL(string: "https://www.football-data.org/") {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                .padding()
+                .background(Color.accentCyan)
+                .foregroundColor(.black)
+                .cornerRadius(12)
+            }
+            
+            Spacer()
+        }
+    }
+    
     private func matchCard(_ match: Match, disabled: Bool) -> some View {
         NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 HStack {
-                    Text(match.home).font(.headline)
+                    Text(match.home)
+                        .font(.headline)
+                        .foregroundColor(disabled ? .gray : .white)
                     Spacer()
-                    Text(match.away).font(.headline)
+                    Text(match.away)
+                        .font(.headline)
+                        .foregroundColor(disabled ? .gray : .white)
                 }
-                .foregroundColor(disabled ? .gray : .white)
+                
+                if let competition = match.competition {
+                    HStack {
+                        Text(competition)
+                            .font(.caption)
+                            .foregroundColor(.accentCyan)
+                        Spacer()
+                        if let status = match.status {
+                            Text(status)
+                                .font(.caption)
+                                .foregroundColor(status == "FINISHED" ? .green : .orange)
+                        }
+                    }
+                }
+                
+                HStack {
+                    Text("1: \(String(format: "%.2f", match.odds.home))")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    Spacer()
+                    Text("X: \(String(format: "%.2f", match.odds.draw))")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    Spacer()
+                    Text("2: \(String(format: "%.2f", match.odds.away))")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
             }
             .padding()
             .background(
@@ -619,7 +983,7 @@ struct ContentView: View {
         }
     }
     
-    // MARK: - BOTTOM BAR (TOOLBAR ORIGINALE RIPRISTINATA)
+    // MARK: - BOTTOM BAR
     
     private var bottomBar: some View {
         ZStack {
