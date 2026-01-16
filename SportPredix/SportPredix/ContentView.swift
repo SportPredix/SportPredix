@@ -434,7 +434,7 @@ struct ContentView: View {
                     placedBets
                         .onAppear { vm.evaluateAllSlips() }
                 } else {
-                    ProfileView(userName: $vm.userName, balance: $vm.balance)
+                    ProfileView()
                         .environmentObject(vm)
                 }
 
@@ -703,6 +703,7 @@ struct GamesView: View {
             
             ScrollView {
                 VStack(spacing: 20) {
+                    Text("Giochi")
                         .font(.largeTitle.bold())
                         .foregroundColor(.white)
                         .padding(.top)
@@ -777,6 +778,18 @@ struct ComingSoonView: View {
                     .foregroundColor(.gray)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
+                
+                Button("Chiudi") {
+                    // Dismiss sheet
+                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let rootViewController = windowScene.windows.first?.rootViewController {
+                        rootViewController.dismiss(animated: true)
+                    }
+                }
+                .padding()
+                .background(Color.accentCyan)
+                .foregroundColor(.black)
+                .cornerRadius(12)
             }
             .padding()
         }
@@ -1273,24 +1286,22 @@ struct MatchDetailView: View {
     }
 }
 
-// MARK: - PROFILE VIEW (COMPLETAMENTE FUNZIONANTE)
+// MARK: - PROFILE VIEW (MIGLIORATA E COMPLETAMENTE FUNZIONANTE)
 
 struct ProfileView: View {
 
     @EnvironmentObject var vm: BettingViewModel
-    @Binding var userName: String
-    @Binding var balance: Double
-
     @State private var showNameField = false
     @State private var showResetAlert = false
     @State private var showPreferences = false
-    @State private var showPrivacySettings = false
+    @State private var showAppInfoAlert = false
+    @State private var tempUserName: String = ""
 
     var initials: String {
-        let parts = userName.split(separator: " ")
+        let parts = vm.userName.split(separator: " ")
         if parts.count >= 2 {
             return "\(parts.first!.first!)\(parts.last!.first!)".uppercased()
-        } else if let first = userName.first {
+        } else if let first = vm.userName.first {
             return String(first).uppercased()
         }
         return "?"
@@ -1317,17 +1328,18 @@ struct ProfileView: View {
                         }
                         .padding(.top, 20)
 
-                        Text(userName.isEmpty ? "Utente" : userName)
+                        Text(vm.userName.isEmpty ? "Utente" : vm.userName)
                             .font(.title.bold())
                             .foregroundColor(.white)
 
-                        Text("Saldo: €\(balance, specifier: "%.2f")")
+                        Text("Saldo: €\(vm.balance, specifier: "%.2f")")
                             .font(.title3.bold())
                             .foregroundColor(.accentCyan)
 
                         Button {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                                 showNameField.toggle()
+                                tempUserName = vm.userName
                             }
                         } label: {
                             Text(showNameField ? "Chiudi" : "Modifica nome")
@@ -1340,13 +1352,26 @@ struct ProfileView: View {
                         }
 
                         if showNameField {
-                            TextField("Inserisci nome", text: $userName)
+                            VStack(spacing: 12) {
+                                TextField("Inserisci nome", text: $tempUserName)
+                                    .padding()
+                                    .background(Color.white.opacity(0.08))
+                                    .cornerRadius(12)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal)
+                                
+                                Button("Salva") {
+                                    vm.userName = tempUserName
+                                    showNameField = false
+                                }
                                 .padding()
-                                .background(Color.white.opacity(0.08))
+                                .frame(maxWidth: .infinity)
+                                .background(Color.accentCyan)
+                                .foregroundColor(.black)
                                 .cornerRadius(12)
-                                .foregroundColor(.white)
                                 .padding(.horizontal)
-                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
                         }
 
                     }
@@ -1365,46 +1390,48 @@ struct ProfileView: View {
 
                         VStack(spacing: 12) {
                             // NOTIFICHE CON TOGGLE
-                            Button {
-                                vm.toggleNotifications()
-                            } label: {
-                                HStack {
-                                    Image(systemName: "bell")
-                                        .foregroundColor(.accentCyan)
-                                        .frame(width: 28)
-                                    
-                                    Text("Notifiche")
-                                        .foregroundColor(.white)
-                                    
-                                    Spacer()
-                                    
-                                    Toggle("", isOn: $vm.notificationsEnabled)
-                                        .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
-                                        .labelsHidden()
-                                }
-                                .padding(.vertical, 6)
+                            HStack {
+                                Image(systemName: "bell")
+                                    .foregroundColor(.accentCyan)
+                                    .frame(width: 28)
+                                
+                                Text("Notifiche")
+                                    .foregroundColor(.white)
+                                
+                                Spacer()
+                                
+                                Toggle("", isOn: $vm.notificationsEnabled)
+                                    .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
+                                    .labelsHidden()
+                                    .onChange(of: vm.notificationsEnabled) { newValue in
+                                        // Feedback tattile
+                                        let generator = UIImpactFeedbackGenerator(style: .light)
+                                        generator.impactOccurred()
+                                    }
                             }
+                            .padding(.vertical, 6)
                             
                             // PRIVACY CON TOGGLE
-                            Button {
-                                vm.togglePrivacy()
-                            } label: {
-                                HStack {
-                                    Image(systemName: "lock")
-                                        .foregroundColor(.accentCyan)
-                                        .frame(width: 28)
-                                    
-                                    Text("Privacy")
-                                        .foregroundColor(.white)
-                                    
-                                    Spacer()
-                                    
-                                    Toggle("", isOn: $vm.privacyEnabled)
-                                        .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
-                                        .labelsHidden()
-                                }
-                                .padding(.vertical, 6)
+                            HStack {
+                                Image(systemName: "lock")
+                                    .foregroundColor(.accentCyan)
+                                    .frame(width: 28)
+                                
+                                Text("Privacy")
+                                    .foregroundColor(.white)
+                                
+                                Spacer()
+                                
+                                Toggle("", isOn: $vm.privacyEnabled)
+                                    .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
+                                    .labelsHidden()
+                                    .onChange(of: vm.privacyEnabled) { newValue in
+                                        // Feedback tattile
+                                        let generator = UIImpactFeedbackGenerator(style: .light)
+                                        generator.impactOccurred()
+                                    }
                             }
+                            .padding(.vertical, 6)
                             
                             // PREFERENZE APP
                             Button {
@@ -1501,7 +1528,7 @@ struct ProfileView: View {
                             
                             // INFO APP
                             Button {
-                                showAppInfo()
+                                showAppInfoAlert = true
                             } label: {
                                 HStack {
                                     Image(systemName: "info.circle")
@@ -1536,37 +1563,38 @@ struct ProfileView: View {
             Button("Annulla", role: .cancel) { }
             Button("Reset", role: .destructive) {
                 vm.resetAccount()
+                // Feedback tattile
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
             }
         } message: {
             Text("Vuoi davvero resettare il tuo account? Perderai tutte le scommesse piazzate e il saldo tornerà a €1000.")
         }
+        .alert("SportPredix Info", isPresented: $showAppInfoAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Versione 1.0\nSviluppato per dimostrazione\n© 2024 SportPredix")
+        }
         .sheet(isPresented: $showPreferences) {
             PreferencesView()
+        }
+        .onAppear {
+            // Inizializza il nome temporaneo
+            tempUserName = vm.userName
         }
     }
 
     // MARK: - FUNZIONI PROFILO
     
     private func depositFunds() {
-        balance += 100
-        // Mostra un feedback visivo
+        vm.balance += 100
+        // Mostra un feedback visivo e tattile
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
-    }
-    
-    private func showAppInfo() {
-        // Mostra un alert con le info dell'app
-        let alert = UIAlertController(
-            title: "SportPredix Info",
-            message: "Versione 1.0\nSviluppato per dimostrazione\n© 2024 SportPredix",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
         
-        // Presenta l'alert
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = windowScene.windows.first?.rootViewController {
-            rootViewController.present(alert, animated: true)
+        // Animazione per il saldo
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            // L'animazione è gestita automaticamente dall'@Published property
         }
     }
 
@@ -1585,10 +1613,11 @@ struct ProfileView: View {
     }
 }
 
-// MARK: - PREFERENCES VIEW
+// MARK: - PREFERENCES VIEW (MIGLIORATA)
 
 struct PreferencesView: View {
     @Environment(\.presentationMode) var presentationMode
+    @EnvironmentObject var vm: BettingViewModel
     
     @State private var soundEnabled = true
     @State private var vibrationEnabled = true
