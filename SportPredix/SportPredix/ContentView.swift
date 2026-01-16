@@ -262,7 +262,7 @@ final class BettingViewModel: ObservableObject {
     
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
         // Controlla se esiste già una pick per questa partita
-        let existingPickIndex = currentPicks.firstIndex(where: { $0.match.id == match.id })
+        _ = currentPicks.firstIndex(where: { $0.match.id == match.id }) // Sostituisci con _
         
         // Determina a quale sezione appartiene l'outcome selezionato
         let selectedOutcomeSection = getSectionForOutcome(outcome)
