@@ -74,7 +74,7 @@ struct ProfileView: View {
         .alert("SportPredix Info", isPresented: $showAppInfoAlert) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("Versione 1.0\nFormatiks Team\n© 2024 SportPredix")
+            Text("Versione 1.0\nSviluppato per dimostrazione\n© 2024 SportPredix")
         }
         .sheet(isPresented: $showPreferences) {
             PreferencesView()
@@ -214,7 +214,8 @@ struct ProfileView: View {
                 
                 if vm.totalBetsCount > 0 {
                     let winRate = Double(vm.totalWins) / Double(vm.totalBetsCount) * 100
-                    statRow(title: "Percentuale vittorie", value: "\(winRate, specifier: "%.1f")%")
+                    let formattedWinRate = String(format: "%.1f%%", winRate)
+                    statRow(title: "Percentuale vittorie", value: formattedWinRate)
                 }
             }
             .padding()
@@ -284,7 +285,7 @@ struct ProfileView: View {
             Toggle("", isOn: isOn)
                 .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
                 .labelsHidden()
-                .onChange(of: isOn.wrappedValue) { newValue in
+                .onChange(of: isOn.wrappedValue) { _, newValue in
                     let generator = UIImpactFeedbackGenerator(style: .light)
                     generator.impactOccurred()
                 }
