@@ -176,8 +176,13 @@ final class BettingViewModel: ObservableObject {
     ]
     
     // API Config - INSERISCI LA TUA API KEY QUI
-    private let apiKey = "1509673c3a344745b0159b18dfbc0d1c" // Ottienila da https://www.football-data.org/
+    private let apiKey = "" // Ottienila da https://www.football-data.org/
     private let baseURL = "https://api.football-data.org/v4"
+    
+    // Proprietà pubblica per verificare se l'API key è configurata
+    var hasAPIKey: Bool {
+        return !apiKey.isEmpty
+    }
     
     init() {
         let savedBalance = UserDefaults.standard.double(forKey: "balance")
@@ -196,7 +201,7 @@ final class BettingViewModel: ObservableObject {
         generateTodayIfNeeded()
         
         // Se l'API key è presente e l'opzione è attiva, carica le partite reali
-        if useRealMatches && !apiKey.isEmpty {
+        if useRealMatches && hasAPIKey {
             fetchTodaysRealMatches()
         }
     }
@@ -207,16 +212,18 @@ final class BettingViewModel: ObservableObject {
         useRealMatches.toggle()
         UserDefaults.standard.set(useRealMatches, forKey: useRealMatchesKey)
         
-        if useRealMatches && !apiKey.isEmpty {
+        if useRealMatches && hasAPIKey {
             fetchTodaysRealMatches()
         } else if !useRealMatches {
             // Torna alle partite simulate
             generateTodayIfNeeded()
+        } else if useRealMatches && !hasAPIKey {
+            apiError = "API key mancante. Ottienila da football-data.org"
         }
     }
     
     func fetchTodaysRealMatches() {
-        guard !apiKey.isEmpty else {
+        guard hasAPIKey else {
             apiError = "API key mancante. Ottienila da football-data.org"
             return
         }
@@ -809,9 +816,15 @@ struct ContentView: View {
             
             // Info API
             if vm.useRealMatches {
-                Text("Partite reali da Football-Data.org")
-                    .font(.caption)
-                    .foregroundColor(.accentCyan)
+                if vm.hasAPIKey {
+                    Text("Partite reali da Football-Data.org")
+                        .font(.caption)
+                        .foregroundColor(.accentCyan)
+                } else {
+                    Text("API key mancante - Usa partite simulate")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
             } else {
                 Text("Partite simulate")
                     .font(.caption)
@@ -873,9 +886,9 @@ struct ContentView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
             
-            if vm.apiKey.isEmpty {
+            if !vm.hasAPIKey && vm.useRealMatches {
                 Button("Configura API Key") {
-                    // Qui potresti aprire una schermata di configurazione
+                    // Apri il sito per ottenere l'API key
                     if let url = URL(string: "https://www.football-data.org/") {
                         UIApplication.shared.open(url)
                     }
