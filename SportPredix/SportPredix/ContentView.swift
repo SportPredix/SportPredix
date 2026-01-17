@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-// MARK: - SPORTDB DEV MODELS (Aggiungi in cima)
+// MARK: - SPORTDB DEV MODELS
 
 struct SportDBMatch: Codable, Identifiable {
     let id: Int
@@ -383,7 +383,7 @@ final class BettingViewModel: ObservableObject {
             var result: MatchOutcome?
             var goals: Int?
             var actualResult: String?
-            var matchStatus = apiMatch.status.lowercased()
+            let matchStatus = apiMatch.status.lowercased()
             
             if matchStatus.contains("finished") || matchStatus.contains("ft") {
                 if let score = apiMatch.score {
@@ -1343,4 +1343,3 @@ struct ContentView: View {
         }
     }
 }
-
