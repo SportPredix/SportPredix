@@ -5,13 +5,117 @@
 
 import SwiftUI
 
+// MARK: - SPORTDB DEV MODELS (Aggiungi in cima)
+
+struct SportDBMatch: Codable, Identifiable {
+    let id: Int
+    let date: String
+    let time: String?
+    let homeTeam: SportDBTeam
+    let awayTeam: SportDBTeam
+    let competition: SportDBCompetition
+    let status: String
+    let score: SportDBScore?
+    let odds: SportDBOdds?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, date, time, status, score, odds
+        case homeTeam = "home_team"
+        case awayTeam = "away_team"
+        case competition
+    }
+}
+
+struct SportDBTeam: Codable {
+    let id: Int
+    let name: String
+    let shortName: String?
+    let logo: String?
+    let country: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, country
+        case shortName = "short_name"
+        case logo
+    }
+}
+
+struct SportDBCompetition: Codable {
+    let id: Int
+    let name: String
+    let country: String
+    let logo: String?
+}
+
+struct SportDBScore: Codable {
+    let home: Int?
+    let away: Int?
+    let halftime: SportDBTimeScore?
+    let fulltime: SportDBTimeScore?
+    
+    enum CodingKeys: String, CodingKey {
+        case home, away
+        case halftime = "ht"
+        case fulltime = "ft"
+    }
+}
+
+struct SportDBTimeScore: Codable {
+    let home: Int?
+    let away: Int?
+}
+
+struct SportDBOdds: Codable {
+    let homeWin: Double?
+    let draw: Double?
+    let awayWin: Double?
+    let over05: Double?
+    let under05: Double?
+    let over15: Double?
+    let under15: Double?
+    let over25: Double?
+    let under25: Double?
+    let over35: Double?
+    let under35: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case homeWin = "home_win"
+        case draw
+        case awayWin = "away_win"
+        case over05 = "over_0_5"
+        case under05 = "under_0_5"
+        case over15 = "over_1_5"
+        case under15 = "under_1_5"
+        case over25 = "over_2_5"
+        case under25 = "under_2_5"
+        case over35 = "over_3_5"
+        case under35 = "under_3_5"
+    }
+}
+
+struct SportDBResponse: Codable {
+    let data: [SportDBMatch]
+    let meta: SportDBMeta?
+}
+
+struct SportDBMeta: Codable {
+    let total: Int
+    let page: Int
+    let perPage: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case total, page
+        case perPage = "per_page"
+    }
+}
+
 // MARK: - THEME
 
 extension Color {
     static let accentCyan = Color(red: 68/255, green: 224/255, blue: 203/255)
 }
 
-// MARK: - MODELS
+// MARK: - MODELS ESISTENTI
 
 enum MatchOutcome: String, Codable {
     case home = "1"
@@ -89,59 +193,6 @@ struct BetSlip: Identifiable, Codable {
     var expectedValue: Double { potentialWin * impliedProbability - stake }
 }
 
-// MARK: - FOOTBALL-DATA.ORG MODELS
-
-struct FootballDataMatch: Codable {
-    let id: Int
-    let utcDate: String
-    let status: String
-    let matchday: Int?
-    let stage: String?
-    let group: String?
-    let lastUpdated: String
-    let homeTeam: FootballDataTeam
-    let awayTeam: FootballDataTeam
-    let score: FootballDataScore
-    let competition: FootballDataCompetition
-    
-    enum CodingKeys: String, CodingKey {
-        case id, utcDate, status, matchday, stage, group, lastUpdated
-        case homeTeam, awayTeam, score, competition
-    }
-}
-
-struct FootballDataTeam: Codable {
-    let id: Int
-    let name: String
-    let shortName: String?
-    let tla: String?
-    let crest: String?
-}
-
-struct FootballDataScore: Codable {
-    let winner: String?
-    let duration: String?
-    let fullTime: FootballDataTimeScore?
-    let halfTime: FootballDataTimeScore?
-}
-
-struct FootballDataTimeScore: Codable {
-    let home: Int?
-    let away: Int?
-}
-
-struct FootballDataCompetition: Codable {
-    let id: Int
-    let name: String
-    let code: String
-    let type: String
-    let emblem: String?
-}
-
-struct FootballDataResponse: Codable {
-    let matches: [FootballDataMatch]
-}
-
 // MARK: - VIEW MODEL
 
 final class BettingViewModel: ObservableObject {
@@ -173,7 +224,7 @@ final class BettingViewModel: ObservableObject {
     
     @Published var dailyMatches: [String: [Match]] = [:]
     
-    // API Properties
+    // API Properties - SPORTDB.DEV
     @Published var isLoading = false
     @Published var apiError: String?
     @Published var useRealMatches = false
@@ -183,11 +234,10 @@ final class BettingViewModel: ObservableObject {
     private let matchesKey = "savedMatches"
     private let useRealMatchesKey = "useRealMatches"
     
-    // LA TUA API KEY DI FOOTBALL-DATA.ORG
-    private let apiKey = "1509673c3a344745b0159b18dfbc0d1c"
-    private let baseURL = "https://api.football-data.org/v4"
+    // LA TUA API KEY DI SPORTDB.DEV
+    private let apiKey = "3lrwpGshX3JxiXzRTwrnK2DcADKKnz4Uv5lYmVg0"
+    private let baseURL = "https://sportdb.dev/api"
     
-    // Proprietà pubblica per verificare se l'API key è configurata
     var hasAPIKey: Bool {
         return !apiKey.isEmpty && apiKey != "LA_TUA_API_KEY_AQUI"
     }
@@ -208,111 +258,99 @@ final class BettingViewModel: ObservableObject {
         
         generateTodayIfNeeded()
         
-        // Carica partite reali all'avvio se l'opzione è attiva
         if useRealMatches && hasAPIKey {
-            fetchRealMatchesFromFootballData()
+            fetchRealMatchesFromSportDB()
         }
     }
     
-    // MARK: - FOOTBALL-DATA.ORG API FUNCTIONS
+    // MARK: - SPORTDB.DEV API FUNCTIONS
     
     func toggleRealMatches() {
         useRealMatches.toggle()
         UserDefaults.standard.set(useRealMatches, forKey: useRealMatchesKey)
         
         if useRealMatches && hasAPIKey {
-            fetchRealMatchesFromFootballData()
+            fetchRealMatchesFromSportDB()
         } else if !useRealMatches {
-            // Torna alle partite simulate
             generateTodayIfNeeded()
         } else if useRealMatches && !hasAPIKey {
-            apiError = "API key mancante. Configura la tua API key di Football-Data.org"
+            apiError = "API key mancante. Usa la chiave di SportDB.dev"
         }
     }
     
-    func fetchRealMatchesFromFootballData() {
+    func fetchRealMatchesFromSportDB() {
         guard hasAPIKey else {
-            apiError = "API key non configurata correttamente"
+            apiError = "API key di SportDB.dev non configurata"
             return
         }
         
         isLoading = true
         apiError = nil
         
-        print("📡 Fetching real matches from Football-Data.org...")
-        
-        // Calcola date per oggi
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let today = dateFormatter.string(from: Date())
+        let tomorrowDate = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+        let tomorrow = dateFormatter.string(from: tomorrowDate)
         
-        // URL per le partite di oggi
-        let urlString = "\(baseURL)/matches?dateFrom=\(today)&dateTo=\(today)"
+        // Endpoint fixtures
+        let urlString = "\(baseURL)/football/fixtures?date_from=\(today)&date_to=\(tomorrow)&api_key=\(apiKey)"
         
         guard let url = URL(string: urlString) else {
-            apiError = "URL non valido"
+            apiError = "URL non valido per SportDB.dev"
             isLoading = false
             return
         }
         
         var request = URLRequest(url: url)
-        request.setValue(apiKey, forHTTPHeaderField: "X-Auth-Token")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 15
         
         let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
                 
                 if let error = error {
-                    print("❌ Network error: \(error.localizedDescription)")
                     self?.apiError = "Errore di rete: \(error.localizedDescription)"
                     self?.loadFallbackMatches()
                     return
                 }
                 
                 guard let httpResponse = response as? HTTPURLResponse else {
-                    self?.apiError = "Risposta non valida dal server"
+                    self?.apiError = "Risposta non valida da SportDB.dev"
                     self?.loadFallbackMatches()
                     return
                 }
                 
-                print("📊 Status Code: \(httpResponse.statusCode)")
-                
                 guard httpResponse.statusCode == 200 else {
-                    if httpResponse.statusCode == 429 {
-                        self?.apiError = "Troppe richieste. Limite API raggiunto. Usa partite simulate."
-                    } else if httpResponse.statusCode == 403 {
-                        self?.apiError = "API key non valida o scaduta"
+                    if httpResponse.statusCode == 401 {
+                        self?.apiError = "API key non valida per SportDB.dev"
+                    } else if httpResponse.statusCode == 429 {
+                        self?.apiError = "Limite richieste raggiunto su SportDB.dev"
                     } else {
-                        self?.apiError = "Errore server: \(httpResponse.statusCode)"
+                        self?.apiError = "Errore SportDB.dev: \(httpResponse.statusCode)"
                     }
                     self?.loadFallbackMatches()
                     return
                 }
                 
                 guard let data = data else {
-                    self?.apiError = "Nessun dato ricevuto"
+                    self?.apiError = "Nessun dato ricevuto da SportDB.dev"
                     self?.loadFallbackMatches()
                     return
                 }
                 
                 do {
-                    let response = try JSONDecoder().decode(FootballDataResponse.self, from: data)
-                    print("✅ Ricevute \(response.matches.count) partite da Football-Data.org")
+                    let response = try JSONDecoder().decode(SportDBResponse.self, from: data)
                     
-                    if response.matches.isEmpty {
-                        print("⚠️ Nessuna partita trovata per oggi")
-                        self?.apiError = "Nessuna partita programmata per oggi"
+                    if response.data.isEmpty {
+                        self?.apiError = "Nessuna partita programmata"
                         self?.loadFallbackMatches()
                     } else {
-                        self?.processFootballDataMatches(response.matches)
+                        self?.processSportDBMatches(response.data)
                     }
                 } catch {
-                    print("❌ JSON decode error: \(error)")
-                    if let jsonString = String(data: data, encoding: .utf8) {
-                        print("📄 Response: \(jsonString.prefix(500))...")
-                    }
-                    self?.apiError = "Errore nel processare i dati"
+                    self?.apiError = "Errore formato dati SportDB.dev"
                     self?.loadFallbackMatches()
                 }
             }
@@ -321,50 +359,50 @@ final class BettingViewModel: ObservableObject {
         task.resume()
     }
     
-    private func processFootballDataMatches(_ apiMatches: [FootballDataMatch]) {
-        let todayKey = keyForDate(Date())
-        var convertedMatches: [Match] = []
+    private func processSportDBMatches(_ apiMatches: [SportDBMatch]) {
+        var allConvertedMatches: [Match] = []
         
         for apiMatch in apiMatches {
-            // Converti data UTC in orario locale
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-            dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-            
-            var timeString = "TBD"
-            if let date = dateFormatter.date(from: apiMatch.utcDate) {
-                let timeFormatter = DateFormatter()
-                timeFormatter.dateFormat = "HH:mm"
-                timeFormatter.timeZone = TimeZone.current
-                timeString = timeFormatter.string(from: date)
+            let timeString: String
+            if let time = apiMatch.time {
+                timeString = time
+            } else {
+                let fullDateFormatter = DateFormatter()
+                fullDateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                fullDateFormatter.locale = Locale(identifier: "en_US_POSIX")
+                
+                if let date = fullDateFormatter.date(from: "\(apiMatch.date) \(apiMatch.time ?? "12:00:00")") {
+                    let timeFormatter = DateFormatter()
+                    timeFormatter.dateFormat = "HH:mm"
+                    timeString = timeFormatter.string(from: date)
+                } else {
+                    timeString = "TBD"
+                }
             }
             
-            // Determina risultato reale se la partita è finita
             var result: MatchOutcome?
             var goals: Int?
             var actualResult: String?
+            var matchStatus = apiMatch.status.lowercased()
             
-            if apiMatch.status == "FINISHED" || apiMatch.status == "AWARDED" {
-                if let fullTime = apiMatch.score.fullTime {
-                    let homeGoals = fullTime.home ?? 0
-                    let awayGoals = fullTime.away ?? 0
+            if matchStatus.contains("finished") || matchStatus.contains("ft") {
+                if let score = apiMatch.score {
+                    let homeGoals = score.fulltime?.home ?? score.home ?? 0
+                    let awayGoals = score.fulltime?.away ?? score.away ?? 0
                     goals = homeGoals + awayGoals
+                    actualResult = "\(homeGoals)-\(awayGoals)"
                     
                     if homeGoals > awayGoals {
                         result = .home
-                        actualResult = "\(homeGoals)-\(awayGoals)"
                     } else if awayGoals > homeGoals {
                         result = .away
-                        actualResult = "\(homeGoals)-\(awayGoals)"
                     } else {
                         result = .draw
-                        actualResult = "\(homeGoals)-\(awayGoals)"
                     }
                 }
             }
             
-            // Crea quote realistiche basate su dati reali
-            let odds = createRealisticOddsForFootballDataMatch(apiMatch)
+            let odds = createRealOddsFromSportDB(apiMatch.odds)
             
             let match = Match(
                 id: UUID(),
@@ -377,95 +415,47 @@ final class BettingViewModel: ObservableObject {
                 competition: apiMatch.competition.name,
                 status: apiMatch.status,
                 isReal: true,
-                homeLogo: apiMatch.homeTeam.crest,
-                awayLogo: apiMatch.awayTeam.crest,
+                homeLogo: apiMatch.homeTeam.logo,
+                awayLogo: apiMatch.awayTeam.logo,
                 actualResult: actualResult
             )
             
-            convertedMatches.append(match)
+            allConvertedMatches.append(match)
         }
         
-        // Salva le partite
-        dailyMatches[todayKey] = convertedMatches
+        let todayKey = keyForDate(Date())
+        if dailyMatches[todayKey] == nil {
+            dailyMatches[todayKey] = []
+        }
+        dailyMatches[todayKey]?.append(contentsOf: allConvertedMatches)
+        
         saveMatches()
         lastUpdateTime = Date()
-        print("💾 Salvate \(convertedMatches.count) partite reali")
     }
     
-    private func createRealisticOddsForFootballDataMatch(_ match: FootballDataMatch) -> Odds {
-        // Crea quote realistiche basate su dati reali
-        // Per partite finite, usa il risultato per generare quote realistiche
-        // Per partite future, genera quote casuali ma realistiche
-        
-        var homeOdd: Double
-        var drawOdd: Double
-        var awayOdd: Double
-        
-        if match.status == "FINISHED" {
-            // Per partite finite, crea quote basate sul risultato
-            if let score = match.score.fullTime {
-                let homeGoals = score.home ?? 0
-                let awayGoals = score.away ?? 0
-                
-                if homeGoals > awayGoals {
-                    // Vittoria casa - quote basse per la casa
-                    homeOdd = Double.random(in: 1.30...1.80)
-                    drawOdd = Double.random(in: 3.50...4.50)
-                    awayOdd = Double.random(in: 4.00...7.00)
-                } else if awayGoals > homeGoals {
-                    // Vittoria trasferta - quote basse per la trasferta
-                    homeOdd = Double.random(in: 2.50...4.00)
-                    drawOdd = Double.random(in: 3.00...4.00)
-                    awayOdd = Double.random(in: 1.60...2.50)
-                } else {
-                    // Pareggio - quote equilibrate
-                    homeOdd = Double.random(in: 2.00...3.00)
-                    drawOdd = Double.random(in: 3.00...3.50)
-                    awayOdd = Double.random(in: 2.50...3.50)
-                }
-            } else {
-                // Default se non ci sono dati
-                homeOdd = 2.00
-                drawOdd = 3.40
-                awayOdd = 3.60
-            }
-        } else {
-            // Per partite future, quote casuali ma realistiche
-            homeOdd = Double.random(in: 1.50...3.50)
-            drawOdd = Double.random(in: 3.00...4.00)
-            awayOdd = Double.random(in: 2.00...5.00)
-            
-            // Normalizza per somma delle probabilità
-            let total = 1/homeOdd + 1/drawOdd + 1/awayOdd
-            let adjustment = 1.05 // 5% margin
-            homeOdd = 1 / ((1/homeOdd) / total * adjustment)
-            drawOdd = 1 / ((1/drawOdd) / total * adjustment)
-            awayOdd = 1 / ((1/awayOdd) / total * adjustment)
+    private func createRealOddsFromSportDB(_ sportDBOdds: SportDBOdds?) -> Odds {
+        if let realOdds = sportDBOdds {
+            return Odds(
+                home: realOdds.homeWin ?? 2.00,
+                draw: realOdds.draw ?? 3.40,
+                away: realOdds.awayWin ?? 3.60,
+                homeDraw: 1.0 / ((1.0/(realOdds.homeWin ?? 2.00)) + (1.0/(realOdds.draw ?? 3.40))),
+                homeAway: 1.0 / ((1.0/(realOdds.homeWin ?? 2.00)) + (1.0/(realOdds.awayWin ?? 3.60))),
+                drawAway: 1.0 / ((1.0/(realOdds.draw ?? 3.40)) + (1.0/(realOdds.awayWin ?? 3.60))),
+                over05: realOdds.over05 ?? 1.12,
+                under05: realOdds.under05 ?? 6.50,
+                over15: realOdds.over15 ?? 1.45,
+                under15: realOdds.under15 ?? 2.65,
+                over25: realOdds.over25 ?? 1.95,
+                under25: realOdds.under25 ?? 1.85,
+                over35: realOdds.over35 ?? 2.80,
+                under35: realOdds.under35 ?? 1.40,
+                over45: realOdds.over45 ?? 4.50,
+                under45: realOdds.under45 ?? 1.18
+            )
         }
         
-        // Crea quote derivate
-        let homeDraw = 1.0 / ((1.0/homeOdd) + (1.0/drawOdd))
-        let homeAway = 1.0 / ((1.0/homeOdd) + (1.0/awayOdd))
-        let drawAway = 1.0 / ((1.0/drawOdd) + (1.0/awayOdd))
-        
-        return Odds(
-            home: homeOdd,
-            draw: drawOdd,
-            away: awayOdd,
-            homeDraw: homeDraw,
-            homeAway: homeAway,
-            drawAway: drawAway,
-            over05: 1.12,
-            under05: 6.50,
-            over15: 1.45,
-            under15: 2.65,
-            over25: 1.95,
-            under25: 1.85,
-            over35: 2.80,
-            under35: 1.40,
-            over45: 4.50,
-            under45: 1.18
-        )
+        return createRealisticOdds(home: 2.00, draw: 3.40, away: 3.60)
     }
     
     private func loadFallbackMatches() {
@@ -474,99 +464,6 @@ final class BettingViewModel: ObservableObject {
         dailyMatches[todayKey] = realisticMatches
         saveMatches()
         lastUpdateTime = Date()
-    }
-    
-    // MARK: - MATCH GENERATION FUNCTIONS
-    
-    private func generateRealisticMatches() -> [Match] {
-        let competitions = [
-            ("Premier League", ["Arsenal", "Chelsea", "Liverpool", "Man City", "Man United", "Tottenham"]),
-            ("Serie A", ["Milan", "Inter", "Juventus", "Napoli", "Roma", "Lazio"]),
-            ("La Liga", ["Barcelona", "Real Madrid", "Atletico", "Sevilla", "Valencia", "Villarreal"]),
-            ("Bundesliga", ["Bayern", "Dortmund", "Leipzig", "Leverkusen", "Frankfurt", "Wolfsburg"]),
-            ("Ligue 1", ["PSG", "Marseille", "Lyon", "Monaco", "Lille", "Nice"])
-        ]
-        
-        var matches: [Match] = []
-        
-        for (competition, teams) in competitions {
-            for _ in 0..<3 {
-                let home = teams.randomElement()!
-                var away = teams.randomElement()!
-                while away == home { away = teams.randomElement()! }
-                
-                let hour = Int.random(in: 15...21)
-                let minute = ["00", "15", "30", "45"].randomElement()!
-                let time = "\(hour):\(minute)"
-                
-                let (homeOdd, drawOdd, awayOdd) = generateRealisticOdds(home: home, away: away)
-                let odds = createRealisticOdds(home: homeOdd, draw: drawOdd, away: awayOdd)
-                
-                let (result, goals) = generateRealisticResult(homeOdd: homeOdd, drawOdd: drawOdd, awayOdd: awayOdd)
-                
-                let match = Match(
-                    id: UUID(),
-                    home: home,
-                    away: away,
-                    time: time,
-                    odds: odds,
-                    result: result,
-                    goals: goals,
-                    competition: competition,
-                    status: "FINISHED",
-                    isReal: false,
-                    homeLogo: nil,
-                    awayLogo: nil,
-                    actualResult: result == .home ? "2-1" : result == .away ? "0-2" : "1-1"
-                )
-                
-                matches.append(match)
-            }
-        }
-        
-        return matches.shuffled()
-    }
-    
-    private func generateRealisticOdds(home: String, away: String) -> (Double, Double, Double) {
-        // Simula quote realistiche
-        let diff = Double(home.hash % 100 - away.hash % 100) / 100.0
-        
-        if diff > 0.3 {
-            return (1.45, 4.50, 7.00)
-        } else if diff > 0.1 {
-            return (1.85, 3.60, 4.20)
-        } else if diff > -0.1 {
-            return (2.40, 3.30, 2.90)
-        } else if diff > -0.3 {
-            return (3.10, 3.40, 2.25)
-        } else {
-            return (5.50, 4.00, 1.55)
-        }
-    }
-    
-    private func generateRealisticResult(homeOdd: Double, drawOdd: Double, awayOdd: Double) -> (MatchOutcome?, Int?) {
-        let homeProb = 1 / homeOdd
-        let drawProb = 1 / drawOdd
-        let awayProb = 1 / awayOdd
-        let totalProb = homeProb + drawProb + awayProb
-        
-        let normHomeProb = homeProb / totalProb
-        let normDrawProb = drawProb / totalProb
-        
-        let random = Double.random(in: 0...1)
-        
-        if random < normHomeProb {
-            let goals = Int.random(in: 1...4)
-            let awayGoals = Int.random(in: 0...goals-1)
-            return (.home, goals + awayGoals)
-        } else if random < normHomeProb + normDrawProb {
-            let goals = Int.random(in: 0...3)
-            return (.draw, goals * 2)
-        } else {
-            let goals = Int.random(in: 1...4)
-            let homeGoals = Int.random(in: 0...goals-1)
-            return (.away, goals + homeGoals)
-        }
     }
     
     private func createRealisticOdds(home: Double, draw: Double, away: Double) -> Odds {
@@ -618,7 +515,7 @@ final class BettingViewModel: ObservableObject {
         return f.string(from: date)
     }
     
-    // MARK: - SIMULATED MATCHES
+    // MARK: - MATCH GENERATION FUNCTIONS
     
     func generateTodayIfNeeded() {
         let todayKey = keyForDate(Date())
@@ -631,6 +528,96 @@ final class BettingViewModel: ObservableObject {
     
     func generateSimulatedMatches() -> [Match] {
         generateRealisticMatches()
+    }
+    
+    private func generateRealisticMatches() -> [Match] {
+        let competitions = [
+            ("Premier League", ["Arsenal", "Chelsea", "Liverpool", "Man City", "Man United", "Tottenham"]),
+            ("Serie A", ["Milan", "Inter", "Juventus", "Napoli", "Roma", "Lazio"]),
+            ("La Liga", ["Barcelona", "Real Madrid", "Atletico", "Sevilla", "Valencia", "Villarreal"]),
+            ("Bundesliga", ["Bayern", "Dortmund", "Leipzig", "Leverkusen", "Frankfurt", "Wolfsburg"]),
+            ("Ligue 1", ["PSG", "Marseille", "Lyon", "Monaco", "Lille", "Nice"])
+        ]
+        
+        var matches: [Match] = []
+        
+        for (competition, teams) in competitions {
+            for _ in 0..<3 {
+                let home = teams.randomElement()!
+                var away = teams.randomElement()!
+                while away == home { away = teams.randomElement()! }
+                
+                let hour = Int.random(in: 15...21)
+                let minute = ["00", "15", "30", "45"].randomElement()!
+                let time = "\(hour):\(minute)"
+                
+                let (homeOdd, drawOdd, awayOdd) = generateRealisticOdds(home: home, away: away)
+                let odds = createRealisticOdds(home: homeOdd, draw: drawOdd, away: awayOdd)
+                
+                let (result, goals) = generateRealisticResult(homeOdd: homeOdd, drawOdd: drawOdd, awayOdd: awayOdd)
+                
+                let match = Match(
+                    id: UUID(),
+                    home: home,
+                    away: away,
+                    time: time,
+                    odds: odds,
+                    result: result,
+                    goals: goals,
+                    competition: competition,
+                    status: "FINISHED",
+                    isReal: false,
+                    homeLogo: nil,
+                    awayLogo: nil,
+                    actualResult: result == .home ? "2-1" : result == .away ? "0-2" : "1-1"
+                )
+                
+                matches.append(match)
+            }
+        }
+        
+        return matches.shuffled()
+    }
+    
+    private func generateRealisticOdds(home: String, away: String) -> (Double, Double, Double) {
+        let diff = Double(home.hash % 100 - away.hash % 100) / 100.0
+        
+        if diff > 0.3 {
+            return (1.45, 4.50, 7.00)
+        } else if diff > 0.1 {
+            return (1.85, 3.60, 4.20)
+        } else if diff > -0.1 {
+            return (2.40, 3.30, 2.90)
+        } else if diff > -0.3 {
+            return (3.10, 3.40, 2.25)
+        } else {
+            return (5.50, 4.00, 1.55)
+        }
+    }
+    
+    private func generateRealisticResult(homeOdd: Double, drawOdd: Double, awayOdd: Double) -> (MatchOutcome?, Int?) {
+        let homeProb = 1 / homeOdd
+        let drawProb = 1 / drawOdd
+        let awayProb = 1 / awayOdd
+        let totalProb = homeProb + drawProb + awayProb
+        
+        let normHomeProb = homeProb / totalProb
+        let normDrawProb = drawProb / totalProb
+        
+        let random = Double.random(in: 0...1)
+        
+        if random < normHomeProb {
+            let goals = Int.random(in: 1...4)
+            let awayGoals = Int.random(in: 0...goals-1)
+            return (.home, goals + awayGoals)
+        } else if random < normHomeProb + normDrawProb {
+            let goals = Int.random(in: 0...3)
+            return (.draw, goals * 2)
+        } else {
+            let goals = Int.random(in: 1...4)
+            let homeGoals = Int.random(in: 0...goals-1)
+            return (.away, goals + homeGoals)
+        }
     }
     
     func matchesForSelectedDay() -> [String: [Match]] {
@@ -670,18 +657,12 @@ final class BettingViewModel: ObservableObject {
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
     
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
-        // Controlla se esiste già una pick per questa partita
-        _ = currentPicks.firstIndex(where: { $0.match.id == match.id })
-        
-        // Determina a quale sezione appartiene l'outcome selezionato
         let selectedOutcomeSection = getSectionForOutcome(outcome)
         
-        // Rimuovi tutte le pick della stessa sezione per questa partita
         currentPicks.removeAll { pick in
             pick.match.id == match.id && getSectionForOutcome(pick.outcome) == selectedOutcomeSection
         }
         
-        // Aggiungi la nuova pick
         currentPicks.append(BetPick(id: UUID(), match: match, outcome: outcome, odd: odd))
     }
     
@@ -889,10 +870,10 @@ struct ContentView: View {
                         vm.toggleRealMatches()
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: vm.useRealMatches ? "antenna.radiowaves.left.and.right" : "play.circle")
+                            Image(systemName: vm.useRealMatches ? "antenna.radiowaves.left.and.right" : "gamecontroller.fill")
                                 .font(.caption)
                             
-                            Text(vm.useRealMatches ? "REALI" : "SIMULATE")
+                            Text(vm.useRealMatches ? "SPORTDB.LIVE" : "SIMULATE")
                                 .font(.caption2.bold())
                         }
                         .padding(.horizontal, 10)
@@ -922,7 +903,7 @@ struct ContentView: View {
                 .scaleEffect(1.5)
                 .tint(.accentCyan)
             
-            Text("Caricando partite da Football-Data.org...")
+            Text("Caricando partite da SportDB.dev...")
                 .foregroundColor(.white)
             
             Text("API Key: \(vm.hasAPIKey ? "✅ Configurata" : "❌ Mancante")")
@@ -942,7 +923,7 @@ struct ContentView: View {
                 .font(.system(size: 50))
                 .foregroundColor(.orange)
             
-            Text("Attenzione")
+            Text("SportDB.dev API")
                 .font(.title2)
                 .foregroundColor(.white)
             
@@ -953,7 +934,7 @@ struct ContentView: View {
             
             Button("Riprova") {
                 if vm.useRealMatches {
-                    vm.fetchRealMatchesFromFootballData()
+                    vm.fetchRealMatchesFromSportDB()
                 } else {
                     vm.generateTodayIfNeeded()
                 }
@@ -1006,7 +987,7 @@ struct ContentView: View {
                         .foregroundColor(.green)
                         .font(.caption)
                     
-                    Text("FOOTBALL-DATA.ORG • API LIVE")
+                    Text("SPORTDB.DEV • API LIVE")
                         .font(.caption)
                         .foregroundColor(.green)
                     
@@ -1073,7 +1054,7 @@ struct ContentView: View {
         .transition(.opacity)
         .refreshable {
             if vm.useRealMatches {
-                vm.fetchRealMatchesFromFootballData()
+                vm.fetchRealMatchesFromSportDB()
             }
         }
     }
@@ -1092,7 +1073,7 @@ struct ContentView: View {
                 .foregroundColor(.white)
             
             Text(vm.useRealMatches ? 
-                 "Football-Data.org non ha partite per oggi o API limit raggiunto" :
+                 "SportDB.dev non ha partite per oggi o API limit raggiunto" :
                  "Attiva le partite reali per dati autentici")
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
@@ -1100,7 +1081,7 @@ struct ContentView: View {
             
             Button(vm.useRealMatches ? "Ricarica" : "Attiva partite reali") {
                 if vm.useRealMatches {
-                    vm.fetchRealMatchesFromFootballData()
+                    vm.fetchRealMatchesFromSportDB()
                 } else {
                     vm.useRealMatches = true
                 }
@@ -1362,3 +1343,4 @@ struct ContentView: View {
         }
     }
 }
+
