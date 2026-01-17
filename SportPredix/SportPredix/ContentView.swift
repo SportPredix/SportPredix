@@ -77,6 +77,8 @@ struct SportDBOdds: Codable {
     let under25: Double?
     let over35: Double?
     let under35: Double?
+    // SportDB potrebbe non fornire over45/under45
+    // Quindi le rimuoviamo dal modello
     
     enum CodingKeys: String, CodingKey {
         case homeWin = "home_win"
@@ -90,6 +92,9 @@ struct SportDBOdds: Codable {
         case under25 = "under_2_5"
         case over35 = "over_3_5"
         case under35 = "under_3_5"
+        // Se l'API fornisce over45/under45, scommenta:
+        // case over45 = "over_4_5"
+        // case under45 = "under_4_5"
     }
 }
 
@@ -293,7 +298,7 @@ final class BettingViewModel: ObservableObject {
         let tomorrowDate = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
         let tomorrow = dateFormatter.string(from: tomorrowDate)
         
-        // Endpoint fixtures
+        // Prova diversi endpoint
         let urlString = "\(baseURL)/football/fixtures?date_from=\(today)&date_to=\(tomorrow)&api_key=\(apiKey)"
         
         guard let url = URL(string: urlString) else {
@@ -322,11 +327,17 @@ final class BettingViewModel: ObservableObject {
                     return
                 }
                 
+                print("SportDB Status Code: \(httpResponse.statusCode)")
+                
                 guard httpResponse.statusCode == 200 else {
                     if httpResponse.statusCode == 401 {
                         self?.apiError = "API key non valida per SportDB.dev"
                     } else if httpResponse.statusCode == 429 {
                         self?.apiError = "Limite richieste raggiunto su SportDB.dev"
+                    } else if httpResponse.statusCode == 404 {
+                        // Prova endpoint alternativo
+                        self?.tryAlternativeSportDBEndpoint()
+                        return
                     } else {
                         self?.apiError = "Errore SportDB.dev: \(httpResponse.statusCode)"
                     }
@@ -350,7 +361,59 @@ final class BettingViewModel: ObservableObject {
                         self?.processSportDBMatches(response.data)
                     }
                 } catch {
+                    print("JSON decode error: \(error)")
                     self?.apiError = "Errore formato dati SportDB.dev"
+                    self?.loadFallbackMatches()
+                }
+            }
+        }
+        
+        task.resume()
+    }
+    
+    private func tryAlternativeSportDBEndpoint() {
+        // Prova endpoint alternativo
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let today = dateFormatter.string(from: Date())
+        
+        let urlString = "\(baseURL)/football/matches?date=\(today)&api_key=\(apiKey)"
+        
+        guard let url = URL(string: urlString) else {
+            apiError = "Endpoint alternativo non valido"
+            loadFallbackMatches()
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 15
+        
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.apiError = "Errore endpoint alternativo: \(error.localizedDescription)"
+                    self?.loadFallbackMatches()
+                    return
+                }
+                
+                guard let data = data else {
+                    self?.apiError = "Nessun dato da endpoint alternativo"
+                    self?.loadFallbackMatches()
+                    return
+                }
+                
+                do {
+                    let response = try JSONDecoder().decode(SportDBResponse.self, from: data)
+                    
+                    if response.data.isEmpty {
+                        self?.apiError = "Nessuna partita trovata"
+                        self?.loadFallbackMatches()
+                    } else {
+                        self?.processSportDBMatches(response.data)
+                    }
+                } catch {
+                    self?.apiError = "Formato dati non valido"
                     self?.loadFallbackMatches()
                 }
             }
@@ -434,28 +497,25 @@ final class BettingViewModel: ObservableObject {
     }
     
     private func createRealOddsFromSportDB(_ sportDBOdds: SportDBOdds?) -> Odds {
-        if let realOdds = sportDBOdds {
-            return Odds(
-                home: realOdds.homeWin ?? 2.00,
-                draw: realOdds.draw ?? 3.40,
-                away: realOdds.awayWin ?? 3.60,
-                homeDraw: 1.0 / ((1.0/(realOdds.homeWin ?? 2.00)) + (1.0/(realOdds.draw ?? 3.40))),
-                homeAway: 1.0 / ((1.0/(realOdds.homeWin ?? 2.00)) + (1.0/(realOdds.awayWin ?? 3.60))),
-                drawAway: 1.0 / ((1.0/(realOdds.draw ?? 3.40)) + (1.0/(realOdds.awayWin ?? 3.60))),
-                over05: realOdds.over05 ?? 1.12,
-                under05: realOdds.under05 ?? 6.50,
-                over15: realOdds.over15 ?? 1.45,
-                under15: realOdds.under15 ?? 2.65,
-                over25: realOdds.over25 ?? 1.95,
-                under25: realOdds.under25 ?? 1.85,
-                over35: realOdds.over35 ?? 2.80,
-                under35: realOdds.under35 ?? 1.40,
-                over45: realOdds.over45 ?? 4.50,
-                under45: realOdds.under45 ?? 1.18
-            )
-        }
-        
-        return createRealisticOdds(home: 2.00, draw: 3.40, away: 3.60)
+        // Usa quote di default se SportDB non fornisce tutte le quote
+        return Odds(
+            home: sportDBOdds?.homeWin ?? 2.00,
+            draw: sportDBOdds?.draw ?? 3.40,
+            away: sportDBOdds?.awayWin ?? 3.60,
+            homeDraw: 1.0 / ((1.0/(sportDBOdds?.homeWin ?? 2.00)) + (1.0/(sportDBOdds?.draw ?? 3.40))),
+            homeAway: 1.0 / ((1.0/(sportDBOdds?.homeWin ?? 2.00)) + (1.0/(sportDBOdds?.awayWin ?? 3.60))),
+            drawAway: 1.0 / ((1.0/(sportDBOdds?.draw ?? 3.40)) + (1.0/(sportDBOdds?.awayWin ?? 3.60))),
+            over05: sportDBOdds?.over05 ?? 1.12,
+            under05: sportDBOdds?.under05 ?? 6.50,
+            over15: sportDBOdds?.over15 ?? 1.45,
+            under15: sportDBOdds?.under15 ?? 2.65,
+            over25: sportDBOdds?.over25 ?? 1.95,
+            under25: sportDBOdds?.under25 ?? 1.85,
+            over35: sportDBOdds?.over35 ?? 2.80,
+            under35: sportDBOdds?.under35 ?? 1.40,
+            over45: 4.50,  // Valori fissi per over45/under45
+            under45: 1.18
+        )
     }
     
     private func loadFallbackMatches() {
