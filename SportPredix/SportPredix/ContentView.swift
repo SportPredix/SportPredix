@@ -10,83 +10,7 @@ import SwiftUI
 extension Color {
     static let accentCyan = Color(red: 68/255, green: 224/255, blue: 203/255)
 }
-
-// MARK: - MODELLI
-
-enum MatchOutcome: String, Codable {
-    case home = "1"
-    case draw = "X"
-    case away = "2"
-    case homeDraw = "1X"
-    case homeAway = "12"
-    case drawAway = "X2"
-    case over05 = "O 0.5"
-    case under05 = "U 0.5"
-    case over15 = "O 1.5"
-    case under15 = "U 1.5"
-    case over25 = "O 2.5"
-    case under25 = "U 2.5"
-    case over35 = "O 3.5"
-    case under35 = "U 3.5"
-    case over45 = "O 4.5"
-    case under45 = "U 4.5"
-}
-
-struct Odds: Codable {
-    let home: Double
-    let draw: Double
-    let away: Double
-    let homeDraw: Double
-    let homeAway: Double
-    let drawAway: Double
-    let over05: Double
-    let under05: Double
-    let over15: Double
-    let under15: Double
-    let over25: Double
-    let under25: Double
-    let over35: Double
-    let under35: Double
-    let over45: Double
-    let under45: Double
-}
-
-struct Match: Identifiable, Codable {
-    let id: UUID
-    let home: String
-    let away: String
-    let time: String
-    let odds: Odds
-    var result: MatchOutcome?
-    var goals: Int?
-    var competition: String
-    var status: String
-    var actualResult: String?
-}
-
-struct BetPick: Identifiable, Codable {
-    let id: UUID
-    let match: Match
-    let outcome: MatchOutcome
-    let odd: Double
-}
-
-struct BetSlip: Identifiable, Codable {
-    let id: UUID
-    let picks: [BetPick]
-    let stake: Double
-    let totalOdd: Double
-    let potentialWin: Double
-    let date: Date
-    
-    var isWon: Bool? = nil
-    var isEvaluated: Bool = false
-    
-    var impliedProbability: Double { 1 / totalOdd }
-    var expectedValue: Double { potentialWin * impliedProbability - stake }
-}
-
-// MARK: - VIEW MODEL SOLO SIMULATO
+// MARK: - VIEW MODEL CON BETSTACK INTEGRATION
 
 final class BettingViewModel: ObservableObject {
     
@@ -116,9 +40,12 @@ final class BettingViewModel: ObservableObject {
     @Published var slips: [BetSlip] = []
     
     @Published var dailyMatches: [String: [Match]] = [:]
+    @Published var isLoading = false
+    @Published var lastUpdateTime: Date?
     
     private let slipsKey = "savedSlips"
     private let matchesKey = "savedMatches"
+    private let lastFetchKey = "lastBetstackFetch"
     
     init() {
         let savedBalance = UserDefaults.standard.double(forKey: "balance")
@@ -132,7 +59,61 @@ final class BettingViewModel: ObservableObject {
         self.slips = loadSlips()
         self.dailyMatches = loadMatches()
         
-        generateTodayIfNeeded()
+        // Carica ora ultimo fetch
+        if let savedDate = UserDefaults.standard.object(forKey: lastFetchKey) as? Date {
+            self.lastUpdateTime = savedDate
+        }
+        
+        // Verifica se dobbiamo fetchare nuove partite
+        checkAndFetchMatches()
+    }
+    
+    // MARK: - BETSTACK API INTEGRATION
+    
+    func checkAndFetchMatches() {
+        let todayKey = keyForDate(Date())
+        
+        // Se non abbiamo partite per oggi O l'ultimo fetch è stato più di 1 ora fa
+        let shouldFetch = dailyMatches[todayKey] == nil || 
+                         lastUpdateTime == nil || 
+                         Date().timeIntervalSince(lastUpdateTime!) > 3600
+        
+        if shouldFetch {
+            fetchMatchesFromBetstack()
+        }
+    }
+    
+    func fetchMatchesFromBetstack() {
+        guard !isLoading else { return }
+        
+        isLoading = true
+        
+        OddsService.shared.fetchSerieAOdds { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                
+                switch result {
+                case .success(let matches):
+                    print("✅ Betstack matches fetched successfully: \(matches.count) matches")
+                    
+                    let todayKey = self?.keyForDate(Date()) ?? ""
+                    self?.dailyMatches[todayKey] = matches
+                    self?.lastUpdateTime = Date()
+                    
+                    // Salva in UserDefaults
+                    self?.saveMatches()
+                    UserDefaults.standard.set(self?.lastUpdateTime, forKey: self?.lastFetchKey ?? "lastBetstackFetch")
+                    
+                    // Aggiorna UI
+                    self?.objectWillChange.send()
+                    
+                case .failure(let error):
+                    print("❌ Betstack fetch failed: \(error.localizedDescription)")
+                    // Usa partite simulate come fallback
+                    self?.generateTodayIfNeeded()
+                }
+            }
+        }
     }
     
     // MARK: - DATE HELPERS
@@ -155,16 +136,18 @@ final class BettingViewModel: ObservableObject {
     
     func formattedMonth(_ date: Date) -> String {
         let f = DateFormatter()
+        f.locale = Locale(identifier: "it_IT")
         f.dateFormat = "MMM"
-        return f.string(from: date)
+        return f.string(from: date).capitalized
     }
     
-    // MARK: - MATCH GENERATION FUNCTIONS
+    // MARK: - MATCH GENERATION FUNCTIONS (fallback)
     
     func generateTodayIfNeeded() {
         let todayKey = keyForDate(Date())
         
         if dailyMatches[todayKey] == nil {
+            print("🔄 Generating simulated matches for today")
             dailyMatches[todayKey] = generateSimulatedMatches()
             saveMatches()
         }
@@ -172,8 +155,8 @@ final class BettingViewModel: ObservableObject {
     
     func generateSimulatedMatches() -> [Match] {
         let competitions = [
+            ("Serie A", ["Milan", "Inter", "Juventus", "Napoli", "Roma", "Lazio", "Atalanta", "Fiorentina"]),
             ("Premier League", ["Arsenal", "Chelsea", "Liverpool", "Man City", "Man United", "Tottenham"]),
-            ("Serie A", ["Milan", "Inter", "Juventus", "Napoli", "Roma", "Lazio"]),
             ("La Liga", ["Barcelona", "Real Madrid", "Atletico", "Sevilla", "Valencia", "Villarreal"]),
             ("Bundesliga", ["Bayern", "Dortmund", "Leipzig", "Leverkusen", "Frankfurt", "Wolfsburg"]),
             ("Ligue 1", ["PSG", "Marseille", "Lyon", "Monaco", "Lille", "Nice"])
@@ -182,7 +165,7 @@ final class BettingViewModel: ObservableObject {
         var matches: [Match] = []
         
         for (competition, teams) in competitions {
-            for _ in 0..<3 {
+            for _ in 0..<2 {
                 let home = teams.randomElement()!
                 var away = teams.randomElement()!
                 while away == home { away = teams.randomElement()! }
@@ -291,6 +274,11 @@ final class BettingViewModel: ObservableObject {
             return grouped
         }
         
+        // Se è oggi, prova a fetchare da Betstack
+        if Calendar.current.isDateInToday(date) {
+            fetchMatchesFromBetstack()
+        }
+        
         let newMatches = generateSimulatedMatches()
         dailyMatches[key] = newMatches
         saveMatches()
@@ -344,6 +332,8 @@ final class BettingViewModel: ObservableObject {
     }
     
     func confirmSlip(stake: Double) {
+        guard stake > 0, stake <= balance else { return }
+        
         let slip = BetSlip(
             id: UUID(),
             picks: currentPicks,
@@ -459,7 +449,7 @@ final class BettingViewModel: ObservableObject {
     }
 }
 
-// MARK: - MAIN VIEW (PULITO, SENZA API)
+// MARK: - MAIN VIEW (PULITO, CON BETSTACK)
 
 struct ContentView: View {
     
@@ -477,7 +467,12 @@ struct ContentView: View {
                     
                     if vm.selectedTab == 0 {
                         calendarBarView
-                        matchListView
+                        
+                        if vm.isLoading {
+                            loadingView
+                        } else {
+                            matchListView
+                        }
                     } else if vm.selectedTab == 1 {
                         GamesView()
                             .environmentObject(vm)
@@ -508,11 +503,19 @@ struct ContentView: View {
     
     private var headerView: some View {
         HStack {
-            Text(vm.selectedTab == 0 ? "Calendario" :
-                    vm.selectedTab == 1 ? "Giochi" :
-                    vm.selectedTab == 2 ? "Piazzate" : "Profilo")
-            .font(.largeTitle.bold())
-            .foregroundColor(.white)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(vm.selectedTab == 0 ? "Calendario" :
+                        vm.selectedTab == 1 ? "Giochi" :
+                        vm.selectedTab == 2 ? "Piazzate" : "Profilo")
+                .font(.largeTitle.bold())
+                .foregroundColor(.white)
+                
+                if vm.selectedTab == 0 && vm.lastUpdateTime != nil {
+                    Text("Ultimo aggiornamento: \(formattedUpdateTime)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
             
             Spacer()
             
@@ -520,9 +523,48 @@ struct ContentView: View {
                 Text("€\(vm.balance, specifier: "%.2f")")
                     .foregroundColor(.accentCyan)
                     .bold()
+                
+                if vm.selectedTab == 0 {
+                    Button(action: {
+                        vm.fetchMatchesFromBetstack()
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(.accentCyan)
+                            .font(.system(size: 16))
+                    }
+                    .disabled(vm.isLoading)
+                }
             }
         }
         .padding()
+    }
+    
+    private var formattedUpdateTime: String {
+        guard let date = vm.lastUpdateTime else { return "--" }
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+    
+    // MARK: LOADING VIEW
+    private var loadingView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: .accentCyan))
+                .scaleEffect(1.5)
+            
+            Text("Caricamento partite da Betstack...")
+                .foregroundColor(.accentCyan)
+                .font(.headline)
+            
+            Text("Sto recuperando le quote più recenti")
+                .foregroundColor(.gray)
+                .font(.caption)
+            
+            Spacer()
+        }
     }
     
     // MARK: CALENDAR BAR
@@ -562,7 +604,7 @@ struct ContentView: View {
         
         return ScrollView {
             VStack(spacing: 16) {
-                if groupedMatches.isEmpty {
+                if groupedMatches.isEmpty && !vm.isLoading {
                     emptyMatchesView
                 } else {
                     ForEach(groupedMatches.keys.sorted(), id: \.self) { time in
@@ -588,6 +630,11 @@ struct ContentView: View {
         }
         .id(vm.selectedDayIndex)
         .transition(.opacity)
+        .refreshable {
+            if vm.selectedTab == 0 && vm.selectedDayIndex == 1 { // Solo per oggi
+                vm.fetchMatchesFromBetstack()
+            }
+        }
     }
     
     private var emptyMatchesView: some View {
@@ -599,17 +646,17 @@ struct ContentView: View {
                 .font(.system(size: 60))
                 .foregroundColor(.accentCyan)
             
-            Text("Partite simulate")
+            Text("Nessuna partita disponibile")
                 .font(.title2)
                 .foregroundColor(.white)
             
-            Text("Nessuna partita generata per oggi")
+            Text("Premi il pulsante di aggiornamento per caricare nuove partite")
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
             
-            Button("Ricarica") {
-                vm.generateTodayIfNeeded()
+            Button("Aggiorna") {
+                vm.fetchMatchesFromBetstack()
             }
             .padding()
             .background(Color.accentCyan)
@@ -649,7 +696,8 @@ struct ContentView: View {
                     } else {
                         Text(match.status)
                             .font(.caption2)
-                            .foregroundColor(match.status == "FINISHED" ? .green : .orange)
+                            .foregroundColor(match.status == "FINISHED" ? .green : 
+                                           match.status == "LIVE" ? .red : .orange)
                     }
                 }
             }
