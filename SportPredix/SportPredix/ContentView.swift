@@ -20,8 +20,8 @@ final class BettingViewModel: ObservableObject {
     @Published var selectedSport: String {
         didSet {
             UserDefaults.standard.set(selectedSport, forKey: "selectedSport")
-            // Quando cambia sport, ricarica le partite
-            generateTodayIfNeeded()
+            // Quando cambia sport, ricarica le partite per tutte le date
+            reloadMatchesForAllDays()
         }
     }
     
@@ -76,18 +76,64 @@ final class BettingViewModel: ObservableObject {
             self.lastUpdateTime = savedDate
         }
         
-        // Verifica se dobbiamo fetchare nuove partite
-        checkAndFetchMatches()
+        // Carica partite per tutte le date
+        loadMatchesForAllDays()
+    }
+    
+    // MARK: - MATCH MANAGEMENT
+    
+    private func loadMatchesForAllDays() {
+        // Carica partite per ieri, oggi e domani
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        let today = Date()
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+        
+        let dates = [yesterday, today, tomorrow]
+        let dateKeys = dates.map { keyForDate($0) }
+        
+        for dateKey in dateKeys {
+            if dailyMatches[dateKey] == nil {
+                // Genera partite per questa data
+                generateMatchesForDate(key: dateKey)
+            }
+        }
+    }
+    
+    private func reloadMatchesForAllDays() {
+        // Ricarica partite per tutte le date quando cambia sport
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        let today = Date()
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+        
+        let dates = [yesterday, today, tomorrow]
+        let dateKeys = dates.map { keyForDate($0) }
+        
+        for dateKey in dateKeys {
+            generateMatchesForDate(key: dateKey)
+        }
+        
+        saveMatches()
+        objectWillChange.send() // Forza aggiornamento UI
+    }
+    
+    private func generateMatchesForDate(key: String) {
+        // Genera partite per una data specifica
+        if selectedSport == "Tennis" {
+            dailyMatches[key] = generateTennisMatches()
+        } else {
+            // Per calcio, prova a fetchare da Betstack se è oggi
+            if key == keyForDate(Date()) {
+                checkAndFetchMatchesForToday()
+            } else {
+                dailyMatches[key] = generateFootballMatches()
+            }
+        }
     }
     
     // MARK: - BETSTACK API INTEGRATION
     
-    func checkAndFetchMatches() {
-        // Se non è calcio, usa partite simulate per tennis
-        guard selectedSport == "Calcio" else {
-            generateTodayIfNeeded()
-            return
-        }
+    func checkAndFetchMatchesForToday() {
+        guard selectedSport == "Calcio" else { return }
         
         let todayKey = keyForDate(Date())
         
@@ -98,6 +144,10 @@ final class BettingViewModel: ObservableObject {
         
         if shouldFetch {
             fetchMatchesFromBetstack()
+        } else if dailyMatches[todayKey] == nil {
+            // Se non ci sono partite, genera partite simulate
+            dailyMatches[todayKey] = generateFootballMatches()
+            saveMatches()
         }
     }
     
@@ -128,7 +178,10 @@ final class BettingViewModel: ObservableObject {
                 case .failure(let error):
                     print("❌ Betstack fetch failed: \(error.localizedDescription)")
                     // Usa partite simulate come fallback
-                    self?.generateTodayIfNeeded()
+                    let todayKey = self?.keyForDate(Date()) ?? ""
+                    self?.dailyMatches[todayKey] = self?.generateFootballMatches()
+                    self?.saveMatches()
+                    self?.objectWillChange.send()
                 }
             }
         }
@@ -159,24 +212,19 @@ final class BettingViewModel: ObservableObject {
         return f.string(from: date).capitalized
     }
     
-    // MARK: - MATCH GENERATION FUNCTIONS (fallback)
-    
-    func generateTodayIfNeeded() {
-        let todayKey = keyForDate(Date())
-        
-        if dailyMatches[todayKey] == nil {
-            print("🔄 Generating simulated matches for \(selectedSport)")
-            
-            if selectedSport == "Tennis" {
-                dailyMatches[todayKey] = generateTennisMatches()
-            } else {
-                dailyMatches[todayKey] = generateFootballMatches()
-            }
-            
-            saveMatches()
-            objectWillChange.send() // Forza aggiornamento UI
-        }
+    func isYesterday(_ date: Date) -> Bool {
+        Calendar.current.isDateInYesterday(date)
     }
+    
+    func isToday(_ date: Date) -> Bool {
+        Calendar.current.isDateInToday(date)
+    }
+    
+    func isTomorrow(_ date: Date) -> Bool {
+        Calendar.current.isDateInTomorrow(date)
+    }
+    
+    // MARK: - MATCH GENERATION FUNCTIONS
     
     func generateFootballMatches() -> [Match] {
         let competitions = [
@@ -397,21 +445,18 @@ final class BettingViewModel: ObservableObject {
         let date = dateForIndex(selectedDayIndex)
         let key = keyForDate(date)
         
+        // Se non ci sono partite per questa data, generale
+        if dailyMatches[key] == nil {
+            generateMatchesForDate(key: key)
+            saveMatches()
+        }
+        
         if let existing = dailyMatches[key] {
             let grouped = Dictionary(grouping: existing) { $0.time }
             return grouped
         }
         
-        // Se è oggi, genera partite
-        if Calendar.current.isDateInToday(date) {
-            generateTodayIfNeeded()
-        }
-        
-        let newMatches = selectedSport == "Calcio" ? generateFootballMatches() : generateTennisMatches()
-        dailyMatches[key] = newMatches
-        saveMatches()
-        let grouped = Dictionary(grouping: newMatches) { $0.time }
-        return grouped
+        return [:]
     }
     
     // MARK: - SAVE / LOAD
@@ -435,6 +480,12 @@ final class BettingViewModel: ObservableObject {
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
     
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
+        // Controlla se la partita è di ieri (non scommettibile)
+        let matchDate = Calendar.current.date(byAdding: .day, value: -(selectedDayIndex - 1), to: Date())!
+        if isYesterday(matchDate) {
+            return // Non permettere scommesse su partite di ieri
+        }
+        
         let selectedOutcomeSection = getSectionForOutcome(outcome)
         
         currentPicks.removeAll { pick in
@@ -514,7 +565,7 @@ final class BettingViewModel: ObservableObject {
             case .over15:
                 return (pick.match.goals ?? 0) > 1
             case .under15:
-                return (pick.match.goals ?? 0) <= 1
+                return (pick.match.goals || 0) <= 1
             case .over25:
                 return (pick.match.goals ?? 0) > 2
             case .under25:
@@ -624,12 +675,6 @@ struct ContentView: View {
                 ) { stake in vm.confirmSlip(stake: stake) }
             }
             .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
-            .onTapGesture {
-                // Chiudi il menu sport se aperto
-                if vm.showSportPicker {
-                    vm.showSportPicker = false
-                }
-            }
         }
     }
     
@@ -654,13 +699,10 @@ struct ContentView: View {
                                 .foregroundColor(.white)
                                 .rotationEffect(.degrees(vm.showSportPicker ? 180 : 0))
                                 .animation(.easeInOut(duration: 0.3), value: vm.showSportPicker)
+                                .padding(8)
+                                .background(Color.white.opacity(0.1))
+                                .clipShape(Circle())
                         }
-                    }
-                    
-                    if vm.selectedTab == 0 && vm.lastUpdateTime != nil {
-                        Text("Ultimo aggiornamento: \(formattedUpdateTime)")
-                            .font(.caption)
-                            .foregroundColor(.gray)
                     }
                 }
                 
@@ -691,7 +733,7 @@ struct ContentView: View {
         }
         .padding()
         .overlay(
-            // Menu sport dropdown (posizionato sotto header)
+            // Menu sport dropdown (stesso stile della toolbar)
             Group {
                 if vm.showSportPicker && vm.selectedTab == 0 {
                     VStack(spacing: 0) {
@@ -711,10 +753,13 @@ struct ContentView: View {
                                 }
                             }
                             .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 14)
                             .frame(width: 180)
                         }
-                        .background(vm.selectedSport == "Calcio" ? Color.accentCyan.opacity(0.2) : Color.black.opacity(0.95))
+                        .background(vm.selectedSport == "Calcio" ? Color.accentCyan.opacity(0.15) : Color.clear)
+                        
+                        Divider()
+                            .background(Color.gray.opacity(0.3))
                         
                         Button {
                             vm.selectedSport = "Tennis"
@@ -732,21 +777,21 @@ struct ContentView: View {
                                 }
                             }
                             .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 14)
                             .frame(width: 180)
                         }
-                        .background(vm.selectedSport == "Tennis" ? Color.accentCyan.opacity(0.2) : Color.black.opacity(0.95))
+                        .background(vm.selectedSport == "Tennis" ? Color.accentCyan.opacity(0.15) : Color.clear)
                     }
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.black.opacity(0.95))
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.accentCyan.opacity(0.3), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
                             )
-                            .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
+                            .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 10)
                     )
-                    .offset(y: 60)
+                    .offset(y: 70)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading, 16)
                     .zIndex(1000)
@@ -756,13 +801,11 @@ struct ContentView: View {
             alignment: .topLeading
         )
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: vm.showSportPicker)
-    }
-    
-    private var formattedUpdateTime: String {
-        guard let date = vm.lastUpdateTime else { return "--" }
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        .onTapGesture {
+            if vm.showSportPicker {
+                vm.showSportPicker = false
+            }
+        }
     }
     
     // MARK: LOADING VIEW
@@ -793,6 +836,9 @@ struct ContentView: View {
             HStack(spacing: 16) {
                 ForEach(0..<3) { index in
                     let date = vm.dateForIndex(index)
+                    let isYesterday = index == 0
+                    let isToday = index == 1
+                    let isTomorrow = index == 2
                     
                     VStack(spacing: 4) {
                         Text(vm.formattedDay(date))
@@ -820,6 +866,7 @@ struct ContentView: View {
     private var matchListView: some View {
         let groupedMatches = vm.matchesForSelectedDay()
         let isYesterday = vm.selectedDayIndex == 0
+        let selectedDate = vm.dateForIndex(vm.selectedDayIndex)
         
         return ScrollView {
             VStack(spacing: 16) {
@@ -840,6 +887,7 @@ struct ContentView: View {
                                 NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
                                     matchCardView(match: match, disabled: isYesterday)
                                 }
+                                .disabled(isYesterday) // Disabilita per partite di ieri
                             }
                         }
                     }
@@ -847,7 +895,7 @@ struct ContentView: View {
             }
             .padding()
         }
-        .id("\(vm.selectedDayIndex)-\(vm.selectedSport)") // Aggiorna quando cambia sport
+        .id("\(vm.selectedDayIndex)-\(vm.selectedSport)") // Aggiorna quando cambia sport o giorno
         .transition(.opacity)
     }
     
@@ -961,6 +1009,7 @@ struct ContentView: View {
                         .stroke(disabled ? Color.gray.opacity(0.2) : Color.white.opacity(0.1), lineWidth: 1)
                 )
         )
+        .opacity(disabled ? 0.6 : 1.0)
     }
     
     // MARK: PLACED BETS
@@ -1043,7 +1092,7 @@ struct ContentView: View {
     private var bottomBarView: some View {
         ZStack {
             Rectangle()
-                .fill(.ultraThinMaterial)
+                .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
                 .frame(height: 70)
                 .cornerRadius(26)
                 .padding(.horizontal)
