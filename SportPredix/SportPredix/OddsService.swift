@@ -13,9 +13,8 @@ final class OddsService {
     private let apiKey = "0a153bf2e76766c911e68212b6b02844c6c3c289f4f545b4481f2a4350deadf1"
     private let baseURL = "https://betstack.dev/api/v1"
 
-    func fetchSerieAOdds(completion: @escaping (Result<[Match], Error>) -> Void) {
+    func fetchSerieAOdths(completion: @escaping (Result<[Match], Error>) -> Void) {
         // Endpoint per le partite di Serie A da Betstack
-        // Questo è un endpoint di esempio, verifica la documentazione ufficiale
         let urlString = "\(baseURL)/matches?league=serie_a&status=scheduled"
         
         guard var urlComponents = URLComponents(string: urlString) else {
@@ -41,9 +40,6 @@ final class OddsService {
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 30
-        
-        // Se Betstack usa Bearer token:
-        // request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             // Gestione errori di rete
@@ -117,11 +113,12 @@ final class OddsService {
     
     private func convertBetstackMatch(_ betstackMatch: BetstackMatch) -> Match {
         // Estrai gli odds dalla risposta Betstack
-        let homeOdds = betstackMatch.odds?.first { $0.market == "1x2" && $0.outcome == "home" }?.price ?? 2.0
-        let drawOdds = betstackMatch.odds?.first { $0.market == "1x2" && $0.outcome == "draw" }?.price ?? 3.5
-        let awayOdds = betstackMatch.odds?.first { $0.market == "1x2" && $0.outcome == "away" }?.price ?? 3.0
+        let oddsArray = betstackMatch.odds ?? []
+        let homeOdds = oddsArray.first { $0.market == "1x2" && $0.outcome == "home" }?.price ?? 2.0
+        let drawOdds = oddsArray.first { $0.market == "1x2" && $0.outcome == "draw" }?.price ?? 3.5
+        let awayOdds = oddsArray.first { $0.market == "1x2" && $0.outcome == "away" }?.price ?? 3.0
         
-        // Crea odds per altri mercati (usa calcoli realistici come fallback)
+        // Crea odds per altri mercati
         let odds = Odds(
             home: homeOdds,
             draw: drawOdds,
@@ -129,16 +126,16 @@ final class OddsService {
             homeDraw: 1.0 / ((1.0/homeOdds) + (1.0/drawOdds)),
             homeAway: 1.0 / ((1.0/homeOdds) + (1.0/awayOdds)),
             drawAway: 1.0 / ((1.0/drawOdds) + (1.0/awayOdds)),
-            over05: betstackMatch.odds?.first { $0.market == "total_goals" && $0.outcome == "over" && $0.line == 0.5 }?.price ?? 1.12,
-            under05: betstackMatch.odds?.first { $0.market == "total_goals" && $0.outcome == "under" && $0.line == 0.5 }?.price ?? 6.50,
-            over15: betstackMatch.odds?.first { $0.market == "total_goals" && $0.outcome == "over" && $0.line == 1.5 }?.price ?? 1.45,
-            under15: betstackMatch.odds?.first { $0.market == "total_goals" && $0.outcome == "under" && $0.line == 1.5 }?.price ?? 2.65,
-            over25: betstackMatch.odds?.first { $0.market == "total_goals" && $0.outcome == "over" && $0.line == 2.5 }?.price ?? 1.95,
-            under25: betstackMatch.odds?.first { $0.market == "total_goals" && $0.outcome == "under" && $0.line == 2.5 }?.price ?? 1.85,
-            over35: betstackMatch.odds?.first { $0.market == "total_goals" && $0.outcome == "over" && $0.line == 3.5 }?.price ?? 2.80,
-            under35: betstackMatch.odds?.first { $0.market == "total_goals" && $0.outcome == "under" && $0.line == 3.5 }?.price ?? 1.40,
-            over45: betstackMatch.odds?.first { $0.market == "total_goals" && $0.outcome == "over" && $0.line == 4.5 }?.price ?? 4.50,
-            under45: betstackMatch.odds?.first { $0.market == "total_goals" && $0.outcome == "under" && $0.line == 4.5 }?.price ?? 1.18
+            over05: oddsArray.first { $0.market == "total_goals" && $0.outcome == "over" && $0.line == 0.5 }?.price ?? 1.12,
+            under05: oddsArray.first { $0.market == "total_goals" && $0.outcome == "under" && $0.line == 0.5 }?.price ?? 6.50,
+            over15: oddsArray.first { $0.market == "total_goals" && $0.outcome == "over" && $0.line == 1.5 }?.price ?? 1.45,
+            under15: oddsArray.first { $0.market == "total_goals" && $0.outcome == "under" && $0.line == 1.5 }?.price ?? 2.65,
+            over25: oddsArray.first { $0.market == "total_goals" && $0.outcome == "over" && $0.line == 2.5 }?.price ?? 1.95,
+            under25: oddsArray.first { $0.market == "total_goals" && $0.outcome == "under" && $0.line == 2.5 }?.price ?? 1.85,
+            over35: oddsArray.first { $0.market == "total_goals" && $0.outcome == "over" && $0.line == 3.5 }?.price ?? 2.80,
+            under35: oddsArray.first { $0.market == "total_goals" && $0.outcome == "under" && $0.line == 3.5 }?.price ?? 1.40,
+            over45: oddsArray.first { $0.market == "total_goals" && $0.outcome == "over" && $0.line == 4.5 }?.price ?? 4.50,
+            under45: oddsArray.first { $0.market == "total_goals" && $0.outcome == "under" && $0.line == 4.5 }?.price ?? 1.18
         )
         
         // Formatta l'ora di inizio
@@ -256,43 +253,4 @@ final class OddsService {
             return (5.50, 4.00, 1.55) // Forte favorito fuori
         }
     }
-}
-
-// MARK: - Modelli per Betstack API
-struct BetstackAPIResponse: Decodable {
-    let success: Bool
-    let data: [BetstackMatch]
-    let meta: BetstackMeta?
-}
-
-struct BetstackMatch: Decodable {
-    let id: String
-    let homeTeam: String
-    let awayTeam: String
-    let startTime: String
-    let league: String
-    let status: String
-    let odds: [BetstackOddsData]?
-    
-    enum CodingKeys: String, CodingKey {
-        case id
-        case homeTeam = "home_team"
-        case awayTeam = "away_team"
-        case startTime = "start_time"
-        case league, status, odds
-    }
-}
-
-struct BetstackOddsData: Decodable {
-    let market: String
-    let outcome: String
-    let price: Double
-    let line: Double?
-    let provider: String?
-}
-
-struct BetstackMeta: Decodable {
-    let total: Int
-    let page: Int
-    let perPage: Int
 }

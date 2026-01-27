@@ -5,23 +5,7 @@
 
 import Foundation
 
-// MARK: - MODELLI API ESTERNE
-
-struct Bookmaker: Decodable {
-    let title: String
-    let markets: [Market]
-}
-
-struct Market: Decodable {
-    let outcomes: [Outcome]
-}
-
-struct Outcome: Decodable {
-    let name: String
-    let price: Double
-}
-
-// MARK: - MODELLI BETSTACK API
+// MARK: - MODELLI BETSTACK API (rimossi i duplicati)
 
 struct BetstackAPIResponse: Decodable {
     let success: Bool
@@ -61,7 +45,7 @@ struct BetstackMeta: Decodable {
     let perPage: Int
 }
 
-// MARK: - MODELLI APP PRINCIPALI (già in ContentView.swift ma meglio duplicarli)
+// MARK: - MODELLI APP PRINCIPALI
 
 enum MatchOutcome: String, Codable {
     case home = "1"

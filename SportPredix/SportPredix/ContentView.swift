@@ -95,16 +95,16 @@ final class BettingViewModel: ObservableObject {
                          Date().timeIntervalSince(lastUpdateTime!) > 3600
         
         if shouldFetch {
-            fetchMatchesFromBetstack(for: selectedSport)
+            fetchMatchesFromBetstack()
         }
     }
     
-    func fetchMatchesFromBetstack(for sport: String) {
-        guard !isLoading, sport == "Calcio" else { return }
+    func fetchMatchesFromBetstack() {
+        guard !isLoading, selectedSport == "Calcio" else { return }
         
         isLoading = true
         
-        OddsService.shared.fetchSerieAOdds { [weak self] result in
+        OddsService.shared.fetchSerieAOdths { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
                 
@@ -412,7 +412,7 @@ final class BettingViewModel: ObservableObject {
         // Se è oggi, genera partite
         if Calendar.current.isDateInToday(date) {
             if selectedSport == "Calcio" {
-                fetchMatchesFromBetstack(for: selectedSport)
+                fetchMatchesFromBetstack()
             } else {
                 generateTennisMatchesIfNeeded()
             }
@@ -594,7 +594,6 @@ struct ContentView: View {
     
     @StateObject private var vm = BettingViewModel()
     @Namespace private var animationNamespace
-    @State private var showSportMenu = false
     
     var body: some View {
         NavigationView {
@@ -694,7 +693,7 @@ struct ContentView: View {
                     if vm.selectedTab == 0 {
                         Button(action: {
                             if vm.selectedSport == "Calcio" {
-                                vm.fetchMatchesFromBetstack(for: vm.selectedSport)
+                                vm.fetchMatchesFromBetstack()
                             } else {
                                 // Per tennis, ricarica le partite simulate
                                 vm.generateTennisMatchesIfNeeded()
@@ -735,7 +734,7 @@ struct ContentView: View {
                         Button {
                             vm.selectedSport = "Calcio"
                             vm.showSportPicker = false
-                            vm.fetchMatchesFromBetstack(for: "Calcio")
+                            vm.fetchMatchesFromBetstack()
                         } label: {
                             HStack {
                                 Image(systemName: "soccerball")
@@ -890,7 +889,7 @@ struct ContentView: View {
         .refreshable {
             if vm.selectedTab == 0 && vm.selectedDayIndex == 1 { // Solo per oggi
                 if vm.selectedSport == "Calcio" {
-                    vm.fetchMatchesFromBetstack(for: vm.selectedSport)
+                    vm.fetchMatchesFromBetstack()
                 } else {
                     vm.generateTennisMatchesIfNeeded()
                     vm.objectWillChange.send()
@@ -919,7 +918,7 @@ struct ContentView: View {
             
             Button("Aggiorna") {
                 if vm.selectedSport == "Calcio" {
-                    vm.fetchMatchesFromBetstack(for: vm.selectedSport)
+                    vm.fetchMatchesFromBetstack()
                 } else {
                     vm.generateTennisMatchesIfNeeded()
                     vm.objectWillChange.send()
