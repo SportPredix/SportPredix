@@ -565,7 +565,7 @@ final class BettingViewModel: ObservableObject {
             case .over15:
                 return (pick.match.goals ?? 0) > 1
             case .under15:
-                return (pick.match.goals || 0) <= 1
+                return (pick.match.goals ?? 0) <= 1  // CORRETTO: ?? 0 invece di || 0
             case .over25:
                 return (pick.match.goals ?? 0) > 2
             case .under25:
@@ -836,9 +836,6 @@ struct ContentView: View {
             HStack(spacing: 16) {
                 ForEach(0..<3) { index in
                     let date = vm.dateForIndex(index)
-                    let isYesterday = index == 0
-                    let isToday = index == 1
-                    let isTomorrow = index == 2
                     
                     VStack(spacing: 4) {
                         Text(vm.formattedDay(date))
@@ -866,7 +863,6 @@ struct ContentView: View {
     private var matchListView: some View {
         let groupedMatches = vm.matchesForSelectedDay()
         let isYesterday = vm.selectedDayIndex == 0
-        let selectedDate = vm.dateForIndex(vm.selectedDayIndex)
         
         return ScrollView {
             VStack(spacing: 16) {
