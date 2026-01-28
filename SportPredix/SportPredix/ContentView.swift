@@ -11,7 +11,7 @@ extension Color {
     static let accentCyan = Color(red: 68/255, green: 224/255, blue: 203/255)
 }
 
-// MARK: - VIEW MODEL CON BETSTACK INTEGRATION
+// MARK: - VIEW MODEL
 
 final class BettingViewModel: ObservableObject {
     
@@ -76,8 +76,6 @@ final class BettingViewModel: ObservableObject {
         loadMatchesForAllDays()
     }
     
-    // MARK: - MATCH MANAGEMENT
-    
     private func loadMatchesForAllDays() {
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
         let today = Date()
@@ -120,8 +118,6 @@ final class BettingViewModel: ObservableObject {
             }
         }
     }
-    
-    // MARK: - BETSTACK API INTEGRATION
     
     func checkAndFetchMatchesForToday() {
         guard selectedSport == "Calcio" else { return }
@@ -173,8 +169,6 @@ final class BettingViewModel: ObservableObject {
         }
     }
     
-    // MARK: - DATE HELPERS
-    
     func dateForIndex(_ index: Int) -> Date {
         Calendar.current.date(byAdding: .day, value: index - 1, to: Date())!
     }
@@ -209,8 +203,6 @@ final class BettingViewModel: ObservableObject {
     func isTomorrow(_ date: Date) -> Bool {
         Calendar.current.isDateInTomorrow(date)
     }
-    
-    // MARK: - MATCH GENERATION FUNCTIONS
     
     func generateFootballMatches() -> [Match] {
         let competitions = [
@@ -442,8 +434,6 @@ final class BettingViewModel: ObservableObject {
         return [:]
     }
     
-    // MARK: - SAVE / LOAD
-    
     func saveMatches() {
         if let data = try? JSONEncoder().encode(dailyMatches) {
             UserDefaults.standard.set(data, forKey: matchesKey)
@@ -457,8 +447,6 @@ final class BettingViewModel: ObservableObject {
         }
         return decoded
     }
-    
-    // MARK: - BETTING
     
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
     
@@ -523,8 +511,6 @@ final class BettingViewModel: ObservableObject {
         return decoded
     }
     
-    // MARK: - VALUTAZIONE SCHEDINE
-    
     func evaluateSlip(_ slip: BetSlip) -> BetSlip {
         var updatedSlip = slip
         
@@ -578,8 +564,6 @@ final class BettingViewModel: ObservableObject {
         saveSlips()
     }
     
-    // MARK: - STATISTICHE
-    
     var totalBetsCount: Int {
         slips.count
     }
@@ -591,8 +575,6 @@ final class BettingViewModel: ObservableObject {
     var totalLosses: Int {
         slips.filter { $0.isWon == false }.count
     }
-    
-    // MARK: - FUNZIONI PROFILO
     
     func resetAccount() {
         balance = 1000
@@ -609,7 +591,6 @@ final class BettingViewModel: ObservableObject {
         privacyEnabled.toggle()
     }
     
-    // MARK: - GESTIONE MENU SPORT
     func hideSportPicker() {
         withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
             showSportPicker = false
@@ -631,6 +612,7 @@ struct ContentView: View {
                 
                 VStack(spacing: 0) {
                     
+                    // HEADER MODIFICATO
                     headerView
                     
                     if vm.selectedTab == 0 {
@@ -664,29 +646,23 @@ struct ContentView: View {
                 ) { stake in vm.confirmSlip(stake: stake) }
             }
             .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
-            .onTapGesture {
-                if vm.showSportPicker {
-                    vm.hideSportPicker()
-                }
-            }
         }
+        .navigationBarHidden(true)
     }
     
-    // MARK: - HEADER CON MENU STILE INSTAGRAM
+    // MARK: - HEADER NUOVO STILE
     
     private var headerView: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                // Logo/Titolo app
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("SportPredix")
-                        .font(.title3.bold())
-                        .foregroundColor(.white)
-                }
+            HStack {
+                // Logo/Titolo
+                Text("SportPredix")
+                    .font(.title2.bold())
+                    .foregroundColor(.white)
                 
                 Spacer()
                 
-                // Selettore sport solo per tab Calendario
+                // Pulsante sport solo per tab Calendario
                 if vm.selectedTab == 0 {
                     sportSelectorButton
                 }
@@ -694,8 +670,9 @@ struct ContentView: View {
                 // Saldo utente
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("€\(vm.balance, specifier: "%.2f")")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.headline)
                         .foregroundColor(.accentCyan)
+                        .bold()
                     
                     if vm.selectedTab == 0 {
                         Text("saldo")
@@ -712,11 +689,7 @@ struct ContentView: View {
                 .fill(Color.white.opacity(0.1))
                 .frame(height: 0.5)
         }
-        .background(
-            Color.black
-                .opacity(0.95)
-                .edgesIgnoringSafeArea(.top)
-        )
+        .background(Color.black.opacity(0.95))
         .overlay(
             sportDropdownMenu
                 .offset(y: 60),
@@ -730,136 +703,118 @@ struct ContentView: View {
                 vm.showSportPicker.toggle()
             }
         }) {
-            HStack(spacing: 6) {
-                Text(vm.selectedSport)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.white)
-                
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.8))
-                    .rotationEffect(.degrees(vm.showSportPicker ? 180 : 0))
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Color.white.opacity(0.1))
-            .cornerRadius(18)
+            Image(systemName: "chevron.down")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white)
+                .rotationEffect(.degrees(vm.showSportPicker ? 180 : 0))
+                .padding(8)
+                .background(Color.white.opacity(0.1))
+                .clipShape(Circle())
         }
+        .padding(.trailing, 8)
     }
     
     private var sportDropdownMenu: some View {
         Group {
             if vm.showSportPicker && vm.selectedTab == 0 {
-                VStack(spacing: 0) {
-                    // Contenitore menu
-                    VStack(spacing: 0) {
-                        // Opzione Calcio
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                vm.selectedSport = "Calcio"
-                                vm.showSportPicker = false
-                            }
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "soccerball")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(vm.selectedSport == "Calcio" ? .accentCyan : .white)
-                                    .frame(width: 24)
-                                
-                                Text("Calcio")
-                                    .font(.system(size: 15))
-                                    .foregroundColor(vm.selectedSport == "Calcio" ? .accentCyan : .white)
-                                
-                                Spacer()
-                                
-                                if vm.selectedSport == "Calcio" {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 13, weight: .bold))
-                                        .foregroundColor(.accentCyan)
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
-                            .background(vm.selectedSport == "Calcio" ? Color.accentCyan.opacity(0.1) : Color.clear)
-                        }
-                        
-                        // Divisore
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.2))
-                            .frame(height: 0.5)
-                            .padding(.horizontal, 16)
-                        
-                        // Opzione Tennis
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                vm.selectedSport = "Tennis"
-                                vm.showSportPicker = false
-                            }
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "tennis.racket")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(vm.selectedSport == "Tennis" ? .accentCyan : .white)
-                                    .frame(width: 24)
-                                
-                                Text("Tennis")
-                                    .font(.system(size: 15))
-                                    .foregroundColor(vm.selectedSport == "Tennis" ? .accentCyan : .white)
-                                
-                                Spacer()
-                                
-                                if vm.selectedSport == "Tennis" {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 13, weight: .bold))
-                                        .foregroundColor(.accentCyan)
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
-                            .background(vm.selectedSport == "Tennis" ? Color.accentCyan.opacity(0.1) : Color.clear)
+                // Overlay scuro che blocca la vista sotto
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation {
+                            vm.showSportPicker = false
                         }
                     }
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Color(red: 0.11, green: 0.11, blue: 0.12))
+                    .overlay(
+                        // Menu dropdown
+                        VStack(spacing: 0) {
+                            VStack(spacing: 0) {
+                                // Calcio
+                                Button(action: {
+                                    withAnimation {
+                                        vm.selectedSport = "Calcio"
+                                        vm.showSportPicker = false
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "soccerball")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(vm.selectedSport == "Calcio" ? .accentCyan : .white)
+                                            .frame(width: 30)
+                                        
+                                        Text("Calcio")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(vm.selectedSport == "Calcio" ? .accentCyan : .white)
+                                        
+                                        Spacer()
+                                        
+                                        if vm.selectedSport == "Calcio" {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .foregroundColor(.accentCyan)
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 14)
+                                    .frame(width: 180)
+                                }
+                                .background(vm.selectedSport == "Calcio" ? Color.accentCyan.opacity(0.1) : Color.clear)
+                                
+                                // Divisore
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.3))
+                                    .frame(height: 0.5)
+                                    .padding(.horizontal, 8)
+                                
+                                // Tennis
+                                Button(action: {
+                                    withAnimation {
+                                        vm.selectedSport = "Tennis"
+                                        vm.showSportPicker = false
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "tennis.racket")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(vm.selectedSport == "Tennis" ? .accentCyan : .white)
+                                            .frame(width: 30)
+                                        
+                                        Text("Tennis")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(vm.selectedSport == "Tennis" ? .accentCyan : .white)
+                                        
+                                        Spacer()
+                                        
+                                        if vm.selectedSport == "Tennis" {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .foregroundColor(.accentCyan)
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 14)
+                                    .frame(width: 180)
+                                }
+                                .background(vm.selectedSport == "Tennis" ? Color.accentCyan.opacity(0.1) : Color.clear)
+                            }
+                            .background(Color(red: 0.11, green: 0.11, blue: 0.12))
+                            .cornerRadius(12)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
                             )
+                            .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 5)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.trailing, 60)
+                        .offset(y: -100)
                     )
-                    .shadow(color: .black.opacity(0.4), radius: 20, x: 0, y: 5)
-                    .frame(width: 180)
-                }
-                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
-                .zIndex(1000)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.trailing, 16)
             }
         }
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: vm.showSportPicker)
     }
     
-    // MARK: LOADING VIEW
-    private var loadingView: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            
-            ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .accentCyan))
-                .scaleEffect(1.5)
-            
-            Text("Caricamento partite...")
-                .foregroundColor(.accentCyan)
-                .font(.headline)
-            
-            Text("Sto recuperando le quote più recenti")
-                .foregroundColor(.gray)
-                .font(.caption)
-            
-            Spacer()
-        }
-    }
-    
-    // MARK: CALENDAR BAR
+    // MARK: - CALENDAR BAR
     
     private var calendarBarView: some View {
         VStack(spacing: 12) {
@@ -886,6 +841,27 @@ struct ContentView: View {
             .padding(.horizontal)
         }
         .padding(.vertical, 12)
+    }
+    
+    // MARK: LOADING VIEW
+    private var loadingView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: .accentCyan))
+                .scaleEffect(1.5)
+            
+            Text("Caricamento partite...")
+                .foregroundColor(.accentCyan)
+                .font(.headline)
+            
+            Text("Sto recuperando le quote più recenti")
+                .foregroundColor(.gray)
+                .font(.caption)
+            
+            Spacer()
+        }
     }
     
     // MARK: MATCH LIST
