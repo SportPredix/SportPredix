@@ -20,7 +20,6 @@ final class BettingViewModel: ObservableObject {
     @Published var selectedSport: String {
         didSet {
             UserDefaults.standard.set(selectedSport, forKey: "selectedSport")
-            // Quando cambia sport, ricarica le partite per tutte le date
             reloadMatchesForAllDays()
         }
     }
@@ -65,25 +64,21 @@ final class BettingViewModel: ObservableObject {
         self.notificationsEnabled = UserDefaults.standard.object(forKey: "notificationsEnabled") as? Bool ?? true
         self.privacyEnabled = UserDefaults.standard.object(forKey: "privacyEnabled") as? Bool ?? false
         
-        // Carica sport selezionato o imposta "Calcio" come default
         self.selectedSport = UserDefaults.standard.string(forKey: "selectedSport") ?? "Calcio"
         
         self.slips = loadSlips()
         self.dailyMatches = loadMatches()
         
-        // Carica ora ultimo fetch
         if let savedDate = UserDefaults.standard.object(forKey: lastFetchKey) as? Date {
             self.lastUpdateTime = savedDate
         }
         
-        // Carica partite per tutte le date
         loadMatchesForAllDays()
     }
     
     // MARK: - MATCH MANAGEMENT
     
     private func loadMatchesForAllDays() {
-        // Carica partite per ieri, oggi e domani
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
         let today = Date()
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
@@ -93,14 +88,12 @@ final class BettingViewModel: ObservableObject {
         
         for dateKey in dateKeys {
             if dailyMatches[dateKey] == nil {
-                // Genera partite per questa data
                 generateMatchesForDate(key: dateKey)
             }
         }
     }
     
     private func reloadMatchesForAllDays() {
-        // Ricarica partite per tutte le date quando cambia sport
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
         let today = Date()
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
@@ -113,15 +106,13 @@ final class BettingViewModel: ObservableObject {
         }
         
         saveMatches()
-        objectWillChange.send() // Forza aggiornamento UI
+        objectWillChange.send()
     }
     
     private func generateMatchesForDate(key: String) {
-        // Genera partite per una data specifica
         if selectedSport == "Tennis" {
             dailyMatches[key] = generateTennisMatches()
         } else {
-            // Per calcio, prova a fetchare da Betstack se è oggi
             if key == keyForDate(Date()) {
                 checkAndFetchMatchesForToday()
             } else {
@@ -137,7 +128,6 @@ final class BettingViewModel: ObservableObject {
         
         let todayKey = keyForDate(Date())
         
-        // Se non abbiamo partite per oggi O l'ultimo fetch è stato più di 1 ora fa
         let shouldFetch = dailyMatches[todayKey] == nil ||
                          lastUpdateTime == nil ||
                          Date().timeIntervalSince(lastUpdateTime!) > 3600
@@ -145,7 +135,6 @@ final class BettingViewModel: ObservableObject {
         if shouldFetch {
             fetchMatchesFromBetstack()
         } else if dailyMatches[todayKey] == nil {
-            // Se non ci sono partite, genera partite simulate
             dailyMatches[todayKey] = generateFootballMatches()
             saveMatches()
         }
@@ -168,16 +157,13 @@ final class BettingViewModel: ObservableObject {
                     self?.dailyMatches[todayKey] = matches
                     self?.lastUpdateTime = Date()
                     
-                    // Salva in UserDefaults
                     self?.saveMatches()
                     UserDefaults.standard.set(self?.lastUpdateTime, forKey: self?.lastFetchKey ?? "lastBetstackFetch")
                     
-                    // Aggiorna UI
                     self?.objectWillChange.send()
                     
                 case .failure(let error):
                     print("❌ Betstack fetch failed: \(error.localizedDescription)")
-                    // Usa partite simulate come fallback
                     let todayKey = self?.keyForDate(Date()) ?? ""
                     self?.dailyMatches[todayKey] = self?.generateFootballMatches()
                     self?.saveMatches()
@@ -293,11 +279,9 @@ final class BettingViewModel: ObservableObject {
                 let minute = ["00", "15", "30", "45"].randomElement()!
                 let time = "\(hour):\(minute)"
                 
-                // Per il tennis, usiamo solo home/away (senza pareggio)
                 let (homeOdd, _, awayOdd) = generateRealisticTennisOdds(player1: player1, player2: player2)
                 let odds = createTennisOdds(home: homeOdd, away: awayOdd)
                 
-                // Per il tennis, generiamo un risultato realistico
                 let (result, sets) = generateTennisResult(homeOdd: homeOdd, awayOdd: awayOdd)
                 
                 let match = Match(
@@ -307,7 +291,7 @@ final class BettingViewModel: ObservableObject {
                     time: time,
                     odds: odds,
                     result: result,
-                    goals: sets, // Usiamo goals per indicare i set giocati
+                    goals: sets,
                     competition: tournament,
                     status: "FINISHED",
                     actualResult: result == .home ? "3-1" : result == .away ? "2-3" : "N/A"
@@ -324,22 +308,22 @@ final class BettingViewModel: ObservableObject {
         let diff = Double(player1.hash % 100 - player2.hash % 100) / 100.0
         
         if diff > 0.3 {
-            return (1.30, 0.0, 3.50) // Forte favorito
+            return (1.30, 0.0, 3.50)
         } else if diff > 0.1 {
             return (1.60, 0.0, 2.40)
         } else if diff > -0.1 {
-            return (1.90, 0.0, 1.90) // Partita equilibrata
+            return (1.90, 0.0, 1.90)
         } else if diff > -0.3 {
             return (2.40, 0.0, 1.60)
         } else {
-            return (3.50, 0.0, 1.30) // Forte favorito
+            return (3.50, 0.0, 1.30)
         }
     }
     
     private func createTennisOdds(home: Double, away: Double) -> Odds {
         return Odds(
             home: home,
-            draw: 1.0, // Non usato nel tennis
+            draw: 1.0,
             away: away,
             homeDraw: 1.0 / ((1.0/home) + (1.0/1.0)),
             homeAway: 1.0 / ((1.0/home) + (1.0/away)),
@@ -367,10 +351,10 @@ final class BettingViewModel: ObservableObject {
         let random = Double.random(in: 0...1)
         
         if random < normHomeProb {
-            let sets = Int.random(in: 3...5) // 3-0, 3-1, 3-2
+            let sets = Int.random(in: 3...5)
             return (.home, sets)
         } else {
-            let sets = Int.random(in: 3...5) // 3-0, 3-1, 3-2
+            let sets = Int.random(in: 3...5)
             return (.away, sets)
         }
     }
@@ -445,7 +429,6 @@ final class BettingViewModel: ObservableObject {
         let date = dateForIndex(selectedDayIndex)
         let key = keyForDate(date)
         
-        // Se non ci sono partite per questa data, generale
         if dailyMatches[key] == nil {
             generateMatchesForDate(key: key)
             saveMatches()
@@ -480,10 +463,9 @@ final class BettingViewModel: ObservableObject {
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
     
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
-        // Controlla se la partita è di ieri (non scommettibile)
         let matchDate = Calendar.current.date(byAdding: .day, value: -(selectedDayIndex - 1), to: Date())!
         if isYesterday(matchDate) {
-            return // Non permettere scommesse su partite di ieri
+            return
         }
         
         let selectedOutcomeSection = getSectionForOutcome(outcome)
@@ -626,6 +608,13 @@ final class BettingViewModel: ObservableObject {
     func togglePrivacy() {
         privacyEnabled.toggle()
     }
+    
+    // MARK: - GESTIONE MENU SPORT
+    func hideSportPicker() {
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+            showSportPicker = false
+        }
+    }
 }
 
 // MARK: - MAIN VIEW
@@ -657,7 +646,7 @@ struct ContentView: View {
                             .environmentObject(vm)
                     } else if vm.selectedTab == 2 {
                         placedBetsView
-                    } else {
+                    } else if vm.selectedTab == 3 {
                         ProfileView()
                             .environmentObject(vm)
                     }
@@ -675,146 +664,176 @@ struct ContentView: View {
                 ) { stake in vm.confirmSlip(stake: stake) }
             }
             .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
-        }
-    }
-    
-    // MARK: - HEADER
-    
-    private var headerView: some View {
-        HStack {
-            if vm.selectedTab == 0 {
-                // Header con selettore sport per la tab Calendario
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text("Sport")
-                            .font(.largeTitle.bold())
-                            .foregroundColor(.white)
-                        
-                        // Freccia bianca senza nome sport affianco
-                        Button(action: {
-                            // Mostra/nascondi menu sport
-                            vm.showSportPicker.toggle()
-                        }) {
-                            Image(systemName: "chevron.down")
-                                .foregroundColor(.white)
-                                .rotationEffect(.degrees(vm.showSportPicker ? 180 : 0))
-                                .animation(.easeInOut(duration: 0.3), value: vm.showSportPicker)
-                                .padding(8)
-                                .background(Color.white.opacity(0.1))
-                                .clipShape(Circle())
-                        }
-                    }
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("€\(vm.balance, specifier: "%.2f")")
-                        .foregroundColor(.accentCyan)
-                        .bold()
-                }
-            } else {
-                // Header standard per altre tab
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(vm.selectedTab == 1 ? "Giochi" :
-                         vm.selectedTab == 2 ? "Piazzate" : "Profilo")
-                    .font(.largeTitle.bold())
-                    .foregroundColor(.white)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("€\(vm.balance, specifier: "%.2f")")
-                        .foregroundColor(.accentCyan)
-                        .bold()
+            .onTapGesture {
+                if vm.showSportPicker {
+                    vm.hideSportPicker()
                 }
             }
         }
-        .padding()
+    }
+    
+    // MARK: - HEADER CON MENU STILE INSTAGRAM
+    
+    private var headerView: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                // Logo/Titolo app
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("SportPredix")
+                        .font(.title3.bold())
+                        .foregroundColor(.white)
+                }
+                
+                Spacer()
+                
+                // Selettore sport solo per tab Calendario
+                if vm.selectedTab == 0 {
+                    sportSelectorButton
+                }
+                
+                // Saldo utente
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("€\(vm.balance, specifier: "%.2f")")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.accentCyan)
+                    
+                    if vm.selectedTab == 0 {
+                        Text("saldo")
+                            .font(.system(size: 10))
+                            .foregroundColor(.gray)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            
+            // Linea sottile divisoria
+            Rectangle()
+                .fill(Color.white.opacity(0.1))
+                .frame(height: 0.5)
+        }
+        .background(
+            Color.black
+                .opacity(0.95)
+                .edgesIgnoringSafeArea(.top)
+        )
         .overlay(
-            // Menu sport dropdown (piccolo come prima, con meno trasparenza)
-            Group {
-                if vm.showSportPicker && vm.selectedTab == 0 {
+            sportDropdownMenu
+                .offset(y: 60),
+            alignment: .top
+        )
+    }
+    
+    private var sportSelectorButton: some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                vm.showSportPicker.toggle()
+            }
+        }) {
+            HStack(spacing: 6) {
+                Text(vm.selectedSport)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white)
+                
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.8))
+                    .rotationEffect(.degrees(vm.showSportPicker ? 180 : 0))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(0.1))
+            .cornerRadius(18)
+        }
+    }
+    
+    private var sportDropdownMenu: some View {
+        Group {
+            if vm.showSportPicker && vm.selectedTab == 0 {
+                VStack(spacing: 0) {
+                    // Contenitore menu
                     VStack(spacing: 0) {
-                        Button {
-                            vm.selectedSport = "Calcio"
-                            vm.showSportPicker = false
-                        } label: {
-                            HStack {
+                        // Opzione Calcio
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                vm.selectedSport = "Calcio"
+                                vm.showSportPicker = false
+                            }
+                        }) {
+                            HStack(spacing: 12) {
                                 Image(systemName: "soccerball")
+                                    .font(.system(size: 16))
                                     .foregroundColor(vm.selectedSport == "Calcio" ? .accentCyan : .white)
+                                    .frame(width: 24)
+                                
                                 Text("Calcio")
+                                    .font(.system(size: 15))
                                     .foregroundColor(vm.selectedSport == "Calcio" ? .accentCyan : .white)
+                                
                                 Spacer()
+                                
                                 if vm.selectedSport == "Calcio" {
                                     Image(systemName: "checkmark")
+                                        .font(.system(size: 13, weight: .bold))
                                         .foregroundColor(.accentCyan)
                                 }
                             }
                             .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .frame(width: 150)
+                            .padding(.vertical, 14)
+                            .background(vm.selectedSport == "Calcio" ? Color.accentCyan.opacity(0.1) : Color.clear)
                         }
-                        .background(vm.selectedSport == "Calcio" ? Color.accentCyan.opacity(0.2) : Color.clear)
                         
-                        Button {
-                            vm.selectedSport = "Tennis"
-                            vm.showSportPicker = false
-                        } label: {
-                            HStack {
+                        // Divisore
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(height: 0.5)
+                            .padding(.horizontal, 16)
+                        
+                        // Opzione Tennis
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                vm.selectedSport = "Tennis"
+                                vm.showSportPicker = false
+                            }
+                        }) {
+                            HStack(spacing: 12) {
                                 Image(systemName: "tennis.racket")
+                                    .font(.system(size: 16))
                                     .foregroundColor(vm.selectedSport == "Tennis" ? .accentCyan : .white)
+                                    .frame(width: 24)
+                                
                                 Text("Tennis")
+                                    .font(.system(size: 15))
                                     .foregroundColor(vm.selectedSport == "Tennis" ? .accentCyan : .white)
+                                
                                 Spacer()
+                                
                                 if vm.selectedSport == "Tennis" {
                                     Image(systemName: "checkmark")
+                                        .font(.system(size: 13, weight: .bold))
                                         .foregroundColor(.accentCyan)
                                 }
                             }
                             .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .frame(width: 150)
-                        }
-                        .background(vm.selectedSport == "Tennis" ? Color.accentCyan.opacity(0.2) : Color.clear)
-                        
-                        Divider()
-                            .background(Color.gray.opacity(0.3))
-                            .padding(.horizontal, 8)
-                        
-                        Button {
-                            vm.showSportPicker = false
-                        } label: {
-                            Text("Chiudi")
-                                .foregroundColor(.accentCyan)
-                                .font(.caption)
-                                .padding(.vertical, 8)
-                                .frame(width: 150)
+                            .padding(.vertical, 14)
+                            .background(vm.selectedSport == "Tennis" ? Color.accentCyan.opacity(0.1) : Color.clear)
                         }
                     }
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(red: 0.15, green: 0.15, blue: 0.15)) // MENO TRASPARENZA
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color(red: 0.11, green: 0.11, blue: 0.12))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.accentCyan.opacity(0.3), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
                             )
-                            .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5)
                     )
-                    .offset(y: 60)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 16)
-                    .zIndex(1000)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .shadow(color: .black.opacity(0.4), radius: 20, x: 0, y: 5)
+                    .frame(width: 180)
                 }
-            },
-            alignment: .topLeading
-        )
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: vm.showSportPicker)
-        .onTapGesture {
-            if vm.showSportPicker {
-                vm.showSportPicker = false
+                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
+                .zIndex(1000)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.trailing, 16)
             }
         }
     }
@@ -866,11 +885,10 @@ struct ContentView: View {
             }
             .padding(.horizontal)
         }
-        .padding(.bottom, 8)
+        .padding(.vertical, 12)
     }
     
     // MARK: MATCH LIST
-    
     private var matchListView: some View {
         let groupedMatches = vm.matchesForSelectedDay()
         let isYesterday = vm.selectedDayIndex == 0
@@ -894,7 +912,7 @@ struct ContentView: View {
                                 NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
                                     matchCardView(match: match, disabled: isYesterday)
                                 }
-                                .disabled(isYesterday) // Disabilita per partite di ieri
+                                .disabled(isYesterday)
                             }
                         }
                     }
@@ -902,7 +920,7 @@ struct ContentView: View {
             }
             .padding()
         }
-        .id("\(vm.selectedDayIndex)-\(vm.selectedSport)") // Aggiorna quando cambia sport o giorno
+        .id("\(vm.selectedDayIndex)-\(vm.selectedSport)")
         .transition(.opacity)
     }
     
@@ -963,7 +981,6 @@ struct ContentView: View {
                 }
             }
             
-            // Per il tennis, mostriamo solo 1 e 2 (non c'è X)
             HStack(spacing: 0) {
                 VStack(spacing: 4) {
                     Text("1")
@@ -1020,7 +1037,6 @@ struct ContentView: View {
     }
     
     // MARK: PLACED BETS
-    
     private var placedBetsView: some View {
         ScrollView {
             VStack(spacing: 12) {
@@ -1060,7 +1076,6 @@ struct ContentView: View {
     }
     
     // MARK: - FLOATING BUTTON
-    
     private var floatingButtonView: some View {
         Group {
             if !vm.currentPicks.isEmpty && vm.selectedTab != 3 {
@@ -1095,7 +1110,6 @@ struct ContentView: View {
     }
     
     // MARK: - BOTTOM BAR
-    
     private var bottomBarView: some View {
         ZStack {
             Rectangle()
@@ -1116,12 +1130,14 @@ struct ContentView: View {
     
     private func bottomItemView(index: Int) -> some View {
         let icon: String
+        let title: String
+        
         switch index {
-        case 0: icon = "calendar"
-        case 1: icon = "dice.fill"
-        case 2: icon = "list.bullet"
-        case 3: icon = "person.crop.circle"
-        default: icon = "circle"
+        case 0: icon = "calendar"; title = "Calendario"
+        case 1: icon = "dice.fill"; title = "Giochi"
+        case 2: icon = "list.bullet"; title = "Schedine"
+        case 3: icon = "person.crop.circle"; title = "Profilo"
+        default: icon = "circle"; title = ""
         }
         
         return Button {
@@ -1144,6 +1160,10 @@ struct ContentView: View {
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(vm.selectedTab == index ? .accentCyan : .white.opacity(0.7))
                 }
+                
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(vm.selectedTab == index ? .accentCyan : .white.opacity(0.7))
                 
                 if vm.selectedTab == index {
                     Capsule()
