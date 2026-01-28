@@ -728,8 +728,8 @@ struct ContentView: View {
                                             .frame(width: 30)
                                         
                                         Text("Calcio")
-                                            .font(.system(size: 16, weight: .medium))
-                                            .foregroundColor(vm.selectedSport == "Calcio" ? .accentCyan : .white)
+                                            .font(.system(size: 18, weight: .semibold))
+                                            .foregroundColor(.white)
                                         
                                         Spacer()
                                         
@@ -765,8 +765,8 @@ struct ContentView: View {
                                             .frame(width: 30)
                                         
                                         Text("Tennis")
-                                            .font(.system(size: 16, weight: .medium))
-                                            .foregroundColor(vm.selectedSport == "Tennis" ? .accentCyan : .white)
+                                            .font(.system(size: 18, weight: .semibold))
+                                            .foregroundColor(.white)
                                         
                                         Spacer()
                                         
@@ -782,17 +782,17 @@ struct ContentView: View {
                                 }
                                 .background(vm.selectedSport == "Tennis" ? Color.accentCyan.opacity(0.1) : Color.clear)
                             }
-                            .background(Color(red: 0.11, green: 0.11, blue: 0.12))
+                            .background(Color(red: 0.15, green: 0.15, blue: 0.17))
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+                                    .stroke(Color.accentCyan.opacity(0.3), lineWidth: 1)
                             )
-                            .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 5)
+                            .shadow(color: .black.opacity(0.7), radius: 20, x: 0, y: 5)
                         }
                         .frame(maxWidth: 160)
                         .padding(.horizontal, 16)
-                        .offset(x: -8, y: 8)
+                        .offset(x: -100, y: 8)
                     )
             }
         }
