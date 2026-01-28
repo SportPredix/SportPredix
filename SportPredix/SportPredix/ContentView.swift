@@ -677,18 +677,10 @@ struct ContentView: View {
                 Spacer()
                 
                 // Saldo utente
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("€\(vm.balance, specifier: "%.2f")")
-                        .font(.headline)
-                        .foregroundColor(.accentCyan)
-                        .bold()
-                    
-                    if vm.selectedTab == 0 {
-                        Text("saldo")
-                            .font(.system(size: 10))
-                            .foregroundColor(.gray)
-                    }
-                }
+                Text("€\(vm.balance, specifier: "%.2f")")
+                    .font(.headline)
+                    .foregroundColor(.accentCyan)
+                    .bold()
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -747,9 +739,9 @@ struct ContentView: View {
                                                 .foregroundColor(.accentCyan)
                                         }
                                     }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 14)
-                                    .frame(width: 180)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 12)
+                                    .frame(maxWidth: .infinity)
                                 }
                                 .background(vm.selectedSport == "Calcio" ? Color.accentCyan.opacity(0.1) : Color.clear)
                                 
@@ -784,9 +776,9 @@ struct ContentView: View {
                                                 .foregroundColor(.accentCyan)
                                         }
                                     }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 14)
-                                    .frame(width: 180)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 12)
+                                    .frame(maxWidth: .infinity)
                                 }
                                 .background(vm.selectedSport == "Tennis" ? Color.accentCyan.opacity(0.1) : Color.clear)
                             }
@@ -798,9 +790,9 @@ struct ContentView: View {
                             )
                             .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 5)
                         }
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(.trailing, 60)
-                        .offset(y: -100)
+                        .frame(maxWidth: 160)
+                        .padding(.horizontal, 16)
+                        .offset(x: -8, y: 8)
                     )
             }
         }
