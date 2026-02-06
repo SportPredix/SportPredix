@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import AuthenticationServices
 
 // MARK: - THEME
 
@@ -51,6 +52,11 @@ final class BettingViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var lastUpdateTime: Date?
     
+    // ⭐⭐⭐ NUOVO: Proprietà per Apple Sign In
+    var isSignedInWithApple: Bool {
+        UserDefaults.standard.string(forKey: "appleUserID") != nil
+    }
+    
     private let slipsKey = "savedSlips"
     private let matchesKey = "savedMatches"
     private let lastFetchKey = "lastBetstackFetch"
@@ -74,6 +80,22 @@ final class BettingViewModel: ObservableObject {
         }
         
         loadMatchesForAllDays()
+    }
+    
+    // ⭐⭐⭐ NUOVO: Verifica stato Apple Sign In
+    func checkAppleAuthOnLaunch() {
+        guard let userID = UserDefaults.standard.string(forKey: "appleUserID") else {
+            return
+        }
+        
+        let provider = ASAuthorizationAppleIDProvider()
+        provider.getCredentialState(forUserID: userID) { state, error in
+            if state != .authorized {
+                DispatchQueue.main.async {
+                    UserDefaults.standard.removeObject(forKey: "appleUserID")
+                }
+            }
+        }
     }
     
     private func loadMatchesForAllDays() {
@@ -610,30 +632,36 @@ struct ContentView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 
-                VStack(spacing: 0) {
-                    
-                    // HEADER MODIFICATO
-                    headerView
-                    
-                    if vm.selectedTab == 0 {
-                        calendarBarView
+                // ⭐⭐⭐ MODIFICATO: Controllo Sign in with Apple
+                if vm.isSignedInWithApple {
+                    // Utente autenticato - mostra app normale
+                    VStack(spacing: 0) {
+                        // HEADER MODIFICATO
+                        headerView
                         
-                        if vm.isLoading {
-                            loadingView
-                        } else {
-                            matchListView
+                        if vm.selectedTab == 0 {
+                            calendarBarView
+                            
+                            if vm.isLoading {
+                                loadingView
+                            } else {
+                                matchListView
+                            }
+                        } else if vm.selectedTab == 1 {
+                            GamesView()
+                                .environmentObject(vm)
+                        } else if vm.selectedTab == 2 {
+                            placedBetsView
+                        } else if vm.selectedTab == 3 {
+                            ProfileView()
+                                .environmentObject(vm)
                         }
-                    } else if vm.selectedTab == 1 {
-                        GamesView()
-                            .environmentObject(vm)
-                    } else if vm.selectedTab == 2 {
-                        placedBetsView
-                    } else if vm.selectedTab == 3 {
-                        ProfileView()
-                            .environmentObject(vm)
+                        
+                        bottomBarView
                     }
-                    
-                    bottomBarView
+                } else {
+                    // ⭐⭐⭐ NUOVO: Utente NON autenticato - mostra schermata Apple Sign In
+                    AppleSignInRequiredView()
                 }
                 
                 floatingButtonView
@@ -648,6 +676,9 @@ struct ContentView: View {
             .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
         }
         .navigationBarHidden(true)
+        .onAppear {
+            vm.checkAppleAuthOnLaunch()
+        }
     }
     
     // MARK: - HEADER NUOVO STILE
@@ -697,7 +728,6 @@ struct ContentView: View {
             alignment: .top
         )
     }
-    
     
     private var sportDropdownMenu: some View {
         Group {
@@ -1132,6 +1162,166 @@ struct ContentView: View {
                         .frame(width: 22, height: 4)
                 }
             }
+        }
+    }
+}
+
+// ⭐⭐⭐ NUOVO: Schermata Apple Sign In Required
+struct AppleSignInRequiredView: View {
+    @State private var isSigningIn = false
+    @State private var showError = false
+    @State private var errorMessage = ""
+    
+    var body: some View {
+        VStack(spacing: 30) {
+            Spacer()
+            
+            // Icona Apple con animazione
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.accentCyan.opacity(0.2), .blue.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 120, height: 120)
+                
+                Image(systemName: "apple.logo")
+                    .font(.system(size: 50))
+                    .foregroundColor(.accentCyan)
+            }
+            
+            VStack(spacing: 12) {
+                Text("Benvenuto in SportPredix")
+                    .font(.title.bold())
+                    .foregroundColor(.white)
+                
+                Text("Accedi con il tuo Apple ID per iniziare a scommettere\nÈ l'unico metodo di accesso disponibile per garantire la massima sicurezza.")
+                    .font(.body)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+            }
+            .padding(.horizontal, 40)
+            
+            // Benefici Apple Sign In
+            VStack(alignment: .leading, spacing: 16) {
+                benefitRow(
+                    icon: "lock.shield.fill",
+                    title: "Privacy Garantita",
+                    description: "Apple non traccia la tua attività nelle scommesse"
+                )
+                
+                benefitRow(
+                    icon: "envelope.badge.fill",
+                    title: "Email Protetta",
+                    description: "La tua email personale rimane sempre privata"
+                )
+                
+                benefitRow(
+                    icon: "checkmark.seal.fill",
+                    title: "Sicurezza Apple",
+                    description: "Face ID / Touch ID integrati"
+                )
+                
+                benefitRow(
+                    icon: "person.badge.key.fill",
+                    title: "Accesso Esclusivo",
+                    description: "Solo utenti Apple possono utilizzare l'app"
+                )
+            }
+            .padding()
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(16)
+            .padding(.horizontal, 20)
+            
+            Spacer()
+            
+            // Bottone Sign In
+            if isSigningIn {
+                ProgressView()
+                    .scaleEffect(1.2)
+                    .tint(.accentCyan)
+                    .padding(.bottom, 40)
+            } else {
+                VStack(spacing: 12) {
+                    SignInWithAppleButton(.signIn) { request in
+                        request.requestedScopes = [.fullName, .email]
+                        isSigningIn = true
+                    } onCompletion: { result in
+                        handleSignInCompletion(result)
+                    }
+                    .signInWithAppleButtonStyle(.white)
+                    .frame(height: 50)
+                    
+                    Text("Nessun altro metodo di accesso disponibile")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
+            }
+        }
+        .padding()
+        .alert("Errore Accesso", isPresented: $showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+    }
+    
+    private func benefitRow(icon: String, title: String, description: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(.accentCyan)
+                .frame(width: 24)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.bold())
+                    .foregroundColor(.white)
+                
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            
+            Spacer()
+        }
+    }
+    
+    private func handleSignInCompletion(_ result: Result<ASAuthorization, Error>) {
+        isSigningIn = false
+        
+        switch result {
+        case .success(let authorization):
+            if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
+                // Salva l'userID di Apple
+                let userID = credential.user
+                UserDefaults.standard.set(userID, forKey: "appleUserID")
+                
+                // Salva il nome se disponibile
+                if let fullName = credential.fullName {
+                    let nameComponents = [fullName.givenName, fullName.familyName]
+                        .compactMap { $0 }
+                    
+                    if !nameComponents.isEmpty {
+                        UserDefaults.standard.set(nameComponents.joined(separator: " "), forKey: "userName")
+                    }
+                }
+                
+                // Forza il refresh dell'interfaccia
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("AppleSignInCompleted"),
+                    object: nil
+                )
+            }
+            
+        case .failure(let error):
+            errorMessage = error.localizedDescription
+            showError = true
         }
     }
 }
