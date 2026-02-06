@@ -1292,125 +1292,36 @@ struct AppleSignInRequiredView: View {
         }
     }
     
-private func handleSignInCompletion(_ result: Result<ASAuthorization, Error>) {
-    isSigningIn = false
-    
-    print("🎯 Apple Sign In Completion chiamato")
-    
-    switch result {
-    case .success(let authorization):
-        print("✅ Apple ha risposto con successo")
+    private func handleSignInCompletion(_ result: Result<ASAuthorization, Error>) {
+        isSigningIn = false
         
-        if let credential = authorization.credential as? ASAthorizationAppleIDCredential {
-            let userID = credential.user
-            print("📱 User ID ricevuto: \(userID)")
-            
-            UserDefaults.standard.set(userID, forKey: "appleUserID")
-            
-            // Salva il nome se disponibile
-            if let fullName = credential.fullName {
-                let nameComponents = [fullName.givenName, fullName.familyName]
-                    .compactMap { $0 }
+        switch result {
+        case .success(let authorization):
+            if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
+                // Salva l'userID di Apple
+                let userID = credential.user
+                UserDefaults.standard.set(userID, forKey: "appleUserID")
                 
-                if !nameComponents.isEmpty {
-                    let appleName = nameComponents.joined(separator: " ")
-                    UserDefaults.standard.set(appleName, forKey: "userName")
-                    print("👤 Nome Apple: \(appleName)")
+                // Salva il nome se disponibile
+                if let fullName = credential.fullName {
+                    let nameComponents = [fullName.givenName, fullName.familyName]
+                        .compactMap { $0 }
+                    
+                    if !nameComponents.isEmpty {
+                        UserDefaults.standard.set(nameComponents.joined(separator: " "), forKey: "userName")
+                    }
                 }
-            }
-            
-            if let email = credential.email {
-                print("📧 Email Apple: \(email)")
-            }
-            
-            // 🔥 FORZA IL REFRESH IMMEDIATO
-            DispatchQueue.main.async {
-                print("🔄 Forzo refresh dell'interfaccia")
+                
+                // Forza il refresh dell'interfaccia
                 NotificationCenter.default.post(
                     name: NSNotification.Name("AppleSignInCompleted"),
-                    object: nil,
-                    userInfo: ["userID": userID]
+                    object: nil
                 )
             }
-        }
-        
-    case .failure(let error):
-        print("❌ ERRORE Apple Sign In: \(error.localizedDescription)")
-        errorMessage = error.localizedDescription
-        showError = true
-    }
-} // Fine di handleSignInCompletion
-
-} // ⭐⭐⭐ QUESTA CHIUDE AppleSignInRequiredView ⭐⭐⭐
-
-// MARK: - BOTTOM BAR (assicurati che ci sia se manca)
-private var bottomBarView: some View {
-    ZStack {
-        Rectangle()
-            .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
-            .frame(height: 70)
-            .cornerRadius(26)
-            .padding(.horizontal)
-            .shadow(color: .black.opacity(0.25), radius: 10, y: -2)
-        
-        HStack(spacing: 50) {
-            ForEach(0..<4) { index in
-                bottomItemView(index: index)
-            }
-        }
-    }
-    .padding(.bottom, 8)
-}
-
-private func bottomItemView(index: Int) -> some View {
-    let icon: String
-    
-    switch index {
-    case 0: icon = "calendar"
-    case 1: icon = "dice.fill"
-    case 2: icon = "list.bullet"
-    case 3: icon = "person.crop.circle"
-    default: icon = "circle"
-    }
-    
-    return Button {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-            vm.selectedTab = index
-            if index != 0 {
-                vm.showSportPicker = false
-            }
-        }
-    } label: {
-        VStack(spacing: 4) {
-            ZStack {
-                if vm.selectedTab == index {
-                    Circle()
-                        .fill(Color.accentCyan.opacity(0.25))
-                        .frame(width: 44, height: 44)
-                }
-                
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(vm.selectedTab == index ? .accentCyan : .white.opacity(0.7))
-            }
             
-            if vm.selectedTab == index {
-                Capsule()
-                    .fill(Color.accentCyan)
-                    .frame(width: 22, height: 4)
-                    .matchedGeometryEffect(id: "tab", in: animationNamespace)
-            } else {
-                Capsule()
-                    .fill(Color.clear)
-                    .frame(width: 22, height: 4)
-            }
+        case .failure(let error):
+            errorMessage = error.localizedDescription
+            showError = true
         }
-    }
-}
-
-// MARK: - PREVIEW
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
     }
 }
