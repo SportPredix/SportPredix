@@ -25,8 +25,43 @@ struct GamesView: View {
     @EnvironmentObject var vm: BettingViewModel
     
     var body: some View {
-        ZStack {
-            // Sfondo che copre TUTTO, incluso lo spazio della toolbar
+        ScrollView {
+            VStack(spacing: 20) {
+                // Grid giochi
+                LazyVGrid(columns: columns, spacing: 20) {
+                    ForEach(games, id: \.0) { game in
+                        GameButton(
+                            title: game.0,
+                            icon: game.1,
+                            color: game.2
+                        )
+                        .environmentObject(vm)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 20)
+                
+                // Info footer
+                VStack(spacing: 8) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.accentCyan)
+                            .font(.caption)
+                        
+                        Text("Gioco responsabile • Maggiorenni • Vietato ai minori")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.top, 20)
+                    
+                    Text("Le vincite sono virtuali")
+                        .font(.caption2)
+                        .foregroundColor(.gray.opacity(0.7))
+                }
+                .padding(.bottom, 30)
+            }
+        }
+        .background(
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color.black,
@@ -36,92 +71,7 @@ struct GamesView: View {
                 endPoint: .bottom
             )
             .ignoresSafeArea()
-            
-            // Particelle di sfondo
-            GeometryReader { geometry in
-                ForEach(0..<15) { i in
-                    Circle()
-                        .fill(Color.accentCyan.opacity(0.1))
-                        .frame(width: CGFloat.random(in: 5...20))
-                        .position(
-                            x: CGFloat.random(in: 0...geometry.size.width),
-                            y: CGFloat.random(in: 0...geometry.size.height)
-                        )
-                        .blur(radius: 2)
-                }
-            }
-            
-            VStack(spacing: 0) {
-                // ⭐⭐⭐ MODIFICATO: SOLO la seconda barra con "Casino"
-                headerView
-                
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Grid giochi
-                        LazyVGrid(columns: columns, spacing: 20) {
-                            ForEach(games, id: \.0) { game in
-                                GameButton(
-                                    title: game.0,
-                                    icon: game.1,
-                                    color: game.2
-                                )
-                                .environmentObject(vm)
-                            }
-                        }
-                        .padding(.horizontal)
-                        .padding(.top, 20) // Spazio dall'header
-                        
-                        // Info footer
-                        VStack(spacing: 8) {
-                            HStack(spacing: 10) {
-                                Image(systemName: "info.circle")
-                                    .foregroundColor(.accentCyan)
-                                    .font(.caption)
-                                
-                                Text("Gioco responsabile • Maggiorenni • Vietato ai minori")
-                                    .font(.caption2)
-                                    .foregroundColor(.gray)
-                            }
-                            .padding(.top, 20)
-                            
-                            Text("Le vincite sono virtuali")
-                                .font(.caption2)
-                                .foregroundColor(.gray.opacity(0.7))
-                        }
-                        .padding(.bottom, 30)
-                    }
-                }
-                .padding(.bottom, 20) // Spazio per la bottom bar
-            }
-        }
-    }
-    
-    // MARK: - HEADER MODIFICATO: "Casino" e saldo a destra
-    private var headerView: some View {
-        VStack(spacing: 0) {
-            HStack {
-                // Logo/Titolo: Casino
-                Text("Casino")
-                    .font(.title2.bold())
-                    .foregroundColor(.white)
-                
-                Spacer()
-                
-                // Saldo utente (versione compatta)
-                Text("€\(vm.balance, specifier: "%.2f")")
-                    .font(.headline)
-                    .foregroundColor(.accentCyan)
-                    .bold()
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            
-            // Linea sottile divisoria
-            Rectangle()
-                .fill(Color.white.opacity(0.1))
-                .frame(height: 0.5)
-        }
-        .background(Color.black.opacity(0.95))
+        )
     }
 }
 
@@ -208,7 +158,7 @@ struct GameButton: View {
     }
 }
 
-// MARK: - GIOCO GRATTA E VINCI CORRETTO (con costo e particelle fixate)
+// MARK: - GIOCO GRATTA E VINCI
 struct ScratchCardView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var balance: Double
@@ -755,7 +705,7 @@ struct ScratchCardView: View {
     }
 }
 
-// MARK: - SLOT MACHINE (nessuna modifica qui)
+// MARK: - SLOT MACHINE
 struct SlotMachineView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var balance: Double
