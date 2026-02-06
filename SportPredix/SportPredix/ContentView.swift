@@ -693,9 +693,13 @@ struct ContentView: View {
                 if vm.isSignedInWithApple {
                     // Utente autenticato - mostra app normale
                     VStack(spacing: 0) {
-                        // HEADER MODIFICATO: Mostra solo per Sport (tab 0)
-                        if vm.selectedTab == 0 {
+                        // ⭐⭐⭐ MODIFICATO: Header SEMPRE VISIBILE tranne per il Casino
+                        if vm.selectedTab != 1 {
                             headerView
+                        }
+                        
+                        // ⭐⭐⭐ MODIFICATO: Contenuto per ogni tab
+                        if vm.selectedTab == 0 {
                             calendarBarView
                             
                             if vm.isLoading {
@@ -704,8 +708,8 @@ struct ContentView: View {
                                 matchListView
                             }
                         } else if vm.selectedTab == 1 {
-                            // ⭐⭐⭐ MODIFICATO: Casino - schermata speciale senza header generico
-                            CasinoMainView()
+                            // ⭐⭐⭐ MODIFICATO: Casino - layout speciale senza stacco
+                            CasinoFullView()
                                 .environmentObject(vm)
                         } else if vm.selectedTab == 2 {
                             placedBetsView
@@ -714,6 +718,7 @@ struct ContentView: View {
                                 .environmentObject(vm)
                         }
                         
+                        // ⭐⭐⭐ MODIFICATO: Bottom bar SEMPRE visibile
                         bottomBarView
                     }
                     .id(refreshID) // ⭐⭐⭐ Questo forza il refresh quando cambia
@@ -1490,13 +1495,13 @@ struct AppleSignInRequiredView: View {
     }
 }
 
-// ⭐⭐⭐ NUOVO: Schermata Casino Main con header dedicato
-struct CasinoMainView: View {
+// ⭐⭐⭐ NUOVO: Schermata Casino Completa con sfondo continuo
+struct CasinoFullView: View {
     @EnvironmentObject var vm: BettingViewModel
     
     var body: some View {
         ZStack {
-            // Sfondo che copre TUTTO
+            // ⭐⭐⭐ FIX: Sfondo che parte DALL'ALTO e copre TUTTO
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color.black,
@@ -1506,9 +1511,10 @@ struct CasinoMainView: View {
                 endPoint: .bottom
             )
             .ignoresSafeArea()
+            .edgesIgnoringSafeArea(.all) // ⭐⭐⭐ IMPORTANTE: Copre tutto
             
             VStack(spacing: 0) {
-                // Header DEDICATO per Casino
+                // ⭐⭐⭐ Header DEDICATO per Casino (con sfondo nero)
                 VStack(spacing: 0) {
                     HStack {
                         Text("Casino")
@@ -1517,7 +1523,7 @@ struct CasinoMainView: View {
                         
                         Spacer()
                         
-                        // Saldo utente (versione compatta)
+                        // Saldo utente
                         Text("€\(vm.balance, specifier: "%.2f")")
                             .font(.headline)
                             .foregroundColor(.accentCyan)
@@ -1532,16 +1538,18 @@ struct CasinoMainView: View {
                         .frame(height: 0.5)
                 }
                 .background(Color.black.opacity(0.95))
+                .zIndex(1) // ⭐⭐⭐ IMPORTANTE: Mette l'header sopra tutto
                 
-                // Contenuto del Casino
+                // ⭐⭐⭐ Contenuto del Casino che si estende fino in fondo
                 GamesContentView()
                     .environmentObject(vm)
+                    .background(Color.clear) // ⭐⭐⭐ Trasparente per mostrare il gradiente
             }
         }
     }
 }
 
-// ⭐⭐⭐ MODIFICATO: GamesContentView senza header proprio
+// ⭐⭐⭐ MODIFICATO: GamesContentView SEMPLIFICATO
 struct GamesContentView: View {
     let games = [
         ("Gratta e Vinci", "sparkles", Color.accentCyan),
@@ -1591,11 +1599,12 @@ struct GamesContentView: View {
                     
                     Text("Le vincite sono virtuali")
                         .font(.caption2)
-                        .foregroundColor(.gray.opacity(0.7))
+                            .foregroundColor(.gray.opacity(0.7))
                 }
                 .padding(.bottom, 30)
             }
             .padding(.bottom, 80) // Spazio per la bottom bar
         }
+        .background(Color.clear) // ⭐⭐⭐ IMPORTANTE: Trasparente!
     }
 }

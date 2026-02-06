@@ -61,17 +61,6 @@ struct GamesView: View {
                 .padding(.bottom, 30)
             }
         }
-        .background(
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.black,
-                    Color(red: 0.08, green: 0.08, blue: 0.12)
-                ]),
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        )
     }
 }
 
@@ -158,7 +147,7 @@ struct GameButton: View {
     }
 }
 
-// MARK: - GIOCO GRATTA E VINCI
+// MARK: - GIOCO GRATTA E VINCI CORRETTO (con costo e particelle fixate)
 struct ScratchCardView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var balance: Double
@@ -705,7 +694,7 @@ struct ScratchCardView: View {
     }
 }
 
-// MARK: - SLOT MACHINE
+// MARK: - SLOT MACHINE (nessuna modifica qui)
 struct SlotMachineView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var balance: Double
