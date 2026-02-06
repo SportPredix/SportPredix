@@ -80,20 +80,74 @@ final class BettingViewModel: ObservableObject {
         }
         
         loadMatchesForAllDays()
+        
+        // ⭐⭐⭐ AGGIUNGI: Ascolta le notifiche per Sign In/Sign Out
+        setupAuthNotifications()
+    }
+    
+    // ⭐⭐⭐ NUOVO: Configura notifiche per autenticazione
+    private func setupAuthNotifications() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("AppleSignInCompleted"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            print("🔄 ViewModel ricevuta notifica AppleSignInCompleted")
+            self?.objectWillChange.send()
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("AppleSignOutCompleted"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            print("🔄 ViewModel ricevuta notifica AppleSignOutCompleted")
+            self?.objectWillChange.send()
+        }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     // ⭐⭐⭐ NUOVO: Verifica stato Apple Sign In
     func checkAppleAuthOnLaunch() {
         guard let userID = UserDefaults.standard.string(forKey: "appleUserID") else {
+            print("ℹ️ Nessun Apple User ID trovato")
             return
         }
         
+        print("🔍 Verificando stato Apple ID per: \(userID)")
         let provider = ASAuthorizationAppleIDProvider()
         provider.getCredentialState(forUserID: userID) { state, error in
-            if state != .authorized {
+            if let error = error {
+                print("❌ Errore verifica Apple ID: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     UserDefaults.standard.removeObject(forKey: "appleUserID")
+                    self.objectWillChange.send()
                 }
+                return
+            }
+            
+            switch state {
+            case .authorized:
+                print("✅ Apple ID autorizzato")
+            case .revoked:
+                print("❌ Apple ID revocato")
+                DispatchQueue.main.async {
+                    UserDefaults.standard.removeObject(forKey: "appleUserID")
+                    self.objectWillChange.send()
+                }
+            case .notFound:
+                print("❌ Apple ID non trovato")
+                DispatchQueue.main.async {
+                    UserDefaults.standard.removeObject(forKey: "appleUserID")
+                    self.objectWillChange.send()
+                }
+            case .transferred:
+                print("ℹ️ Apple ID trasferito")
+            @unknown default:
+                print("❓ Stato Apple ID sconosciuto")
             }
         }
     }
@@ -627,12 +681,15 @@ struct ContentView: View {
     @StateObject private var vm = BettingViewModel()
     @Namespace private var animationNamespace
     
+    // ⭐⭐⭐ AGGIUNGI: Stato per forzare il refresh
+    @State private var refreshID = UUID()
+    
     var body: some View {
         NavigationView {
             ZStack {
                 Color.black.ignoresSafeArea()
                 
-                // ⭐⭐⭐ MODIFICATO: Controllo Sign in with Apple
+                // ⭐⭐⭐ MODIFICATO: Usa refreshID per forzare aggiornamento
                 if vm.isSignedInWithApple {
                     // Utente autenticato - mostra app normale
                     VStack(spacing: 0) {
@@ -659,6 +716,7 @@ struct ContentView: View {
                         
                         bottomBarView
                     }
+                    .id(refreshID) // ⭐⭐⭐ Questo forza il refresh quando cambia
                 } else {
                     // ⭐⭐⭐ NUOVO: Utente NON autenticato - mostra schermata Apple Sign In
                     AppleSignInRequiredView()
@@ -678,6 +736,21 @@ struct ContentView: View {
         .navigationBarHidden(true)
         .onAppear {
             vm.checkAppleAuthOnLaunch()
+        }
+        // ⭐⭐⭐ AGGIUNGI: Ascolta le notifiche di autenticazione
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("AppleSignInCompleted"))) { _ in
+            print("🔄 ContentView: Ricevuta notifica AppleSignInCompleted")
+            refreshID = UUID() // Forza refresh dell'interfaccia
+            
+            // Ricarica anche il view model
+            vm.objectWillChange.send()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("AppleSignOutCompleted"))) { _ in
+            print("🔄 ContentView: Ricevuta notifica AppleSignOutCompleted")
+            refreshID = UUID() // Forza refresh dell'interfaccia
+            
+            // Ricarica anche il view model
+            vm.objectWillChange.send()
         }
     }
     
@@ -1241,20 +1314,59 @@ struct AppleSignInRequiredView: View {
             
             // Bottone Sign In
             if isSigningIn {
-                ProgressView()
-                    .scaleEffect(1.2)
-                    .tint(.accentCyan)
-                    .padding(.bottom, 40)
+                VStack(spacing: 15) {
+                    ProgressView()
+                        .scaleEffect(1.2)
+                        .tint(.accentCyan)
+                    
+                    Text("Accesso in corso...")
+                        .foregroundColor(.accentCyan)
+                        .font(.caption)
+                }
+                .padding(.bottom, 40)
             } else {
                 VStack(spacing: 12) {
                     SignInWithAppleButton(.signIn) { request in
                         request.requestedScopes = [.fullName, .email]
                         isSigningIn = true
+                        
+                        // Debug
+                        print("📱 Apple Sign In iniziato...")
                     } onCompletion: { result in
                         handleSignInCompletion(result)
                     }
                     .signInWithAppleButtonStyle(.white)
                     .frame(height: 50)
+                    
+                    // ⭐⭐⭐ TEMPORANEO: Bottone debug per test senza Apple Sign In
+                    Button(action: {
+                        // Simula login per testing
+                        print("🔧 Debug Login attivato")
+                        let debugUserID = "debug_user_\(UUID().uuidString)"
+                        UserDefaults.standard.set(debugUserID, forKey: "appleUserID")
+                        UserDefaults.standard.set("Debug User", forKey: "userName")
+                        UserDefaults.standard.synchronize()
+                        
+                        // Debug
+                        print("✅ Debug UserID salvato: \(debugUserID)")
+                        print("✅ Nome salvato: Debug User")
+                        
+                        // Forza il salvataggio
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("AppleSignInCompleted"),
+                                object: nil
+                            )
+                        }
+                    }) {
+                        Text("Debug Login (testing)")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .padding(8)
+                            .background(Color.gray.opacity(0.2))
+                            .cornerRadius(8)
+                    }
+                    .padding(.top, 10)
                     
                     Text("Nessun altro metodo di accesso disponibile")
                         .font(.caption)
@@ -1269,6 +1381,9 @@ struct AppleSignInRequiredView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(errorMessage)
+        }
+        .onAppear {
+            print("🔄 AppleSignInRequiredView caricato")
         }
     }
     
@@ -1293,35 +1408,86 @@ struct AppleSignInRequiredView: View {
     }
     
     private func handleSignInCompletion(_ result: Result<ASAuthorization, Error>) {
-        isSigningIn = false
-        
-        switch result {
-        case .success(let authorization):
-            if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
-                // Salva l'userID di Apple
-                let userID = credential.user
-                UserDefaults.standard.set(userID, forKey: "appleUserID")
-                
-                // Salva il nome se disponibile
-                if let fullName = credential.fullName {
-                    let nameComponents = [fullName.givenName, fullName.familyName]
-                        .compactMap { $0 }
+        DispatchQueue.main.async {
+            isSigningIn = false
+            
+            switch result {
+            case .success(let authorization):
+                if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
+                    // Salva l'userID di Apple
+                    let userID = credential.user
+                    UserDefaults.standard.set(userID, forKey: "appleUserID")
                     
-                    if !nameComponents.isEmpty {
-                        UserDefaults.standard.set(nameComponents.joined(separator: " "), forKey: "userName")
+                    // Salva il nome se disponibile
+                    if let fullName = credential.fullName {
+                        let nameComponents = [fullName.givenName, fullName.familyName]
+                            .compactMap { $0 }
+                        
+                        if !nameComponents.isEmpty {
+                            let fullNameString = nameComponents.joined(separator: " ")
+                            UserDefaults.standard.set(fullNameString, forKey: "userName")
+                            print("✅ Nome Apple salvato: \(fullNameString)")
+                        } else if let currentName = UserDefaults.standard.string(forKey: "userName") {
+                            // Mantieni il nome esistente se non c'è nuovo nome
+                            UserDefaults.standard.set(currentName, forKey: "userName")
+                            print("✅ Mantenuto nome esistente: \(currentName)")
+                        }
+                    }
+                    
+                    // Forza il salvataggio immediato
+                    UserDefaults.standard.synchronize()
+                    
+                    // Debug: verifica che l'ID sia salvato
+                    print("✅ Apple Sign In completato - UserID salvato: \(userID)")
+                    let isAuthenticated = UserDefaults.standard.string(forKey: "appleUserID") != nil
+                    print("✅ Stato autenticazione: \(isAuthenticated ? "Autenticato" : "Non autenticato")")
+                    
+                    // Posta la notifica
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("AppleSignInCompleted"),
+                        object: nil,
+                        userInfo: ["userID": userID]
+                    )
+                    
+                    // Aggiungi un piccolo delay per assicurarsi che tutto sia salvato
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        // Forza un aggiornamento dell'interfaccia
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("AppleSignInCompleted"),
+                            object: nil
+                        )
+                    }
+                } else {
+                    print("❌ Credenziale Apple non valida")
+                    errorMessage = "Credenziale di autenticazione non valida"
+                    showError = true
+                }
+                
+            case .failure(let error):
+                print("❌ Errore Apple Sign In: \(error.localizedDescription)")
+                errorMessage = error.localizedDescription
+                
+                // Controlla se l'utente ha annullato
+                if let authError = error as? ASAuthorizationError {
+                    switch authError.code {
+                    case .canceled:
+                        errorMessage = "Accesso annullato"
+                        print("ℹ️ Utente ha annullato l'accesso")
+                    case .failed:
+                        errorMessage = "Accesso fallito"
+                    case .invalidResponse:
+                        errorMessage = "Risposta non valida"
+                    case .notHandled:
+                        errorMessage = "Richiesta non gestita"
+                    case .unknown:
+                        errorMessage = "Errore sconosciuto"
+                    @unknown default:
+                        errorMessage = "Errore sconosciuto"
                     }
                 }
                 
-                // Forza il refresh dell'interfaccia
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("AppleSignInCompleted"),
-                    object: nil
-                )
+                showError = true
             }
-            
-        case .failure(let error):
-            errorMessage = error.localizedDescription
-            showError = true
         }
     }
 }
