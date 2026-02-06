@@ -1292,36 +1292,51 @@ struct AppleSignInRequiredView: View {
         }
     }
     
-    private func handleSignInCompletion(_ result: Result<ASAuthorization, Error>) {
-        isSigningIn = false
+   private func handleSignInCompletion(_ result: Result<ASAuthorization, Error>) {
+    isSigningIn = false
+    
+    print("🎯 Apple Sign In Completion chiamato")
+    
+    switch result {
+    case .success(let authorization):
+        print("✅ Apple ha risposto con successo")
         
-        switch result {
-        case .success(let authorization):
-            if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
-                // Salva l'userID di Apple
-                let userID = credential.user
-                UserDefaults.standard.set(userID, forKey: "appleUserID")
+        if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
+            let userID = credential.user
+            print("📱 User ID ricevuto: \(userID)")
+            
+            UserDefaults.standard.set(userID, forKey: "appleUserID")
+            
+            // Salva il nome se disponibile
+            if let fullName = credential.fullName {
+                let nameComponents = [fullName.givenName, fullName.familyName]
+                    .compactMap { $0 }
                 
-                // Salva il nome se disponibile
-                if let fullName = credential.fullName {
-                    let nameComponents = [fullName.givenName, fullName.familyName]
-                        .compactMap { $0 }
-                    
-                    if !nameComponents.isEmpty {
-                        UserDefaults.standard.set(nameComponents.joined(separator: " "), forKey: "userName")
-                    }
+                if !nameComponents.isEmpty {
+                    let appleName = nameComponents.joined(separator: " ")
+                    UserDefaults.standard.set(appleName, forKey: "userName")
+                    print("👤 Nome Apple: \(appleName)")
                 }
-                
-                // Forza il refresh dell'interfaccia
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("AppleSignInCompleted"),
-                    object: nil
-                )
             }
             
-        case .failure(let error):
-            errorMessage = error.localizedDescription
-            showError = true
+            if let email = credential.email {
+                print("📧 Email Apple: \(email)")
+            }
+            
+            // 🔥 FORZA IL REFRESH IMMEDIATO
+            DispatchQueue.main.async {
+                print("🔄 Forzo refresh dell'interfaccia")
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("AppleSignInCompleted"),
+                    object: nil,
+                    userInfo: ["userID": userID]
+                )
+            }
         }
+        
+    case .failure(let error):
+        print("❌ ERRORE Apple Sign In: \(error.localizedDescription)")
+        errorMessage = error.localizedDescription
+        showError = true
     }
 }
