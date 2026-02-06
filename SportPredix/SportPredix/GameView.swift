@@ -26,16 +26,17 @@ struct GamesView: View {
     
     var body: some View {
         ZStack {
-            // Sfondo con gradiente
+            // Sfondo con gradiente CONTINUO (stesso della ContentView)
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color.black,
-                    Color(red: 0.1, green: 0.1, blue: 0.2)
+                    Color(red: 0.08, green: 0.08, blue: 0.12)
                 ]),
                 startPoint: .top,
                 endPoint: .bottom
             )
             .ignoresSafeArea()
+            .edgesIgnoringSafeArea(.bottom) // Importante per sfondo continuo
             
             // Particelle di sfondo
             GeometryReader { geometry in
@@ -51,59 +52,90 @@ struct GamesView: View {
                 }
             }
             
-            ScrollView {
-                VStack(spacing: 25) {
-                    // Header
-                    VStack(spacing: 8) {
-                        Text("Casino")
-                            .font(.system(size: 36, weight: .bold))
-                            .foregroundColor(.white)
-                        
-                        Text("Gioca e Vinci")
-                            .font(.title3)
-                            .foregroundColor(.accentCyan)
-                        
-                        Text("Saldo: €\(vm.balance, specifier: "%.2f")")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .padding(.top, 5)
-                    }
-                    .padding(.top, 20)
-                    
-                    // Grid giochi
-                    LazyVGrid(columns: columns, spacing: 20) {
-                        ForEach(games, id: \.0) { game in
-                            GameButton(
-                                title: game.0,
-                                icon: game.1,
-                                color: game.2
-                            )
-                            .environmentObject(vm)
-                        }
-                    }
-                    .padding(.horizontal)
-                    
-                    // Info footer
-                    VStack(spacing: 8) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "info.circle")
-                                .foregroundColor(.accentCyan)
+            VStack(spacing: 0) { // spacing 0 per allineamento perfetto
+                // Header MODIFICATO: "Casino" invece di "Sport"
+                headerView
+                
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // SALDO (solo questo, rimosso gli altri titoli)
+                        VStack(spacing: 8) {
+                            Text("Saldo Giocabile")
                                 .font(.caption)
-                            
-                            Text("Gioco responsabile • Maggiorenni • Vietato ai minori")
-                                .font(.caption2)
                                 .foregroundColor(.gray)
+                            
+                            Text("€\(vm.balance, specifier: "%.2f")")
+                                .font(.system(size: 36, weight: .bold, design: .rounded))
+                                .foregroundColor(.accentCyan)
+                                .shadow(color: .accentCyan.opacity(0.3), radius: 5)
                         }
-                        .padding(.top, 10)
+                        .padding(.top, 20)
+                        .padding(.bottom, 10)
                         
-                        Text("Le vincite sono virtuali")
-                            .font(.caption2)
-                            .foregroundColor(.gray.opacity(0.7))
+                        // Grid giochi
+                        LazyVGrid(columns: columns, spacing: 20) {
+                            ForEach(games, id: \.0) { game in
+                                GameButton(
+                                    title: game.0,
+                                    icon: game.1,
+                                    color: game.2
+                                )
+                                .environmentObject(vm)
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        // Info footer
+                        VStack(spacing: 8) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "info.circle")
+                                    .foregroundColor(.accentCyan)
+                                    .font(.caption)
+                                
+                                Text("Gioco responsabile • Maggiorenni • Vietato ai minori")
+                                    .font(.caption2)
+                                    .foregroundColor(.gray)
+                            }
+                            .padding(.top, 10)
+                            
+                            Text("Le vincite sono virtuali")
+                                .font(.caption2)
+                                .foregroundColor(.gray.opacity(0.7))
+                        }
+                        .padding(.bottom, 30)
                     }
-                    .padding(.bottom, 30)
                 }
+                .padding(.bottom, 20) // Spazio per la bottom bar
             }
         }
+    }
+    
+    // MARK: - HEADER MODIFICATO: "Casino" invece di "Sport"
+    private var headerView: some View {
+        VStack(spacing: 0) {
+            HStack {
+                // Logo/Titolo: Casino
+                Text("Casino")
+                    .font(.title2.bold())
+                    .foregroundColor(.white)
+                
+                Spacer()
+                
+                // Saldo utente (versione compatta)
+                Text("€\(vm.balance, specifier: "%.2f")")
+                    .font(.headline)
+                    .foregroundColor(.accentCyan)
+                    .bold()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            
+            // Linea sottile divisoria
+            Rectangle()
+                .fill(Color.white.opacity(0.1))
+                .frame(height: 0.5)
+        }
+        .background(Color.black.opacity(0.95))
     }
 }
 
@@ -116,6 +148,14 @@ struct GameButton: View {
     
     var body: some View {
         Button {
+            // Verifica saldo per Gratta e Vinci
+            if title == "Gratta e Vinci" && vm.balance < 50 {
+                // Feedback di errore
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.error)
+                return
+            }
+            
             // Feedback
             let generator = UIImpactFeedbackGenerator(style: .medium)
             generator.impactOccurred()
@@ -140,13 +180,24 @@ struct GameButton: View {
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                 
-                Text("Gioca")
-                    .font(.caption)
-                    .foregroundColor(color)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(color.opacity(0.2))
-                    .cornerRadius(10)
+                // Prezzo per Gratta e Vinci
+                if title == "Gratta e Vinci" {
+                    Text("€50")
+                        .font(.caption.bold())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(Color.red.opacity(0.8))
+                        .cornerRadius(10)
+                } else {
+                    Text("Gioca")
+                        .font(.caption)
+                        .foregroundColor(color)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(color.opacity(0.2))
+                        .cornerRadius(10)
+                }
             }
             .frame(width: 160, height: 180)
             .background(
@@ -171,7 +222,7 @@ struct GameButton: View {
     }
 }
 
-// MARK: - GIOCO GRATTA E VINCI RIVISTO
+// MARK: - GIOCO GRATTA E VINCI CORRETTO (con costo e particelle fixate)
 struct ScratchCardView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var balance: Double
@@ -186,6 +237,7 @@ struct ScratchCardView: View {
     @State private var currentScratches = 0
     @State private var animationAmount: Double = 0
     @State private var confetti: [Confetti] = []
+    @State private var showInsufficientBalance = false
     
     // Premi più realistici con probabilità
     let prizes = [
@@ -210,9 +262,10 @@ struct ScratchCardView: View {
             )
             .ignoresSafeArea()
             
-            // Confetti
-            ForEach(confetti) { confetto in
-                ConfettiView(confetto: confetto)
+            // Confetti FIXATI: posizionati correttamente
+            ForEach(confetti.indices, id: \.self) { index in
+                ConfettiView(confetto: confetti[index])
+                    .id(confetti[index].id)
             }
             
             VStack(spacing: 20) {
@@ -235,24 +288,39 @@ struct ScratchCardView: View {
                     Spacer()
                     
                     // Pulsante saldo
-                    Text("€\(balance, specifier: "%.2f")")
-                        .font(.headline)
-                        .foregroundColor(.accentCyan)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.accentCyan.opacity(0.1))
-                        .cornerRadius(10)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Saldo")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        
+                        Text("€\(balance, specifier: "%.2f")")
+                            .font(.headline)
+                            .foregroundColor(.accentCyan)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.accentCyan.opacity(0.1))
+                    .cornerRadius(10)
                 }
                 .padding(.horizontal)
                 .padding(.top)
                 
+                // Costo del gioco
+                VStack(spacing: 5) {
+                    Text("Costo: €50")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    
+                    Text("Dopo aver pagato, gratta per scoprire il premio!")
+                        .font(.subheadline)
+                        .foregroundColor(.accentCyan)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal)
+                
                 if !showResult {
                     // Istruzioni
                     VStack(spacing: 10) {
-                        Text("Gratta per scoprire il tuo premio!")
-                            .font(.headline)
-                            .foregroundColor(.accentCyan)
-                        
                         Text("Premi possibili:")
                             .font(.subheadline)
                             .foregroundColor(.white)
@@ -343,71 +411,75 @@ struct ScratchCardView: View {
                             }
                         }
                         
-                        // STRATO DA GRATTARE (sopra)
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 25)
-                                .fill(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [
-                                            Color.gray.opacity(0.9),
-                                            Color.gray.opacity(0.7)
-                                        ]),
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
+                        // STRATO DA GRATTARE (sopra) - SOLO DOPO PAGAMENTO
+                        if isScratched {
+                            // Vuoto dopo aver grattato
+                        } else {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 25)
+                                    .fill(
+                                        LinearGradient(
+                                            gradient: Gradient(colors: [
+                                                Color.gray.opacity(0.9),
+                                                Color.gray.opacity(0.7)
+                                            ]),
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
                                     )
-                                )
-                                .frame(width: 320, height: 400)
-                                .overlay(
-                                    ZStack {
-                                        // Pattern texture
-                                        ForEach(0..<50) { i in
-                                            Circle()
-                                                .fill(Color.black.opacity(0.1))
-                                                .frame(width: CGFloat.random(in: 5...15))
-                                                .position(
-                                                    x: CGFloat.random(in: 0...320),
-                                                    y: CGFloat.random(in: 0...400)
-                                                )
+                                    .frame(width: 320, height: 400)
+                                    .overlay(
+                                        ZStack {
+                                            // Pattern texture
+                                            ForEach(0..<50) { i in
+                                                Circle()
+                                                    .fill(Color.black.opacity(0.1))
+                                                    .frame(width: CGFloat.random(in: 5...15))
+                                                    .position(
+                                                        x: CGFloat.random(in: 0...320),
+                                                        y: CGFloat.random(in: 0...400)
+                                                    )
+                                            }
+                                            
+                                            VStack(spacing: 20) {
+                                                Image(systemName: "hand.tap.fill")
+                                                    .font(.system(size: 50))
+                                                    .foregroundColor(.white.opacity(0.3))
+                                                
+                                                Text("GRATTA QUI")
+                                                    .font(.title.bold())
+                                                    .foregroundColor(.white.opacity(0.4))
+                                                    .shadow(color: .black.opacity(0.5), radius: 2)
+                                                
+                                                Image(systemName: "sparkles")
+                                                    .font(.title)
+                                                    .foregroundColor(.accentCyan.opacity(0.3))
+                                            }
                                         }
-                                        
-                                        VStack(spacing: 20) {
-                                            Image(systemName: "hand.tap.fill")
-                                                .font(.system(size: 50))
-                                                .foregroundColor(.white.opacity(0.3))
+                                    )
+                            }
+                            .opacity(scratchOpacity)
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { value in
+                                        if scratchOpacity > 0 {
+                                            let newPoint = value.location
+                                            scratchedPoints.append(newPoint)
+                                            currentScratches += 1
                                             
-                                            Text("GRATTA QUI")
-                                                .font(.title.bold())
-                                                .foregroundColor(.white.opacity(0.4))
-                                                .shadow(color: .black.opacity(0.5), radius: 2)
+                                            // Effetto di grattatura
+                                            withAnimation(.linear(duration: 0.1)) {
+                                                scratchOpacity = max(0.0, scratchOpacity - 0.02)
+                                            }
                                             
-                                            Image(systemName: "sparkles")
-                                                .font(.title)
-                                                .foregroundColor(.accentCyan.opacity(0.3))
+                                            if currentScratches >= scratchesNeeded {
+                                                revealPrize()
+                                            }
                                         }
                                     }
-                                )
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 25))
                         }
-                        .opacity(scratchOpacity)
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { value in
-                                    if !isScratched && scratchOpacity > 0 {
-                                        let newPoint = value.location
-                                        scratchedPoints.append(newPoint)
-                                        currentScratches += 1
-                                        
-                                        // Effetto di grattatura
-                                        withAnimation(.linear(duration: 0.1)) {
-                                            scratchOpacity = max(0.0, scratchOpacity - 0.02)
-                                        }
-                                        
-                                        if currentScratches >= scratchesNeeded {
-                                            revealPrize()
-                                        }
-                                    }
-                                }
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 25))
                     }
                     .overlay(
                         RoundedRectangle(cornerRadius: 25)
@@ -418,40 +490,76 @@ struct ScratchCardView: View {
                     Spacer()
                     
                     // Pulsanti azione
-                    HStack(spacing: 20) {
-                        Button {
-                            resetScratchCard()
-                        } label: {
-                            HStack {
-                                Image(systemName: "arrow.clockwise")
-                                Text("Nuova Card")
+                    if !isScratched {
+                        HStack(spacing: 20) {
+                            Button {
+                                startNewGame()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "cart.fill")
+                                    Text("Paga €50 e Gioca")
+                                }
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding()
+                                .frame(maxWidth: .infinity)
+                                .background(Color.green.opacity(0.8))
+                                .cornerRadius(15)
                             }
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.blue.opacity(0.3))
-                            .cornerRadius(15)
-                        }
-                        
-                        Button {
-                            revealPrize()
-                        } label: {
-                            HStack {
-                                Image(systemName: "eye.fill")
-                                Text("Rivela Ora")
+                            
+                            Button {
+                                presentationMode.wrappedValue.dismiss()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "xmark")
+                                    Text("Annulla")
+                                }
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding()
+                                .frame(maxWidth: .infinity)
+                                .background(Color.red.opacity(0.3))
+                                .cornerRadius(15)
                             }
-                            .font(.headline)
-                            .foregroundColor(.black)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.accentCyan)
-                            .cornerRadius(15)
                         }
-                        .disabled(isScratched)
+                        .padding(.horizontal, 30)
+                        .padding(.bottom, 20)
+                    } else {
+                        // Dopo aver grattato
+                        HStack(spacing: 20) {
+                            Button {
+                                startNewGame()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("Nuova Card")
+                                }
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding()
+                                .frame(maxWidth: .infinity)
+                                .background(Color.blue.opacity(0.3))
+                                .cornerRadius(15)
+                            }
+                            
+                            Button {
+                                presentationMode.wrappedValue.dismiss()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "house.fill")
+                                    Text("Torna al Casino")
+                                }
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding()
+                                .frame(maxWidth: .infinity)
+                                .background(Color.accentCyan)
+                                .cornerRadius(15)
+                            }
+                        }
+                        .padding(.horizontal, 30)
+                        .padding(.bottom, 20)
                     }
-                    .padding(.horizontal, 30)
-                    .padding(.bottom, 20)
                     
                 } else {
                     // Schermata risultato
@@ -499,6 +607,14 @@ struct ScratchCardView: View {
                                         .font(.title3)
                                         .foregroundColor(.green)
                                         .padding(.top, 5)
+                                    
+                                    Text("Costo: -€50 • Vincita netta: €\(prize - 50)")
+                                        .font(.headline)
+                                        .foregroundColor(.accentCyan)
+                                } else {
+                                    Text("Costo: -€50")
+                                        .font(.headline)
+                                        .foregroundColor(.red)
                                 }
                             }
                         }
@@ -508,7 +624,7 @@ struct ScratchCardView: View {
                         // Pulsanti
                         VStack(spacing: 15) {
                             Button {
-                                resetScratchCard()
+                                startNewGame()
                             } label: {
                                 Text(prize > 0 ? "GIOCA ANCORA" : "RIPROVA")
                                     .font(.headline.bold())
@@ -535,6 +651,11 @@ struct ScratchCardView: View {
                 }
             }
         }
+        .alert("Saldo insufficiente", isPresented: $showInsufficientBalance) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Ti servono €50 per giocare a Gratta e Vinci.\nIl tuo saldo attuale è di €\(balance, specifier: "%.2f")")
+        }
         .onAppear {
             // Seleziona premio probabilistico
             selectProbabilisticPrize()
@@ -557,6 +678,26 @@ struct ScratchCardView: View {
         }
     }
     
+    private func startNewGame() {
+        // Verifica saldo
+        guard balance >= 50 else {
+            showInsufficientBalance = true
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.error)
+            return
+        }
+        
+        // Paga €50
+        balance -= 50
+        
+        // Reset gioco
+        resetScratchCard()
+        
+        // Feedback positivo
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+    
     private func revealPrize() {
         withAnimation(.easeInOut(duration: 0.8)) {
             isScratched = true
@@ -572,7 +713,7 @@ struct ScratchCardView: View {
                 if prize > 0 {
                     balance += Double(prize)
                     
-                    // Lancia confetti se vinto
+                    // Lancia confetti FIXATI se vinto
                     launchConfetti()
                     
                     // Feedback
@@ -601,26 +742,34 @@ struct ScratchCardView: View {
     }
     
     private func launchConfetti() {
+        // Pulisci confetti vecchi
+        confetti.removeAll()
+        
+        // Crea nuovi confetti FIXATI
+        var newConfetti: [Confetti] = []
         for _ in 0..<50 {
             let confetto = Confetti(
                 id: UUID(),
-                x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
-                y: -50,
+                x: CGFloat.random(in: 50...UIScreen.main.bounds.width - 50),
+                y: -20, // Partono dall'alto
                 color: [.yellow, .accentCyan, .pink, .green, .orange].randomElement()!,
-                size: CGFloat.random(in: 5...15),
-                speed: CGFloat.random(in: 2...5)
+                size: CGFloat.random(in: 8...20),
+                speed: CGFloat.random(in: 3...8)
             )
-            confetti.append(confetto)
+            newConfetti.append(confetto)
         }
+        confetti = newConfetti
         
         // Rimuovi confetti dopo 3 secondi
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-            confetti.removeAll()
+            withAnimation(.easeOut(duration: 0.5)) {
+                confetti.removeAll()
+            }
         }
     }
 }
 
-// MARK: - SLOT MACHINE NUOVA E FUNZIONANTE
+// MARK: - SLOT MACHINE (nessuna modifica qui)
 struct SlotMachineView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var balance: Double
@@ -1178,7 +1327,7 @@ struct ConfettiView: View {
             .frame(width: confetto.size, height: confetto.size)
             .position(x: confetto.x, y: confetto.y + yOffset)
             .onAppear {
-                withAnimation(.linear(duration: 3)) {
+                withAnimation(.linear(duration: Double(confetto.speed))) {
                     yOffset = UIScreen.main.bounds.height + 100
                 }
             }
