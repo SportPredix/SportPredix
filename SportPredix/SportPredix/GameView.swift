@@ -26,7 +26,7 @@ struct GamesView: View {
     
     var body: some View {
         ZStack {
-            // Sfondo con gradiente CONTINUO (stesso della ContentView)
+            // Sfondo che copre TUTTO, incluso lo spazio della toolbar
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color.black,
@@ -36,7 +36,6 @@ struct GamesView: View {
                 endPoint: .bottom
             )
             .ignoresSafeArea()
-            .edgesIgnoringSafeArea(.bottom) // Importante per sfondo continuo
             
             // Particelle di sfondo
             GeometryReader { geometry in
@@ -52,26 +51,12 @@ struct GamesView: View {
                 }
             }
             
-            VStack(spacing: 0) { // spacing 0 per allineamento perfetto
-                // Header MODIFICATO: "Casino" invece di "Sport"
+            VStack(spacing: 0) {
+                // ⭐⭐⭐ MODIFICATO: SOLO la seconda barra con "Casino"
                 headerView
                 
                 ScrollView {
                     VStack(spacing: 20) {
-                        // SALDO (solo questo, rimosso gli altri titoli)
-                        VStack(spacing: 8) {
-                            Text("Saldo Giocabile")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                            
-                            Text("€\(vm.balance, specifier: "%.2f")")
-                                .font(.system(size: 36, weight: .bold, design: .rounded))
-                                .foregroundColor(.accentCyan)
-                                .shadow(color: .accentCyan.opacity(0.3), radius: 5)
-                        }
-                        .padding(.top, 20)
-                        .padding(.bottom, 10)
-                        
                         // Grid giochi
                         LazyVGrid(columns: columns, spacing: 20) {
                             ForEach(games, id: \.0) { game in
@@ -84,6 +69,7 @@ struct GamesView: View {
                             }
                         }
                         .padding(.horizontal)
+                        .padding(.top, 20) // Spazio dall'header
                         
                         // Info footer
                         VStack(spacing: 8) {
@@ -96,7 +82,7 @@ struct GamesView: View {
                                     .font(.caption2)
                                     .foregroundColor(.gray)
                             }
-                            .padding(.top, 10)
+                            .padding(.top, 20)
                             
                             Text("Le vincite sono virtuali")
                                 .font(.caption2)
@@ -110,7 +96,7 @@ struct GamesView: View {
         }
     }
     
-    // MARK: - HEADER MODIFICATO: "Casino" invece di "Sport"
+    // MARK: - HEADER MODIFICATO: "Casino" e saldo a destra
     private var headerView: some View {
         VStack(spacing: 0) {
             HStack {
