@@ -11,18 +11,16 @@ import AuthenticationServices
 struct ProfileView: View {
     
     @EnvironmentObject var vm: BettingViewModel
-    @State private var showNameField = false
     @State private var showResetAlert = false
     @State private var showPreferences = false
     @State private var showAppInfoAlert = false
-    @State private var tempUserName: String = ""
     @State private var appleUserID: String = ""
     @State private var appleEmail: String = ""
     @State private var appleName: String = ""
     
     // ⭐⭐⭐ NUOVO: Calcola le iniziali con stile Apple
     var initials: String {
-        // Prima prova con nome Apple
+        // Usa solo il nome Apple
         if !appleName.isEmpty {
             let parts = appleName.split(separator: " ")
             if let firstChar = parts.first?.first, let lastChar = parts.last?.first, parts.count >= 2 {
@@ -32,26 +30,14 @@ struct ProfileView: View {
             }
         }
         
-        // Fallback al nome utente
-        guard !vm.userName.isEmpty else { return "?" }
-        
-        let parts = vm.userName.split(separator: " ")
-        
-        if let firstChar = parts.first?.first, let lastChar = parts.last?.first, parts.count >= 2 {
-            return "\(firstChar)\(lastChar)".uppercased()
-        } else if let firstChar = parts.first?.first {
-            return String(firstChar).uppercased()
-        }
-        
+        // Fallback se non c'è nome
         return "?"
     }
     
-    // ⭐⭐⭐ NUOVO: Nome visualizzato (Apple prima, poi utente)
+    // ⭐⭐⭐ NUOVO: Nome visualizzato (solo Apple)
     var displayName: String {
         if !appleName.isEmpty {
             return appleName
-        } else if !vm.userName.isEmpty {
-            return vm.userName
         } else {
             return "Utente Apple"
         }
@@ -70,7 +56,7 @@ struct ProfileView: View {
             }
             return appleEmail
         }
-        return "email-privata@apple.com"
+        return "email-privata@icloud.com"
     }
     
     var body: some View {
@@ -106,7 +92,6 @@ struct ProfileView: View {
         }
         .onAppear {
             loadAppleUserData()
-            tempUserName = vm.userName
         }
     }
     
@@ -173,7 +158,7 @@ struct ProfileView: View {
         }
     }
     
-    // ⭐⭐⭐ MODIFICATO: Vista profilo autenticato
+    // ⭐⭐⭐ MODIFICATO: Vista profilo autenticato (SENZA modifica nome)
     private var authenticatedProfileView: some View {
         ScrollView {
             VStack(spacing: 28) {
@@ -203,7 +188,7 @@ struct ProfileView: View {
         }
     }
     
-    // MARK: - HEADER CARD MIGLIORATA con badge Apple
+    // MARK: - HEADER CARD MIGLIORATA con badge Apple (SENZA modifica nome)
     private var headerCard: some View {
         VStack(spacing: 16) {
             // Avatar con badge Apple
@@ -258,24 +243,8 @@ struct ProfileView: View {
                 .foregroundColor(.accentCyan)
                 .padding(.top, 4)
             
-            Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                    showNameField.toggle()
-                    tempUserName = vm.userName
-                }
-            } label: {
-                Text(showNameField ? "Chiudi" : "Modifica nome visualizzato")
-                    .font(.subheadline.bold())
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(10)
-                    .foregroundColor(.white)
-            }
-            
-            if showNameField {
-                nameFieldView
-            }
+            // ⭐⭐⭐ RIMOSSO: Bottone "Modifica nome visualizzato"
+            // Il nome non si può modificare, viene da Apple
         }
         .padding()
         .frame(maxWidth: .infinity)
@@ -307,6 +276,32 @@ struct ProfileView: View {
             
             VStack(spacing: 12) {
                 HStack {
+                    Image(systemName: "person.fill")
+                        .foregroundColor(.gray)
+                        .frame(width: 28)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Nome Apple")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        
+                        Text(displayName)
+                            .font(.subheadline)
+                            .foregroundColor(.white)
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "lock.fill")
+                        .foregroundColor(.green)
+                        .font(.caption)
+                }
+                .padding(.vertical, 8)
+                
+                Divider()
+                    .background(Color.gray.opacity(0.3))
+                
+                HStack {
                     Image(systemName: "envelope.fill")
                         .foregroundColor(.gray)
                         .frame(width: 28)
@@ -323,8 +318,8 @@ struct ProfileView: View {
                     
                     Spacer()
                     
-                    Image(systemName: "lock.fill")
-                        .foregroundColor(.green)
+                    Image(systemName: "eye.slash.fill")
+                        .foregroundColor(.blue)
                         .font(.caption)
                 }
                 .padding(.vertical, 8)
@@ -365,29 +360,6 @@ struct ProfileView: View {
         .background(Color.white.opacity(0.05))
         .cornerRadius(16)
         .padding(.horizontal)
-    }
-    
-    private var nameFieldView: some View {
-        VStack(spacing: 12) {
-            TextField("Inserisci nome visualizzato", text: $tempUserName)
-                .padding()
-                .background(Color.white.opacity(0.08))
-                .cornerRadius(12)
-                .foregroundColor(.white)
-                .padding(.horizontal)
-            
-            Button("Salva Nome") {
-                vm.userName = tempUserName
-                showNameField = false
-            }
-            .padding()
-            .frame(maxWidth: .infinity)
-            .background(Color.accentCyan)
-            .foregroundColor(.black)
-            .cornerRadius(12)
-            .padding(.horizontal)
-        }
-        .transition(.opacity.combined(with: .move(edge: .top)))
     }
     
     private var quickSettings: some View {
@@ -524,19 +496,29 @@ struct ProfileView: View {
     
     // MARK: - FUNZIONI PROFILO
     
-    // ⭐⭐⭐ NUOVO: Carica dati Apple
+    // ⭐⭐⭐ MODIFICATA: Carica dati Apple dal Keychain/UserDefaults
     private func loadAppleUserData() {
+        // Recupera l'userID salvato
         appleUserID = UserDefaults.standard.string(forKey: "appleUserID") ?? ""
         
-        // Qui normalmente recupereresti i dati dal Keychain
-        // Per ora usiamo dati di esempio
+        // ⭐⭐⭐ MODIFICA: In un'app reale, recupereresti i dati dal Keychain
+        // Per ora, usiamo un placeholder che mostra come funzionerebbe
         if !appleUserID.isEmpty {
+            // Simula dati Apple (in produzione verrebbero dal Keychain)
             appleEmail = "utente.apple@icloud.com"
-            appleName = "Utente Apple"
+            appleName = UserDefaults.standard.string(forKey: "appleUserName") ?? "Utente Apple"
+            
+            // Se non abbiamo un nome salvato, mostra un placeholder
+            if appleName == "Utente Apple" {
+                // Potresti avere salvato il nome in un'altra chiave
+                if let savedName = UserDefaults.standard.string(forKey: "userName"), !savedName.isEmpty {
+                    appleName = savedName
+                }
+            }
         }
     }
     
-    // ⭐⭐⭐ NUOVO: Gestisci account Apple
+    // ⭐⭐⭐ NUOVO: Gestisci account Apple (apre impostazioni iOS)
     private func manageAppleAccount() {
         if let url = URL(string: "App-Prefs:APPLE_ID_SETTINGS") {
             UIApplication.shared.open(url)
@@ -547,6 +529,8 @@ struct ProfileView: View {
     private func signOut() {
         // Rimuove l'ID Apple salvato
         UserDefaults.standard.removeObject(forKey: "appleUserID")
+        UserDefaults.standard.removeObject(forKey: "appleUserName")
+        UserDefaults.standard.removeObject(forKey: "userName")
         
         // Resetta i dati Apple locali
         appleUserID = ""
