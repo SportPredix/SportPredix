@@ -12,7 +12,438 @@ extension Color {
     static let accentCyan = Color(red: 68/255, green: 224/255, blue: 203/255)
 }
 
-// MARK: - VIEW MODEL
+// MARK: - LIQUID GLASS COMPONENTS
+
+// MARK: Liquid Glass Toolbar
+struct LiquidGlassToolbar: View {
+    @Binding var selectedTab: Int
+    @Namespace private var animationNamespace
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Linea superiore decorativa
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [.accentCyan.opacity(0.5), .blue.opacity(0.3)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(width: 40, height: 3)
+                .padding(.top, 8)
+                .blur(radius: 0.5)
+            
+            // Barra principale con effetto Liquid Glass
+            HStack(spacing: 0) {
+                ForEach(0..<4) { index in
+                    ToolbarButton(
+                        index: index,
+                        selectedTab: $selectedTab,
+                        animationNamespace: animationNamespace
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(
+                // Effetto LIQUID GLASS (vetro liquido)
+                LiquidGlassBackground()
+            )
+            .overlay(
+                // Bordo luminoso superiore
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(0.15),
+                                .white.opacity(0.05),
+                                .clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(height: 1)
+                    .blur(radius: 0.5),
+                alignment: .top
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(
+                color: .black.opacity(0.25),
+                radius: 20,
+                x: 0,
+                y: 10
+            )
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+        }
+    }
+}
+
+struct LiquidGlassBackground: View {
+    @State private var animatedNoiseOffset: CGFloat = 0
+    
+    var body: some View {
+        ZStack {
+            // Base color con sfumatura
+            LinearGradient(
+                colors: [
+                    Color(red: 0.22, green: 0.23, blue: 0.25).opacity(0.95),
+                    Color(red: 0.15, green: 0.16, blue: 0.18).opacity(0.95)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            
+            // Effetto vetro sfocato
+            Rectangle()
+                .fill(
+                    .ultraThinMaterial
+                        .shadow(
+                            .inner(color: .white.opacity(0.25), radius: 0, x: 0, y: 1)
+                        )
+                )
+                .blur(radius: 0.5)
+            
+            // Texture sottile di rumore animato
+            GeometryReader { geometry in
+                ZStack {
+                    ForEach(0..<30) { i in
+                        Circle()
+                            .fill(Color.white.opacity(0.03))
+                            .frame(width: CGFloat.random(in: 1...3))
+                            .position(
+                                x: CGFloat.random(in: 0...geometry.size.width),
+                                y: CGFloat.random(in: 0...geometry.size.height)
+                            )
+                    }
+                }
+            }
+            .offset(y: animatedNoiseOffset)
+            .blur(radius: 0.3)
+            
+            // Riflessi dinamici
+            LiquidReflections()
+        }
+        .onAppear {
+            withAnimation(
+                .linear(duration: 40)
+                .repeatForever(autoreverses: false)
+            ) {
+                animatedNoiseOffset = -100
+            }
+        }
+    }
+}
+
+struct LiquidReflections: View {
+    @State private var phase = 0.0
+    
+    var body: some View {
+        ZStack {
+            // Riflesso sinistro
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.08),
+                            .white.opacity(0.02),
+                            .clear
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(width: 80)
+                .offset(x: -30)
+                .blur(radius: 5)
+                .mask(
+                    LinearGradient(
+                        gradient: Gradient(colors: [.clear, .white, .clear]),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+            
+            // Riflesso centrale (onde liquide)
+            ForEach(0..<3) { i in
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(
+                        Color.white.opacity(0.05 + Double(i) * 0.02),
+                        lineWidth: 1
+                    )
+                    .scaleEffect(1 + Double(i) * 0.1)
+                    .opacity(0.3 + sin(phase + Double(i) * 0.5) * 0.3)
+            }
+            
+            // Riflessi puntiformi
+            ForEach(0..<5) { i in
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                .white.opacity(0.1),
+                                .white.opacity(0.05),
+                                .clear
+                            ]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 15
+                        )
+                    )
+                    .frame(width: 30)
+                    .position(
+                        x: CGFloat(i) * 80 + 40,
+                        y: 25
+                    )
+                    .opacity(0.3 + sin(phase + Double(i) * 1.2) * 0.2)
+                    .blur(radius: 3)
+            }
+        }
+        .onAppear {
+            withAnimation(
+                .easeInOut(duration: 3)
+                .repeatForever(autoreverses: true)
+            ) {
+                phase = .pi * 2
+            }
+        }
+    }
+}
+
+struct ToolbarButton: View {
+    let index: Int
+    @Binding var selectedTab: Int
+    let animationNamespace: Namespace.ID
+    
+    private var icon: String {
+        switch index {
+        case 0: return "calendar"
+        case 1: return "dice.fill"
+        case 2: return "list.bullet"
+        case 3: return "person.crop.circle"
+        default: return "circle"
+        }
+    }
+    
+    private var label: String {
+        switch index {
+        case 0: return "Scommesse"
+        case 1: return "Casino"
+        case 2: return "Storico"
+        case 3: return "Profilo"
+        default: return ""
+        }
+    }
+    
+    var body: some View {
+        Button {
+            withAnimation(
+                .spring(
+                    response: 0.35,
+                    dampingFraction: 0.7,
+                    blendDuration: 0.3
+                )
+            ) {
+                selectedTab = index
+            }
+        } label: {
+            VStack(spacing: 6) {
+                // Icona con effetto 3D
+                ZStack {
+                    if selectedTab == index {
+                        // Background selezionato con effetto "bolla liquida"
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        .accentCyan.opacity(0.4),
+                                        .blue.opacity(0.2)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 52, height: 52)
+                            .overlay(
+                                Circle()
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [
+                                                .white.opacity(0.3),
+                                                .accentCyan.opacity(0.5)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1
+                                    )
+                                    .blur(radius: 0.5)
+                            )
+                            .shadow(
+                                color: .accentCyan.opacity(0.3),
+                                radius: 8,
+                                x: 0,
+                                y: 3
+                            )
+                            .matchedGeometryEffect(id: "selection", in: animationNamespace)
+                    }
+                    
+                    // Icona
+                    Image(systemName: icon)
+                        .font(.system(size: 20, weight: .medium))
+                        .symbolEffect(
+                            .bounce,
+                            options: .speed(1.5),
+                            value: selectedTab == index
+                        )
+                        .foregroundColor(
+                            selectedTab == index ? 
+                            .white : 
+                            .white.opacity(0.7)
+                        )
+                        .shadow(
+                            color: selectedTab == index ? 
+                            .accentCyan.opacity(0.5) : 
+                            .clear,
+                            radius: 3
+                        )
+                }
+                .frame(width: 52, height: 52)
+                
+                // Etichetta
+                Text(label)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(
+                        selectedTab == index ? 
+                        .accentCyan : 
+                        .white.opacity(0.6)
+                    )
+                    .scaleEffect(selectedTab == index ? 1.05 : 1.0)
+            }
+        }
+        .buttonStyle(LiquidGlassButtonStyle(isSelected: selectedTab == index))
+    }
+}
+
+struct LiquidGlassButtonStyle: ButtonStyle {
+    let isSelected: Bool
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
+            .animation(
+                .spring(response: 0.3, dampingFraction: 0.6),
+                value: configuration.isPressed
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        isSelected ? 
+                        Color.accentCyan.opacity(0.3) : 
+                        Color.clear,
+                        lineWidth: 1
+                    )
+                    .blur(radius: 0.5)
+            )
+    }
+}
+
+// MARK: Liquid Glass Header
+struct LiquidGlassHeader: View {
+    let title: String
+    let balance: Double
+    @Binding var showSportPicker: Bool
+    let sport: String
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                // Titolo con dropdown sport
+                HStack(spacing: 4) {
+                    Text(title)
+                        .font(.title2.bold())
+                        .foregroundColor(.white)
+                    
+                    if title == "Sport" {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white)
+                            .rotationEffect(.degrees(showSportPicker ? 180 : 0))
+                            .onTapGesture {
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                                    showSportPicker.toggle()
+                                }
+                            }
+                    }
+                }
+                
+                Spacer()
+                
+                // Saldo con effetto vetro
+                HStack(spacing: 6) {
+                    Image(systemName: "eurosign.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(.accentCyan)
+                        .symbolEffect(.pulse, options: .speed(0.5))
+                    
+                    Text("€\(balance, specifier: "%.2f")")
+                        .font(.headline.monospacedDigit())
+                        .foregroundColor(.accentCyan)
+                        .bold()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    LiquidGlassBackground()
+                        .opacity(0.7)
+                        .cornerRadius(12)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.accentCyan.opacity(0.3), lineWidth: 1)
+                        .blur(radius: 0.5)
+                )
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            
+            // Divisore liquido
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            .accentCyan.opacity(0.3),
+                            .blue.opacity(0.2),
+                            .clear
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(height: 1)
+                .blur(radius: 0.5)
+        }
+        .background(
+            Color.black.opacity(0.95)
+                .overlay(
+                    LinearGradient(
+                        colors: [
+                            .accentCyan.opacity(0.05),
+                            .clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+        )
+    }
+}
+
+// MARK: - VIEW MODEL (BettingViewModel)
+// Questo è un estratto del ViewModel, aggiorna con le modifiche necessarie
 
 final class BettingViewModel: ObservableObject {
     
@@ -52,7 +483,6 @@ final class BettingViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var lastUpdateTime: Date?
     
-    // ⭐⭐⭐ NUOVO: Proprietà per Apple Sign In
     var isSignedInWithApple: Bool {
         UserDefaults.standard.string(forKey: "appleUserID") != nil
     }
@@ -81,11 +511,9 @@ final class BettingViewModel: ObservableObject {
         
         loadMatchesForAllDays()
         
-        // ⭐⭐⭐ AGGIUNGI: Ascolta le notifiche per Sign In/Sign Out
         setupAuthNotifications()
     }
     
-    // ⭐⭐⭐ NUOVO: Configura notifiche per autenticazione
     private func setupAuthNotifications() {
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("AppleSignInCompleted"),
@@ -110,7 +538,6 @@ final class BettingViewModel: ObservableObject {
         NotificationCenter.default.removeObserver(self)
     }
     
-    // ⭐⭐⭐ NUOVO: Verifica stato Apple Sign In
     func checkAppleAuthOnLaunch() {
         guard let userID = UserDefaults.standard.string(forKey: "appleUserID") else {
             print("ℹ️ Nessun Apple User ID trovato")
@@ -681,7 +1108,7 @@ struct ContentView: View {
     @StateObject private var vm = BettingViewModel()
     @Namespace private var animationNamespace
     
-    // ⭐⭐⭐ AGGIUNGI: Stato per forzare il refresh
+    // Stato per forzare il refresh
     @State private var refreshID = UUID()
     
     var body: some View {
@@ -689,16 +1116,21 @@ struct ContentView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 
-                // ⭐⭐⭐ MODIFICATO: Usa refreshID per forzare aggiornamento
                 if vm.isSignedInWithApple {
                     // Utente autenticato - mostra app normale
                     VStack(spacing: 0) {
-                        // ⭐⭐⭐ MODIFICATO: Header SEMPRE VISIBILE tranne per il Casino
+                        // Header Liquid Glass (tranne per Casino)
                         if vm.selectedTab != 1 {
-                            headerView
+                            LiquidGlassHeader(
+                                title: vm.selectedTab == 0 ? "Sport" : 
+                                       vm.selectedTab == 2 ? "Storico" : "Profilo",
+                                balance: vm.balance,
+                                showSportPicker: $vm.showSportPicker,
+                                sport: vm.selectedSport
+                            )
                         }
                         
-                        // ⭐⭐⭐ MODIFICATO: Contenuto per ogni tab
+                        // Contenuto per ogni tab
                         if vm.selectedTab == 0 {
                             calendarBarView
                             
@@ -708,7 +1140,7 @@ struct ContentView: View {
                                 matchListView
                             }
                         } else if vm.selectedTab == 1 {
-                            // ⭐⭐⭐ MODIFICATO: Casino - layout speciale senza stacco
+                            // Casino - layout speciale senza stacco
                             CasinoFullView()
                                 .environmentObject(vm)
                         } else if vm.selectedTab == 2 {
@@ -718,12 +1150,12 @@ struct ContentView: View {
                                 .environmentObject(vm)
                         }
                         
-                        // ⭐⭐⭐ MODIFICATO: Bottom bar SEMPRE visibile
-                        bottomBarView
+                        // Toolbar Liquid Glass
+                        LiquidGlassToolbar(selectedTab: $vm.selectedTab)
                     }
-                    .id(refreshID) // ⭐⭐⭐ Questo forza il refresh quando cambia
+                    .id(refreshID) // Forza il refresh quando cambia
                 } else {
-                    // ⭐⭐⭐ NUOVO: Utente NON autenticato - mostra schermata Apple Sign In
+                    // Utente NON autenticato - mostra schermata Apple Sign In
                     AppleSignInRequiredView()
                 }
                 
@@ -742,7 +1174,6 @@ struct ContentView: View {
         .onAppear {
             vm.checkAppleAuthOnLaunch()
         }
-        // ⭐⭐⭐ AGGIUNGI: Ascolta le notifiche di autenticazione
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("AppleSignInCompleted"))) { _ in
             print("🔄 ContentView: Ricevuta notifica AppleSignInCompleted")
             refreshID = UUID() // Forza refresh dell'interfaccia
@@ -757,153 +1188,6 @@ struct ContentView: View {
             // Ricarica anche il view model
             vm.objectWillChange.send()
         }
-    }
-    
-    // MARK: - HEADER NUOVO STILE
-    private var headerView: some View {
-        VStack(spacing: 0) {
-            HStack {
-                // Logo/Titolo con freccia sport
-                HStack(spacing: 4) {
-                    Text("Sport")
-                        .font(.title2.bold())
-                        .foregroundColor(.white)
-                    
-                    if vm.selectedTab == 0 {
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white)
-                            .rotationEffect(.degrees(vm.showSportPicker ? 180 : 0))
-                            .onTapGesture {
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                                    vm.showSportPicker.toggle()
-                                }
-                            }
-                    }
-                }
-                
-                Spacer()
-                
-                // Saldo utente
-                Text("€\(vm.balance, specifier: "%.2f")")
-                    .font(.headline)
-                    .foregroundColor(.accentCyan)
-                    .bold()
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            
-            // Linea sottile divisoria
-            Rectangle()
-                .fill(Color.white.opacity(0.1))
-                .frame(height: 0.5)
-        }
-        .background(Color.black.opacity(0.95))
-        .overlay(
-            sportDropdownMenu
-                .offset(y: 60),
-            alignment: .top
-        )
-    }
-    
-    private var sportDropdownMenu: some View {
-        Group {
-            if vm.showSportPicker && vm.selectedTab == 0 {
-                // Overlay scuro che blocca la vista sotto
-                Color.black.opacity(0.7)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation {
-                            vm.showSportPicker = false
-                        }
-                    }
-                    .overlay(
-                        // Menu dropdown
-                        VStack(spacing: 0) {
-                            VStack(spacing: 0) {
-                                // Calcio
-                                Button(action: {
-                                    withAnimation {
-                                        vm.selectedSport = "Calcio"
-                                        vm.showSportPicker = false
-                                    }
-                                }) {
-                                    HStack {
-                                        Image(systemName: "soccerball")
-                                            .font(.system(size: 16))
-                                            .foregroundColor(vm.selectedSport == "Calcio" ? .accentCyan : .white)
-                                            .frame(width: 30)
-                                        
-                                        Text("Calcio")
-                                            .font(.system(size: 18, weight: .semibold))
-                                            .foregroundColor(.white)
-                                        
-                                        Spacer()
-                                        
-                                        if vm.selectedSport == "Calcio" {
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 14, weight: .semibold))
-                                                .foregroundColor(.accentCyan)
-                                        }
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 12)
-                                    .frame(maxWidth: .infinity)
-                                }
-                                .background(vm.selectedSport == "Calcio" ? Color.accentCyan.opacity(0.1) : Color.clear)
-                                
-                                // Divisore
-                                Rectangle()
-                                    .fill(Color.gray.opacity(0.3))
-                                    .frame(height: 0.5)
-                                    .padding(.horizontal, 8)
-                                
-                                // Tennis
-                                Button(action: {
-                                    withAnimation {
-                                        vm.selectedSport = "Tennis"
-                                        vm.showSportPicker = false
-                                    }
-                                }) {
-                                    HStack {
-                                        Image(systemName: "tennis.racket")
-                                            .font(.system(size: 16))
-                                            .foregroundColor(vm.selectedSport == "Tennis" ? .accentCyan : .white)
-                                            .frame(width: 30)
-                                        
-                                        Text("Tennis")
-                                            .font(.system(size: 18, weight: .semibold))
-                                            .foregroundColor(.white)
-                                        
-                                        Spacer()
-                                        
-                                        if vm.selectedSport == "Tennis" {
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 14, weight: .semibold))
-                                                .foregroundColor(.accentCyan)
-                                        }
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 12)
-                                    .frame(maxWidth: .infinity)
-                                }
-                                .background(vm.selectedSport == "Tennis" ? Color.accentCyan.opacity(0.1) : Color.clear)
-                            }
-                            .background(Color(red: 0.15, green: 0.15, blue: 0.17))
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.accentCyan.opacity(0.3), lineWidth: 1)
-                            )
-                            .shadow(color: .black.opacity(0.7), radius: 20, x: 0, y: 5)
-                        }
-                        .frame(maxWidth: 160)
-                        .padding(.horizontal, 16)
-                        .offset(x: -100, y: 8)
-                    )
-            }
-        }
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: vm.showSportPicker)
     }
     
     // MARK: - CALENDAR BAR
@@ -1108,9 +1392,7 @@ struct ContentView: View {
         ScrollView {
             VStack(spacing: 12) {
                 if vm.slips.isEmpty {
-                    Text("Nessuna scommessa piazzata")
-                        .foregroundColor(.gray)
-                        .padding()
+                    emptyBetsView
                 } else {
                     ForEach(vm.slips) { slip in
                         Button { vm.showSlipDetail = slip } label: {
@@ -1140,6 +1422,28 @@ struct ContentView: View {
             .padding()
         }
         .onAppear { vm.evaluateAllSlips() }
+    }
+    
+    private var emptyBetsView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+                .frame(height: 50)
+            
+            Image(systemName: "list.bullet")
+                .font(.system(size: 60))
+                .foregroundColor(.accentCyan)
+            
+            Text("Nessuna scommessa piazzata")
+                .font(.title2)
+                .foregroundColor(.white)
+            
+            Text("Torna alla sezione scommesse per iniziare")
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            
+            Spacer()
+        }
     }
     
     // MARK: - FLOATING BUTTON
@@ -1175,74 +1479,10 @@ struct ContentView: View {
             }
         }
     }
-    
-    // MARK: - BOTTOM BAR
-    private var bottomBarView: some View {
-        ZStack {
-            Rectangle()
-                .fill(Color(red: 0.1, green: 0.1, blue: 0.1))
-                .frame(height: 70)
-                .cornerRadius(26)
-                .padding(.horizontal)
-                .shadow(color: .black.opacity(0.25), radius: 10, y: -2)
-            
-            HStack(spacing: 50) {
-                ForEach(0..<4) { index in
-                    bottomItemView(index: index)
-                }
-            }
-        }
-        .padding(.bottom, 8)
-    }
-    
-    private func bottomItemView(index: Int) -> some View {
-        let icon: String
-        
-        switch index {
-        case 0: icon = "calendar"
-        case 1: icon = "dice.fill"
-        case 2: icon = "list.bullet"
-        case 3: icon = "person.crop.circle"
-        default: icon = "circle"
-        }
-        
-        return Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                vm.selectedTab = index
-                if index != 0 {
-                    vm.showSportPicker = false
-                }
-            }
-        } label: {
-            VStack(spacing: 4) {
-                ZStack {
-                    if vm.selectedTab == index {
-                        Circle()
-                            .fill(Color.accentCyan.opacity(0.25))
-                            .frame(width: 44, height: 44)
-                    }
-                    
-                    Image(systemName: icon)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(vm.selectedTab == index ? .accentCyan : .white.opacity(0.7))
-                }
-                
-                if vm.selectedTab == index {
-                    Capsule()
-                        .fill(Color.accentCyan)
-                        .frame(width: 22, height: 4)
-                        .matchedGeometryEffect(id: "tab", in: animationNamespace)
-                } else {
-                    Capsule()
-                        .fill(Color.clear)
-                        .frame(width: 22, height: 4)
-                }
-            }
-        }
-    }
 }
 
-// ⭐⭐⭐ NUOVO: Schermata Apple Sign In Required
+// MARK: - APPLE SIGN IN REQUIRED VIEW
+
 struct AppleSignInRequiredView: View {
     @State private var isSigningIn = false
     @State private var showError = false
@@ -1341,7 +1581,7 @@ struct AppleSignInRequiredView: View {
                     .signInWithAppleButtonStyle(.white)
                     .frame(height: 50)
                     
-                    // ⭐⭐⭐ TEMPORANEO: Bottone debug per test senza Apple Sign In
+                    // Bottone debug per test senza Apple Sign In
                     Button(action: {
                         // Simula login per testing
                         print("🔧 Debug Login attivato")
@@ -1495,13 +1735,14 @@ struct AppleSignInRequiredView: View {
     }
 }
 
-// ⭐⭐⭐ NUOVO: Schermata Casino Completa con sfondo continuo
+// MARK: - CASINO FULL VIEW
+
 struct CasinoFullView: View {
     @EnvironmentObject var vm: BettingViewModel
     
     var body: some View {
         ZStack {
-            // ⭐⭐⭐ FIX: Sfondo che parte DALL'ALTO e copre TUTTO
+            // Sfondo che parte DALL'ALTO e copre TUTTO
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color.black,
@@ -1511,10 +1752,10 @@ struct CasinoFullView: View {
                 endPoint: .bottom
             )
             .ignoresSafeArea()
-            .edgesIgnoringSafeArea(.all) // ⭐⭐⭐ IMPORTANTE: Copre tutto
+            .edgesIgnoringSafeArea(.all) // Copre tutto
             
             VStack(spacing: 0) {
-                // ⭐⭐⭐ Header DEDICATO per Casino (con sfondo nero)
+                // Header DEDICATO per Casino (con sfondo nero)
                 VStack(spacing: 0) {
                     HStack {
                         Text("Casino")
@@ -1538,18 +1779,19 @@ struct CasinoFullView: View {
                         .frame(height: 0.5)
                 }
                 .background(Color.black.opacity(0.95))
-                .zIndex(1) // ⭐⭐⭐ IMPORTANTE: Mette l'header sopra tutto
+                .zIndex(1) // Mette l'header sopra tutto
                 
-                // ⭐⭐⭐ Contenuto del Casino che si estende fino in fondo
+                // Contenuto del Casino che si estende fino in fondo
                 GamesContentView()
                     .environmentObject(vm)
-                    .background(Color.clear) // ⭐⭐⭐ Trasparente per mostrare il gradiente
+                    .background(Color.clear) // Trasparente per mostrare il gradiente
             }
         }
     }
 }
 
-// ⭐⭐⭐ MODIFICATO: GamesContentView SEMPLIFICATO
+// MARK: - GAMES CONTENT VIEW
+
 struct GamesContentView: View {
     let games = [
         ("Gratta e Vinci", "sparkles", Color.accentCyan),
@@ -1599,12 +1841,97 @@ struct GamesContentView: View {
                     
                     Text("Le vincite sono virtuali")
                         .font(.caption2)
-                            .foregroundColor(.gray.opacity(0.7))
+                        .foregroundColor(.gray.opacity(0.7))
                 }
                 .padding(.bottom, 30)
             }
             .padding(.bottom, 80) // Spazio per la bottom bar
         }
-        .background(Color.clear) // ⭐⭐⭐ IMPORTANTE: Trasparente!
+        .background(Color.clear) // IMPORTANTE: Trasparente!
+    }
+}
+
+// MARK: - GAME BUTTON (necessario per GamesContentView)
+
+struct GameButton: View {
+    let title: String
+    let icon: String
+    let color: Color
+    @State private var showGame = false
+    @EnvironmentObject var vm: BettingViewModel
+    
+    var body: some View {
+        Button {
+            // Verifica saldo per Gratta e Vinci
+            if title == "Gratta e Vinci" && vm.balance < 50 {
+                // Feedback di errore
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.error)
+                return
+            }
+            
+            // Feedback
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
+            
+            showGame = true
+        } label: {
+            VStack(spacing: 15) {
+                // Icona con effetto
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(0.2))
+                        .frame(width: 70, height: 70)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundColor(color)
+                        .shadow(color: color.opacity(0.5), radius: 5)
+                }
+                
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                
+                // Prezzo per Gratta e Vinci
+                if title == "Gratta e Vinci" {
+                    Text("€50")
+                        .font(.caption.bold())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(Color.red.opacity(0.8))
+                        .cornerRadius(10)
+                } else {
+                    Text("Gioca")
+                        .font(.caption)
+                        .foregroundColor(color)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(color.opacity(0.2))
+                        .cornerRadius(10)
+                }
+            }
+            .frame(width: 160, height: 180)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(color.opacity(0.3), lineWidth: 1)
+                    )
+            )
+            .shadow(color: color.opacity(0.2), radius: 10, x: 0, y: 5)
+        }
+        .sheet(isPresented: $showGame) {
+            if title == "Gratta e Vinci" {
+                ScratchCardView(balance: $vm.balance)
+            } else if title == "Slot Machine" {
+                SlotMachineView(balance: $vm.balance)
+            } else {
+                ComingSoonView(gameName: title)
+            }
+        }
     }
 }
