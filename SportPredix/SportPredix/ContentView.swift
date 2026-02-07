@@ -12,32 +12,20 @@ extension Color {
     static let accentCyan = Color(red: 68/255, green: 224/255, blue: 203/255)
 }
 
-// MARK: - LIQUID GLASS COMPONENTS
+// MARK: - FLOATING GLASS TOOLBAR (NUOVA - SOPRA LE PAGINE)
 
-// MARK: Liquid Glass Toolbar
-struct LiquidGlassToolbar: View {
+struct FloatingGlassToolbar: View {
     @Binding var selectedTab: Int
     @Namespace private var animationNamespace
     
     var body: some View {
         VStack(spacing: 0) {
-            // Linea superiore decorativa
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [.accentCyan.opacity(0.5), .blue.opacity(0.3)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .frame(width: 40, height: 3)
-                .padding(.top, 8)
-                .blur(radius: 0.5)
+            Spacer()
             
-            // Barra principale con effetto Liquid Glass
+            // Barra principale fluttuante
             HStack(spacing: 0) {
                 ForEach(0..<4) { index in
-                    ToolbarButton(
+                    FloatingToolbarButton(
                         index: index,
                         selectedTab: $selectedTab,
                         animationNamespace: animationNamespace
@@ -45,175 +33,120 @@ struct LiquidGlassToolbar: View {
                     .frame(maxWidth: .infinity)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
             .background(
-                // Effetto LIQUID GLASS (vetro liquido)
-                LiquidGlassBackground()
+                // Effetto vetro sfocato con riflessi
+                FloatingGlassEffect()
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .shadow(
+                color: .black.opacity(0.3),
+                radius: 30,
+                x: 0,
+                y: 10
             )
             .overlay(
                 // Bordo luminoso superiore
-                Rectangle()
-                    .fill(
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(
                         LinearGradient(
                             colors: [
-                                .white.opacity(0.15),
-                                .white.opacity(0.05),
+                                .white.opacity(0.2),
+                                .accentCyan.opacity(0.1),
                                 .clear
                             ],
                             startPoint: .top,
                             endPoint: .bottom
-                        )
+                        ),
+                        lineWidth: 1
                     )
-                    .frame(height: 1)
-                    .blur(radius: 0.5),
-                alignment: .top
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .shadow(
-                color: .black.opacity(0.25),
-                radius: 20,
-                x: 0,
-                y: 10
+                    .blur(radius: 0.5)
             )
             .padding(.horizontal, 16)
-            .padding(.bottom, 8)
+            .padding(.bottom, 20)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .allowsHitTesting(true)
+        .zIndex(1000) // ALTO Z-INDEX PER STARE SOPRA TUTTO
     }
 }
 
-struct LiquidGlassBackground: View {
-    @State private var animatedNoiseOffset: CGFloat = 0
+struct FloatingGlassEffect: View {
+    @State private var shimmerOffset: CGFloat = -300
     
     var body: some View {
         ZStack {
-            // Base color con sfumatura
-            LinearGradient(
-                colors: [
-                    Color(red: 0.22, green: 0.23, blue: 0.25).opacity(0.95),
-                    Color(red: 0.15, green: 0.16, blue: 0.18).opacity(0.95)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            
-            // Effetto vetro sfocato
+            // Base vetro sfocato
             Rectangle()
-                .fill(
-                    .ultraThinMaterial
-                        .shadow(
-                            .inner(color: .white.opacity(0.25), radius: 0, x: 0, y: 1)
-                        )
-                )
-                .blur(radius: 0.5)
+                .fill(.ultraThinMaterial)
+                .opacity(0.9)
             
-            // Texture sottile di rumore animato
-            GeometryReader { geometry in
-                ZStack {
-                    ForEach(0..<30) { i in
-                        Circle()
-                            .fill(Color.white.opacity(0.03))
-                            .frame(width: CGFloat.random(in: 1...3))
-                            .position(
-                                x: CGFloat.random(in: 0...geometry.size.width),
-                                y: CGFloat.random(in: 0...geometry.size.height)
-                            )
-                    }
-                }
-            }
-            .offset(y: animatedNoiseOffset)
-            .blur(radius: 0.3)
-            
-            // Riflessi dinamici
-            LiquidReflections()
-        }
-        .onAppear {
-            withAnimation(
-                .linear(duration: 40)
-                .repeatForever(autoreverses: false)
-            ) {
-                animatedNoiseOffset = -100
-            }
-        }
-    }
-}
-
-struct LiquidReflections: View {
-    @State private var phase = 0.0
-    
-    var body: some View {
-        ZStack {
-            // Riflesso sinistro
+            // Base colore
             Rectangle()
                 .fill(
                     LinearGradient(
                         colors: [
-                            .white.opacity(0.08),
-                            .white.opacity(0.02),
+                            Color(red: 0.12, green: 0.13, blue: 0.15).opacity(0.8),
+                            Color(red: 0.08, green: 0.09, blue: 0.11).opacity(0.8)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+            
+            // Effetto shimmer
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            .clear,
+                            .white.opacity(0.05),
                             .clear
                         ],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
-                .frame(width: 80)
-                .offset(x: -30)
-                .blur(radius: 5)
+                .offset(x: shimmerOffset)
+                .blur(radius: 1)
                 .mask(
-                    LinearGradient(
-                        gradient: Gradient(colors: [.clear, .white, .clear]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(
+                            LinearGradient(
+                                colors: [.clear, .white, .clear],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
                 )
             
-            // Riflesso centrale (onde liquide)
-            ForEach(0..<3) { i in
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(
-                        Color.white.opacity(0.05 + Double(i) * 0.02),
-                        lineWidth: 1
-                    )
-                    .scaleEffect(1 + Double(i) * 0.1)
-                    .opacity(0.3 + sin(phase + Double(i) * 0.5) * 0.3)
-            }
-            
-            // Riflessi puntiformi
-            ForEach(0..<5) { i in
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            gradient: Gradient(colors: [
-                                .white.opacity(0.1),
-                                .white.opacity(0.05),
-                                .clear
-                            ]),
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 15
+            // Puntini luminosi
+            GeometryReader { geometry in
+                ForEach(0..<15) { i in
+                    Circle()
+                        .fill(Color.white.opacity(0.05))
+                        .frame(width: CGFloat.random(in: 2...6))
+                        .position(
+                            x: CGFloat.random(in: 0...geometry.size.width),
+                            y: CGFloat.random(in: 0...geometry.size.height)
                         )
-                    )
-                    .frame(width: 30)
-                    .position(
-                        x: CGFloat(i) * 80 + 40,
-                        y: 25
-                    )
-                    .opacity(0.3 + sin(phase + Double(i) * 1.2) * 0.2)
-                    .blur(radius: 3)
+                        .blur(radius: 1)
+                }
             }
         }
         .onAppear {
             withAnimation(
                 .easeInOut(duration: 3)
-                .repeatForever(autoreverses: true)
+                .repeatForever(autoreverses: false)
             ) {
-                phase = .pi * 2
+                shimmerOffset = 300
             }
         }
     }
 }
 
-struct ToolbarButton: View {
+struct FloatingToolbarButton: View {
     let index: Int
     @Binding var selectedTab: Int
     let animationNamespace: Namespace.ID
@@ -241,57 +174,68 @@ struct ToolbarButton: View {
     var body: some View {
         Button {
             withAnimation(
-                .spring(
-                    response: 0.35,
-                    dampingFraction: 0.7,
-                    blendDuration: 0.3
-                )
+                .spring(response: 0.35, dampingFraction: 0.7)
             ) {
                 selectedTab = index
             }
         } label: {
-            VStack(spacing: 6) {
-                // Icona con effetto 3D
+            VStack(spacing: 4) {
+                // Icona
                 ZStack {
+                    // Anello luminoso quando selezionato
                     if selectedTab == index {
-                        // Background selezionato con effetto "bolla liquida"
                         Circle()
                             .fill(
-                                LinearGradient(
-                                    colors: [
-                                        .accentCyan.opacity(0.4),
-                                        .blue.opacity(0.2)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                                RadialGradient(
+                                    gradient: Gradient(colors: [
+                                        .accentCyan.opacity(0.3),
+                                        .clear
+                                    ]),
+                                    center: .center,
+                                    startRadius: 0,
+                                    endRadius: 30
                                 )
                             )
-                            .frame(width: 52, height: 52)
-                            .overlay(
-                                Circle()
-                                    .stroke(
-                                        LinearGradient(
-                                            colors: [
-                                                .white.opacity(0.3),
-                                                .accentCyan.opacity(0.5)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 1
-                                    )
-                                    .blur(radius: 0.5)
-                            )
-                            .shadow(
-                                color: .accentCyan.opacity(0.3),
-                                radius: 8,
-                                x: 0,
-                                y: 3
-                            )
-                            .matchedGeometryEffect(id: "selection", in: animationNamespace)
+                            .frame(width: 60, height: 60)
+                            .matchedGeometryEffect(id: "glow", in: animationNamespace)
                     }
                     
-                    // Icona
+                    // Cerchio di sfondo
+                    Circle()
+                        .fill(
+                            selectedTab == index ?
+                            LinearGradient(
+                                colors: [.accentCyan.opacity(0.4), .blue.opacity(0.2)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ) :
+                            LinearGradient(
+                                colors: [.white.opacity(0.05), .white.opacity(0.02)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 48, height: 48)
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    selectedTab == index ?
+                                    LinearGradient(
+                                        colors: [.accentCyan.opacity(0.5), .white.opacity(0.2)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ) :
+                                    LinearGradient(
+                                        colors: [.white.opacity(0.1), .white.opacity(0.05)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: selectedTab == index ? 1.5 : 0.5
+                                )
+                                .blur(radius: selectedTab == index ? 1 : 0.5)
+                        )
+                    
+                    // Icona con effetto
                     Image(systemName: icon)
                         .font(.system(size: 20, weight: .medium))
                         .symbolEffect(
@@ -311,7 +255,6 @@ struct ToolbarButton: View {
                             radius: 3
                         )
                 }
-                .frame(width: 52, height: 52)
                 
                 // Etichetta
                 Text(label)
@@ -324,45 +267,35 @@ struct ToolbarButton: View {
                     .scaleEffect(selectedTab == index ? 1.05 : 1.0)
             }
         }
-        .buttonStyle(LiquidGlassButtonStyle(isSelected: selectedTab == index))
+        .buttonStyle(FloatingButtonStyle(isSelected: selectedTab == index))
     }
 }
 
-struct LiquidGlassButtonStyle: ButtonStyle {
+struct FloatingButtonStyle: ButtonStyle {
     let isSelected: Bool
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
             .animation(
                 .spring(response: 0.3, dampingFraction: 0.6),
                 value: configuration.isPressed
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        isSelected ? 
-                        Color.accentCyan.opacity(0.3) : 
-                        Color.clear,
-                        lineWidth: 1
-                    )
-                    .blur(radius: 0.5)
-            )
     }
 }
 
-// MARK: Liquid Glass Header
-struct LiquidGlassHeader: View {
+// MARK: - HEADER FLUTTUANTE
+
+struct FloatingHeader: View {
     let title: String
     let balance: Double
     @Binding var showSportPicker: Bool
-    let sport: String
     
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                // Titolo con dropdown sport
-                HStack(spacing: 4) {
+                // Titolo
+                HStack(spacing: 6) {
                     Text(title)
                         .font(.title2.bold())
                         .foregroundColor(.white)
@@ -370,7 +303,7 @@ struct LiquidGlassHeader: View {
                     if title == "Sport" {
                         Image(systemName: "chevron.down")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(.accentCyan)
                             .rotationEffect(.degrees(showSportPicker ? 180 : 0))
                             .onTapGesture {
                                 withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
@@ -395,22 +328,29 @@ struct LiquidGlassHeader: View {
                         .bold()
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
                 .background(
-                    LiquidGlassBackground()
-                        .opacity(0.7)
+                    // Mini versione dell'effetto vetro
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .opacity(0.8)
                         .cornerRadius(12)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.accentCyan.opacity(0.3), lineWidth: 1)
-                        .blur(radius: 0.5)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.accentCyan.opacity(0.3), lineWidth: 1)
+                                .blur(radius: 0.5)
+                        )
                 )
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 20)
             .padding(.vertical, 12)
+            .background(
+                Color.black.opacity(0.3)
+                    .background(.ultraThinMaterial.opacity(0.7))
+                    .edgesIgnoringSafeArea(.top)
+            )
             
-            // Divisore liquido
+            // Linea sottile divisoria
             Capsule()
                 .fill(
                     LinearGradient(
@@ -425,24 +365,13 @@ struct LiquidGlassHeader: View {
                 )
                 .frame(height: 1)
                 .blur(radius: 0.5)
+                .padding(.horizontal, 20)
         }
-        .background(
-            Color.black.opacity(0.95)
-                .overlay(
-                    LinearGradient(
-                        colors: [
-                            .accentCyan.opacity(0.05),
-                            .clear
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-        )
     }
 }
 
 // MARK: - VIEW MODEL (BettingViewModel)
+// Questo è un estratto del ViewModel, aggiorna con le modifiche necessarie
 
 final class BettingViewModel: ObservableObject {
     
@@ -1100,7 +1029,7 @@ final class BettingViewModel: ObservableObject {
     }
 }
 
-// MARK: - MAIN VIEW
+// MARK: - MAIN VIEW CON TOOLBAR SOPRA
 
 struct ContentView: View {
     
@@ -1113,52 +1042,61 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             ZStack {
+                // Sfondo principale
                 Color.black.ignoresSafeArea()
                 
                 if vm.isSignedInWithApple {
-                    // Utente autenticato - mostra app normale
-                    VStack(spacing: 0) {
-                        // Header Liquid Glass (tranne per Casino)
-                        if vm.selectedTab != 1 {
-                            LiquidGlassHeader(
-                                title: vm.selectedTab == 0 ? "Sport" : 
-                                       vm.selectedTab == 2 ? "Storico" : "Profilo",
-                                balance: vm.balance,
-                                showSportPicker: $vm.showSportPicker,
-                                sport: vm.selectedSport
-                            )
-                        }
-                        
-                        // Contenuto per ogni tab
-                        if vm.selectedTab == 0 {
-                            calendarBarView
-                            
-                            if vm.isLoading {
-                                loadingView
-                            } else {
-                                matchListView
+                    ZStack {
+                        // CONTENUTO PRINCIPALE (sotto la toolbar)
+                        VStack(spacing: 0) {
+                            // Header fluttuante (tranne per Casino)
+                            if vm.selectedTab != 1 {
+                                FloatingHeader(
+                                    title: vm.selectedTab == 0 ? "Sport" : 
+                                           vm.selectedTab == 2 ? "Storico" : "Profilo",
+                                    balance: vm.balance,
+                                    showSportPicker: $vm.showSportPicker
+                                )
                             }
-                        } else if vm.selectedTab == 1 {
-                            // Casino - layout speciale senza stacco
-                            CasinoFullView()
-                                .environmentObject(vm)
-                        } else if vm.selectedTab == 2 {
-                            placedBetsView
-                        } else if vm.selectedTab == 3 {
-                            ProfileView()
-                                .environmentObject(vm)
+                            
+                            // Contenuto per ogni tab - CON PADDING PER LA TOOLBAR
+                            if vm.selectedTab == 0 {
+                                calendarBarView
+                                
+                                if vm.isLoading {
+                                    loadingView
+                                } else {
+                                    matchListView
+                                }
+                            } else if vm.selectedTab == 1 {
+                                // Casino - layout speciale
+                                CasinoFullView()
+                                    .environmentObject(vm)
+                                    .padding(.bottom, 90) // Spazio per toolbar
+                            } else if vm.selectedTab == 2 {
+                                placedBetsView
+                                    .padding(.bottom, 90) // Spazio per toolbar
+                            } else if vm.selectedTab == 3 {
+                                ProfileView()
+                                    .environmentObject(vm)
+                                    .padding(.bottom, 90) // Spazio per toolbar
+                            } else {
+                                Color.black
+                                    .padding(.bottom, 90) // Spazio per toolbar
+                            }
                         }
+                        .id(refreshID)
                         
-                        // Toolbar Liquid Glass
-                        LiquidGlassToolbar(selectedTab: $vm.selectedTab)
+                        // TOOLBAR FLUTTUANTE SOPRA IL CONTENUTO
+                        FloatingGlassToolbar(selectedTab: $vm.selectedTab)
+                        
+                        // Bottoni fluttuanti per scommesse
+                        floatingButtonView
                     }
-                    .id(refreshID) // Forza il refresh quando cambia
                 } else {
-                    // Utente NON autenticato - mostra schermata Apple Sign In
+                    // Utente NON autenticato
                     AppleSignInRequiredView()
                 }
-                
-                floatingButtonView
             }
             .sheet(isPresented: $vm.showSheet) {
                 BetSheet(
@@ -1175,16 +1113,12 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("AppleSignInCompleted"))) { _ in
             print("🔄 ContentView: Ricevuta notifica AppleSignInCompleted")
-            refreshID = UUID() // Forza refresh dell'interfaccia
-            
-            // Ricarica anche il view model
+            refreshID = UUID()
             vm.objectWillChange.send()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("AppleSignOutCompleted"))) { _ in
             print("🔄 ContentView: Ricevuta notifica AppleSignOutCompleted")
-            refreshID = UUID() // Forza refresh dell'interfaccia
-            
-            // Ricarica anche il view model
+            refreshID = UUID()
             vm.objectWillChange.send()
         }
     }
@@ -1236,6 +1170,7 @@ struct ContentView: View {
             
             Spacer()
         }
+        .padding(.bottom, 90) // Spazio per toolbar
     }
     
     // MARK: MATCH LIST
@@ -1269,6 +1204,7 @@ struct ContentView: View {
                 }
             }
             .padding()
+            .padding(.bottom, 90) // IMPORTANTE: Spazio per la toolbar fluttuante
         }
         .id("\(vm.selectedDayIndex)-\(vm.selectedSport)")
         .transition(.opacity)
@@ -1294,6 +1230,7 @@ struct ContentView: View {
             
             Spacer()
         }
+        .padding(.bottom, 90)
     }
     
     private func matchCardView(match: Match, disabled: Bool) -> some View {
@@ -1419,6 +1356,7 @@ struct ContentView: View {
                 }
             }
             .padding()
+            .padding(.bottom, 90) // Spazio per toolbar
         }
         .onAppear { vm.evaluateAllSlips() }
     }
@@ -1443,9 +1381,10 @@ struct ContentView: View {
             
             Spacer()
         }
+        .padding(.bottom, 90)
     }
     
-    // MARK: - FLOATING BUTTON
+    // MARK: - FLOATING BUTTON PER SCHEDINE
     private var floatingButtonView: some View {
         Group {
             if !vm.currentPicks.isEmpty && vm.selectedTab != 3 {
@@ -1472,7 +1411,7 @@ struct ContentView: View {
                                 .offset(x: 8, y: -8)
                         }
                         .padding(.trailing, 20)
-                        .padding(.bottom, 20)
+                        .padding(.bottom, 100) // Sopra la toolbar
                     }
                 }
             }
@@ -1480,7 +1419,7 @@ struct ContentView: View {
     }
 }
 
-// MARK: - APPLE SIGN IN REQUIRED VIEW
+// MARK: - APPLE SIGN IN REQUIRED VIEW (senza modifiche)
 
 struct AppleSignInRequiredView: View {
     @State private var isSigningIn = false
@@ -1763,10 +1702,9 @@ struct CasinoFullView: View {
                 endPoint: .bottom
             )
             .ignoresSafeArea()
-            .edgesIgnoringSafeArea(.all) // Copre tutto
             
             VStack(spacing: 0) {
-                // Header DEDICATO per Casino (con sfondo nero)
+                // Header DEDICATO per Casino
                 VStack(spacing: 0) {
                     HStack {
                         Text("Casino")
@@ -1781,21 +1719,31 @@ struct CasinoFullView: View {
                             .foregroundColor(.accentCyan)
                             .bold()
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 20)
                     .padding(.vertical, 12)
                     
                     // Linea sottile divisoria
-                    Rectangle()
-                        .fill(Color.white.opacity(0.1))
-                        .frame(height: 0.5)
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    .accentCyan.opacity(0.3),
+                                    .blue.opacity(0.2),
+                                    .clear
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(height: 1)
+                        .blur(radius: 0.5)
+                        .padding(.horizontal, 20)
                 }
-                .background(Color.black.opacity(0.95))
-                .zIndex(1) // Mette l'header sopra tutto
+                .background(Color.black.opacity(0.3))
                 
-                // Contenuto del Casino che si estende fino in fondo
+                // Contenuto del Casino
                 GamesContentView()
                     .environmentObject(vm)
-                    .background(Color.clear) // Trasparente per mostrare il gradiente
             }
         }
     }
@@ -1857,8 +1805,8 @@ struct GamesContentView: View {
                 }
                 .padding(.bottom, 30)
             }
-            .padding(.bottom, 80) // Spazio per la bottom bar
+            .padding(.bottom, 100) // Spazio extra per la toolbar
         }
-        .background(Color.clear) // IMPORTANTE: Trasparente!
+        .background(Color.clear)
     }
 }
