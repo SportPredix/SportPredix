@@ -1053,17 +1053,17 @@ struct ContentView: View {
                                 // Casino - layout speciale
                                 CasinoFullView()
                                     .environmentObject(vm)
-                                    .padding(.bottom, 90) // Spazio per toolbar
+                                    .padding(.bottom, 100) // AUMENTATO DA 90 A 100
                             } else if vm.selectedTab == 2 {
                                 placedBetsView
-                                    .padding(.bottom, 90) // Spazio per toolbar
+                                    .padding(.bottom, 100) // AUMENTATO DA 90 A 100
                             } else if vm.selectedTab == 3 {
                                 ProfileView()
                                     .environmentObject(vm)
-                                    .padding(.bottom, 90) // Spazio per toolbar
+                                    .padding(.bottom, 100) // AUMENTATO DA 90 A 100
                             } else {
                                 Color.black
-                                    .padding(.bottom, 90) // Spazio per toolbar
+                                    .padding(.bottom, 100) // AUMENTATO DA 90 A 100
                             }
                         }
                         .id(refreshID)
@@ -1151,7 +1151,7 @@ struct ContentView: View {
             
             Spacer()
         }
-        .padding(.bottom, 90) // Spazio per toolbar
+        .padding(.bottom, 100) // AUMENTATO DA 90 A 100
     }
     
     // MARK: MATCH LIST
@@ -1185,7 +1185,7 @@ struct ContentView: View {
                 }
             }
             .padding()
-            .padding(.bottom, 90) // IMPORTANTE: Spazio per la toolbar fluttuante
+            .padding(.bottom, 100) // AUMENTATO DA 90 A 100
         }
         .id("\(vm.selectedDayIndex)-\(vm.selectedSport)")
         .transition(.opacity)
@@ -1211,7 +1211,7 @@ struct ContentView: View {
             
             Spacer()
         }
-        .padding(.bottom, 90)
+        .padding(.bottom, 100) // AUMENTATO DA 90 A 100
     }
     
     private func matchCardView(match: Match, disabled: Bool) -> some View {
@@ -1337,7 +1337,7 @@ struct ContentView: View {
                 }
             }
             .padding()
-            .padding(.bottom, 90) // Spazio per toolbar
+            .padding(.bottom, 100) // AUMENTATO DA 90 A 100
         }
         .onAppear { vm.evaluateAllSlips() }
     }
@@ -1362,7 +1362,7 @@ struct ContentView: View {
             
             Spacer()
         }
-        .padding(.bottom, 90)
+        .padding(.bottom, 100) // AUMENTATO DA 90 A 100
     }
     
     // MARK: - FLOATING BUTTON PER SCHEDINE
@@ -1392,7 +1392,7 @@ struct ContentView: View {
                                 .offset(x: 8, y: -8)
                         }
                         .padding(.trailing, 20)
-                        .padding(.bottom, 100) // Sopra la toolbar
+                        .padding(.bottom, 110) // AUMENTATO DA 100 A 110
                     }
                 }
             }
@@ -1725,6 +1725,7 @@ struct CasinoFullView: View {
                 // Contenuto del Casino
                 GamesContentView()
                     .environmentObject(vm)
+                    .padding(.bottom, 100) // AUMENTATO DA 90 A 100
             }
         }
     }
@@ -1786,7 +1787,7 @@ struct GamesContentView: View {
                 }
                 .padding(.bottom, 30)
             }
-            .padding(.bottom, 100) // Spazio extra per la toolbar
+            .padding(.bottom, 120) // AUMENTATO DA 100 A 120
         }
         .background(Color.clear)
     }
