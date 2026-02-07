@@ -443,7 +443,6 @@ struct LiquidGlassHeader: View {
 }
 
 // MARK: - VIEW MODEL (BettingViewModel)
-// Questo è un estratto del ViewModel, aggiorna con le modifiche necessarie
 
 final class BettingViewModel: ObservableObject {
     
@@ -1724,6 +1723,18 @@ struct AppleSignInRequiredView: View {
                         errorMessage = "Richiesta non gestita"
                     case .unknown:
                         errorMessage = "Errore sconosciuto"
+                    case .notInteractive:
+                        errorMessage = "Richiesta non interattiva"
+                    case .matchedExcludedCredential:
+                        errorMessage = "Credenziali escluse"
+                    case .credentialImport:
+                        errorMessage = "Errore import credenziali"
+                    case .credentialExport:
+                        errorMessage = "Errore export credenziali"
+                    case .preferSignInWithApple:
+                        errorMessage = "Preferito Sign in with Apple"
+                    case .deviceNotConfiguredForPasskeyCreation:
+                        errorMessage = "Dispositivo non configurato"
                     @unknown default:
                         errorMessage = "Errore sconosciuto"
                     }
@@ -1815,6 +1826,7 @@ struct GamesContentView: View {
                 // Grid giochi
                 LazyVGrid(columns: columns, spacing: 20) {
                     ForEach(games, id: \.0) { game in
+                        // Usa GameButton dal file GameView.swift
                         GameButton(
                             title: game.0,
                             icon: game.1,
@@ -1848,90 +1860,5 @@ struct GamesContentView: View {
             .padding(.bottom, 80) // Spazio per la bottom bar
         }
         .background(Color.clear) // IMPORTANTE: Trasparente!
-    }
-}
-
-// MARK: - GAME BUTTON (necessario per GamesContentView)
-
-struct GameButton: View {
-    let title: String
-    let icon: String
-    let color: Color
-    @State private var showGame = false
-    @EnvironmentObject var vm: BettingViewModel
-    
-    var body: some View {
-        Button {
-            // Verifica saldo per Gratta e Vinci
-            if title == "Gratta e Vinci" && vm.balance < 50 {
-                // Feedback di errore
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.error)
-                return
-            }
-            
-            // Feedback
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.impactOccurred()
-            
-            showGame = true
-        } label: {
-            VStack(spacing: 15) {
-                // Icona con effetto
-                ZStack {
-                    Circle()
-                        .fill(color.opacity(0.2))
-                        .frame(width: 70, height: 70)
-                    
-                    Image(systemName: icon)
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(color)
-                        .shadow(color: color.opacity(0.5), radius: 5)
-                }
-                
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
-                
-                // Prezzo per Gratta e Vinci
-                if title == "Gratta e Vinci" {
-                    Text("€50")
-                        .font(.caption.bold())
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(Color.red.opacity(0.8))
-                        .cornerRadius(10)
-                } else {
-                    Text("Gioca")
-                        .font(.caption)
-                        .foregroundColor(color)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(color.opacity(0.2))
-                        .cornerRadius(10)
-                }
-            }
-            .frame(width: 160, height: 180)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.white.opacity(0.05))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(color.opacity(0.3), lineWidth: 1)
-                    )
-            )
-            .shadow(color: color.opacity(0.2), radius: 10, x: 0, y: 5)
-        }
-        .sheet(isPresented: $showGame) {
-            if title == "Gratta e Vinci" {
-                ScratchCardView(balance: $vm.balance)
-            } else if title == "Slot Machine" {
-                SlotMachineView(balance: $vm.balance)
-            } else {
-                ComingSoonView(gameName: title)
-            }
-        }
     }
 }

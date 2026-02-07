@@ -694,7 +694,7 @@ struct ScratchCardView: View {
     }
 }
 
-// MARK: - SLOT MACHINE (nessuna modifica qui)
+// MARK: - SLOT MACHINE (fixato per compatibilità iOS)
 struct SlotMachineView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var balance: Double
@@ -756,8 +756,9 @@ struct SlotMachineView: View {
                 }
             }
             
-            // Scintille vincenti
-            ForEach(sparklePositions, id: \.self) { position in
+            // Scintille vincenti - FIX per compatibilità iOS
+            ForEach(sparklePositions.indices, id: \.self) { index in
+                let position = sparklePositions[index]
                 Image(systemName: "sparkle")
                     .foregroundColor(.yellow)
                     .font(.caption)
