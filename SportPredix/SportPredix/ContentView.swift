@@ -65,6 +65,7 @@ struct FloatingGlassToolbar: View {
             )
             .padding(.horizontal, 16)
             .padding(.bottom, 20)
+            .offset(y: 10) // ABBASSATA
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .allowsHitTesting(true)
@@ -161,16 +162,6 @@ struct FloatingToolbarButton: View {
         }
     }
     
-    private var label: String {
-        switch index {
-        case 0: return "Scommesse"
-        case 1: return "Casino"
-        case 2: return "Storico"
-        case 3: return "Profilo"
-        default: return ""
-        }
-    }
-    
     var body: some View {
         Button {
             withAnimation(
@@ -255,16 +246,6 @@ struct FloatingToolbarButton: View {
                             radius: 3
                         )
                 }
-                
-                // Etichetta
-                Text(label)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(
-                        selectedTab == index ? 
-                        .accentCyan : 
-                        .white.opacity(0.6)
-                    )
-                    .scaleEffect(selectedTab == index ? 1.05 : 1.0)
             }
         }
         .buttonStyle(FloatingButtonStyle(isSelected: selectedTab == index))
@@ -1291,7 +1272,7 @@ struct ContentView: View {
                         Text("\(match.odds.draw, specifier: "%.2f")")
                             .font(.system(.body, design: .monospaced).bold())
                             .foregroundColor(.white)
-                    }
+                        }
                     .frame(maxWidth: .infinity)
                 }
                 
