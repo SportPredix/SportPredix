@@ -1048,22 +1048,23 @@ struct ContentView: View {
                                     loadingView
                                 } else {
                                     matchListView
+                                        .padding(.bottom, 100) // AGGIUNTO PADDING BOTTOM
                                 }
                             } else if vm.selectedTab == 1 {
-                                // Casino - layout speciale
+                                // Casino - layout speciale FIXATO
                                 CasinoFullView()
                                     .environmentObject(vm)
-                                    .padding(.bottom, 100) // AUMENTATO DA 90 A 100
+                                    .edgesIgnoringSafeArea(.bottom) // FIX
                             } else if vm.selectedTab == 2 {
                                 placedBetsView
-                                    .padding(.bottom, 100) // AUMENTATO DA 90 A 100
+                                    .padding(.bottom, 100)
                             } else if vm.selectedTab == 3 {
                                 ProfileView()
                                     .environmentObject(vm)
-                                    .padding(.bottom, 100) // AUMENTATO DA 90 A 100
+                                    .padding(.bottom, 100)
                             } else {
                                 Color.black
-                                    .padding(.bottom, 100) // AUMENTATO DA 90 A 100
+                                    .padding(.bottom, 100)
                             }
                         }
                         .id(refreshID)
@@ -1151,7 +1152,7 @@ struct ContentView: View {
             
             Spacer()
         }
-        .padding(.bottom, 100) // AUMENTATO DA 90 A 100
+        .padding(.bottom, 100)
     }
     
     // MARK: MATCH LIST
@@ -1185,7 +1186,6 @@ struct ContentView: View {
                 }
             }
             .padding()
-            .padding(.bottom, 100) // AUMENTATO DA 90 A 100
         }
         .id("\(vm.selectedDayIndex)-\(vm.selectedSport)")
         .transition(.opacity)
@@ -1211,7 +1211,6 @@ struct ContentView: View {
             
             Spacer()
         }
-        .padding(.bottom, 100) // AUMENTATO DA 90 A 100
     }
     
     private func matchCardView(match: Match, disabled: Bool) -> some View {
@@ -1337,7 +1336,7 @@ struct ContentView: View {
                 }
             }
             .padding()
-            .padding(.bottom, 100) // AUMENTATO DA 90 A 100
+            .padding(.bottom, 100)
         }
         .onAppear { vm.evaluateAllSlips() }
     }
@@ -1362,7 +1361,6 @@ struct ContentView: View {
             
             Spacer()
         }
-        .padding(.bottom, 100) // AUMENTATO DA 90 A 100
     }
     
     // MARK: - FLOATING BUTTON PER SCHEDINE
@@ -1392,7 +1390,7 @@ struct ContentView: View {
                                 .offset(x: 8, y: -8)
                         }
                         .padding(.trailing, 20)
-                        .padding(.bottom, 110) // AUMENTATO DA 100 A 110
+                        .padding(.bottom, 110)
                     }
                 }
             }
@@ -1666,7 +1664,7 @@ struct AppleSignInRequiredView: View {
     }
 }
 
-// MARK: - CASINO FULL VIEW
+// MARK: - CASINO FULL VIEW (FIXATO)
 
 struct CasinoFullView: View {
     @EnvironmentObject var vm: BettingViewModel
@@ -1682,7 +1680,7 @@ struct CasinoFullView: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .ignoresSafeArea()
+            .edgesIgnoringSafeArea(.all) // MODIFICATO: .all invece che .ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // Header DEDICATO per Casino
@@ -1722,10 +1720,13 @@ struct CasinoFullView: View {
                 }
                 .background(Color.black.opacity(0.3))
                 
-                // Contenuto del Casino
+                // Contenuto del Casino - FIXATO con safe area
                 GamesContentView()
                     .environmentObject(vm)
-                    .padding(.bottom, 100) // AUMENTATO DA 90 A 100
+                    .padding(.bottom, 60) // PADDING AGGIUNTO PER LA TOOLBAR
+            }
+            .safeAreaInset(edge: .bottom) {
+                Color.clear.frame(height: 40) // SPAZIO PER LA TOOLBAR
             }
         }
     }
@@ -1787,7 +1788,7 @@ struct GamesContentView: View {
                 }
                 .padding(.bottom, 30)
             }
-            .padding(.bottom, 120) // AUMENTATO DA 100 A 120
+            .padding(.bottom, 100) // PADDING PER LA TOOLBAR
         }
         .background(Color.clear)
     }
