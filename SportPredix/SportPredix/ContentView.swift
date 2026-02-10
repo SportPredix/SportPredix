@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import Combine
 
 // MARK: - THEME
 
@@ -369,7 +370,10 @@ final class BettingViewModel: ObservableObject {
     @Published var showSlipDetail: BetSlip?
     
     @Published var balance: Double {
-        didSet { UserDefaults.standard.set(balance, forKey: "balance") }
+        didSet {
+            UserDefaults.standard.set(balance, forKey: "balance")
+            syncBalanceToCloudIfPossible()
+        }
     }
     
     @Published var userName: String {
@@ -394,6 +398,9 @@ final class BettingViewModel: ObservableObject {
     private let slipsKey = "savedSlips"
     private let matchesKey = "savedMatches"
     private let lastFetchKey = "lastBetstackFetch"
+    private var cancellables = Set<AnyCancellable>()
+    private var balanceSyncTask: DispatchWorkItem?
+    private var isLoadingRemoteBalance = false
     
     init() {
         let savedBalance = UserDefaults.standard.double(forKey: "balance")
@@ -414,7 +421,57 @@ final class BettingViewModel: ObservableObject {
         }
         
         loadMatchesForAllDays()
+        setupAuthObserver()
+    }
+
+    private func setupAuthObserver() {
+        AuthManager.shared.$currentUserID
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] userID in
+                guard let self = self, let userID = userID else { return }
+                self.loadBalanceFromCloud(userID: userID)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func loadBalanceFromCloud(userID: String) {
+        isLoadingRemoteBalance = true
+        FirebaseManager.shared.loadUserProfile(userID: userID) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                
+                switch result {
+                case .success(let data):
+                    if let remoteBalance = data["balance"] as? Double {
+                        self.balance = remoteBalance
+                    } else if let remoteBalance = data["balance"] as? NSNumber {
+                        self.balance = remoteBalance.doubleValue
+                    } else {
+                        self.isLoadingRemoteBalance = false
+                        self.syncBalanceToCloudIfPossible()
+                        return
+                    }
+                case .failure:
+                    break
+                }
+                
+                self.isLoadingRemoteBalance = false
+            }
+        }
+    }
+
+    private func syncBalanceToCloudIfPossible() {
+        guard !isLoadingRemoteBalance else { return }
+        guard let userID = AuthManager.shared.currentUserID else { return }
         
+        balanceSyncTask?.cancel()
+        let task = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            FirebaseManager.shared.updateBalance(userID: userID, newBalance: self.balance) { _ in }
+        }
+        balanceSyncTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: task)
     }
     
     private func loadMatchesForAllDays() {
