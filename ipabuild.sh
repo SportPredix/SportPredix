@@ -13,36 +13,34 @@ fi
 
 cd build
 
-<<<<<<< HEAD
-<<<<<<< HEAD
+
+
 PACKAGES_DIR="$WORKING_LOCATION/build/SourcePackages"
 
-<<<<<<< HEAD
+
 if ! xcodebuild -resolvePackageDependencies \
     -workspace "$WORKSPACE_PATH" \
-=======
+
 xcodebuild -resolvePackageDependencies \
     -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
->>>>>>> parent of 9e03a33 (gfgf)
+
     -scheme "$APPLICATION_NAME" \
-<<<<<<< HEAD
+
     -destination 'generic/platform=iOS' \
     -clonedSourcePackagesDirPath "$PACKAGES_DIR" \
     -quiet > "$WORKING_LOCATION/build/resolve_packages.log" 2>&1; then
   cat "$WORKING_LOCATION/build/resolve_packages.log"
   exit 1
 fi
-=======
+
     -clonedSourcePackagesDirPath "$PACKAGES_DIR"
->>>>>>> parent of a64a51e (3)
-=======
+
+
 xcodebuild -resolvePackageDependencies \
     -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
     -scheme "$APPLICATION_NAME"
->>>>>>> parent of 14cb2b9 (2)
 
-=======
->>>>>>> parent of d3b8d72 (1)
+
 xcodebuild -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
     -scheme "$APPLICATION_NAME" \
     -configuration Release \
