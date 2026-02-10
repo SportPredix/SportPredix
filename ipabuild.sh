@@ -17,11 +17,15 @@ cd build
 
 PACKAGES_DIR="$WORKING_LOCATION/build/SourcePackages"
 
-xcodebuild -resolvePackageDependencies \
+if ! xcodebuild -resolvePackageDependencies \
     -workspace "$WORKSPACE_PATH" \
     -scheme "$APPLICATION_NAME" \
     -destination 'generic/platform=iOS' \
-    -clonedSourcePackagesDirPath "$PACKAGES_DIR"
+    -clonedSourcePackagesDirPath "$PACKAGES_DIR" \
+    -quiet > "$WORKING_LOCATION/build/resolve_packages.log" 2>&1; then
+  cat "$WORKING_LOCATION/build/resolve_packages.log"
+  exit 1
+fi
 
 xcodebuild -workspace "$WORKSPACE_PATH" \
     -scheme "$APPLICATION_NAME" \

@@ -27,14 +27,6 @@ jobs:
       - name: Build IPA
         run: ./ipabuild.sh
 
-      - name: Resolve Swift Package Dependencies (debug)
-        if: failure()
-        run: |
-          xcodebuild -resolvePackageDependencies \
-            -workspace SportPredix/SportPredix.xcodeproj/project.xcworkspace \
-            -scheme SportPredix \
-            -destination 'generic/platform=iOS'
-
 #      - name: Compress IPA
 #        run: |
 #          cd build
