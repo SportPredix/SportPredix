@@ -27,6 +27,17 @@ jobs:
       - name: Build IPA
         run: ./ipabuild.sh
 
+<<<<<<< HEAD
+=======
+      - name: Resolve Swift Package Dependencies (debug)
+        if: failure()
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project SportPredix/SportPredix.xcodeproj \
+            -scheme SportPredix \
+            -destination 'generic/platform=iOS'
+
+>>>>>>> parent of 9e03a33 (gfgf)
 #      - name: Compress IPA
 #        run: |
 #          cd build
