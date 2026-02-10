@@ -28,6 +28,7 @@ jobs:
         run: ./ipabuild.sh
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
       - name: Resolve Swift Package Dependencies (debug)
         if: failure()
@@ -37,6 +38,8 @@ jobs:
             -scheme SportPredix
 
 >>>>>>> parent of 9e03a33 (gfgf)
+=======
+>>>>>>> parent of 1b4c3c9 (ERRORE)
 #      - name: Compress IPA
 #        run: |
 #          cd build
@@ -49,4 +52,5 @@ jobs:
           path: build/SportPredix.ipa
 #          path: build/SportPredix.zip
           retention-days: 30
+
 
