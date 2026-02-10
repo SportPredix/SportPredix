@@ -6,69 +6,43 @@
 //
 
 import SwiftUI
-import AuthenticationServices
 
 struct ProfileView: View {
-    
     @EnvironmentObject var vm: BettingViewModel
+    @EnvironmentObject var auth: AuthViewModel
+    
     @State private var showResetAlert = false
     @State private var showPreferences = false
     @State private var showAppInfoAlert = false
-    @State private var appleUserID: String = ""
-    @State private var appleEmail: String = ""
-    @State private var appleName: String = ""
     
-    // ⭐⭐⭐ NUOVO: Calcola le iniziali con stile Apple
     var initials: String {
-        // Usa solo il nome Apple
-        if !appleName.isEmpty {
-            let parts = appleName.split(separator: " ")
-            if let firstChar = parts.first?.first, let lastChar = parts.last?.first, parts.count >= 2 {
-                return "\(firstChar)\(lastChar)".uppercased()
-            } else if let firstChar = parts.first?.first {
-                return String(firstChar).uppercased()
-            }
+        let baseName = !vm.userName.isEmpty ? vm.userName : (auth.userEmail ?? "?")
+        let parts = baseName.split(separator: " ")
+        if let firstChar = parts.first?.first, let lastChar = parts.last?.first, parts.count >= 2 {
+            return "\(firstChar)\(lastChar)".uppercased()
+        } else if let firstChar = parts.first?.first {
+            return String(firstChar).uppercased()
         }
-        
-        // Fallback se non c'è nome
         return "?"
     }
     
-    // ⭐⭐⭐ NUOVO: Nome visualizzato (solo Apple)
     var displayName: String {
-        if !appleName.isEmpty {
-            return appleName
-        } else {
-            return "Utente Apple"
-        }
+        if !vm.userName.isEmpty { return vm.userName }
+        if let email = auth.userEmail, !email.isEmpty { return email }
+        return "Utente"
     }
     
-    // ⭐⭐⭐ NUOVO: Email mascherata Apple
     var displayEmail: String {
-        if !appleEmail.isEmpty {
-            if appleEmail.contains("privaterelay.appleid.com") {
-                // Email mascherata Apple
-                let components = appleEmail.split(separator: "@")
-                if let localPart = components.first, localPart.count > 4 {
-                    let masked = "\(localPart.prefix(2))•••\(localPart.suffix(2))"
-                    return "\(masked)@icloud.com"
-                }
-            }
-            return appleEmail
-        }
-        return "email-privata@icloud.com"
+        auth.userEmail ?? "email non disponibile"
     }
     
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            // ⭐⭐⭐ MODIFICATO: Controllo se utente è loggato con Apple
-            if vm.isSignedInWithApple {
-                // Utente autenticato
+            if auth.isSignedIn {
                 authenticatedProfileView
             } else {
-                // Utente non autenticato
                 notAuthenticatedView
             }
         }
@@ -80,24 +54,20 @@ struct ProfileView: View {
                 generator.notificationOccurred(.success)
             }
         } message: {
-            Text("Vuoi davvero resettare il tuo account? Perderai tutte le scommesse piazzate e il saldo tornerà a €1000.")
+            Text("Vuoi davvero resettare il tuo account? Perderai tutte le scommesse piazzate e il saldo tornera a EUR 1000.")
         }
         .alert("SportPredix Info", isPresented: $showAppInfoAlert) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("Versione 2.0\nSign in with Apple Esclusivo\n© 2026 SportPredix")
+            Text("Versione 2.0\nLogin Email/Password\n(c) 2026 SportPredix")
         }
         .sheet(isPresented: $showPreferences) {
             PreferencesView()
         }
-        .onAppear {
-            loadAppleUserData()
-        }
     }
     
-    // ⭐⭐⭐ NUOVO: Vista per utente NON autenticato
     private var notAuthenticatedView: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: 24) {
             Spacer()
             
             ZStack {
@@ -111,17 +81,17 @@ struct ProfileView: View {
                     )
                     .frame(width: 120, height: 120)
                 
-                Image(systemName: "apple.logo")
+                Image(systemName: "person.badge.key")
                     .font(.system(size: 50))
                     .foregroundColor(.accentCyan)
             }
             
             VStack(spacing: 12) {
-                Text("Accesso Apple Richiesto")
+                Text("Accesso richiesto")
                     .font(.title.bold())
                     .foregroundColor(.white)
                 
-                Text("Devi accedere con Apple ID per accedere al profilo.\nTorna alla schermata principale per autenticarti.")
+                Text("Devi accedere per vedere il profilo. Torna alla schermata principale per il login.")
                     .font(.body)
                     .foregroundColor(.gray)
                     .multilineTextAlignment(.center)
@@ -129,96 +99,41 @@ struct ProfileView: View {
             }
             .padding(.horizontal, 40)
             
-            // Informazioni sicurezza Apple
-            VStack(alignment: .leading, spacing: 16) {
-                securityInfoRow(
-                    icon: "lock.shield.fill",
-                    title: "Sicurezza Apple",
-                    description: "Face ID / Touch ID integrati"
-                )
-                
-                securityInfoRow(
-                    icon: "envelope.badge.fill",
-                    title: "Privacy",
-                    description: "La tua email non viene condivisa"
-                )
-                
-                securityInfoRow(
-                    icon: "person.badge.key.fill",
-                    title: "Accesso Unico",
-                    description: "Solo account Apple autorizzati"
-                )
-            }
-            .padding()
-            .background(Color.white.opacity(0.05))
-            .cornerRadius(16)
-            .padding(.horizontal, 20)
-            
             Spacer()
         }
     }
     
-    // ⭐⭐⭐ MODIFICATO: Vista profilo autenticato (SENZA modifica nome)
     private var authenticatedProfileView: some View {
         ScrollView {
             VStack(spacing: 28) {
-                
-                // MARK: - HEADER CARD MIGLIORATA
                 headerCard
-                
-                // ⭐⭐⭐ NUOVO: CARD INFO ACCOUNT APPLE
-                appleAccountCard
-                
-                // MARK: - QUICK SETTINGS (FUNZIONANTI)
+                accountCard
                 quickSettings
-                
-                // MARK: - USER STATS
                 userStats
-                
-                // MARK: - ACCOUNT ACTIONS
                 accountActions
-                
-                // ⭐⭐⭐ NUOVO: BOTTONE DISCONNESSIONE
                 signOutButton
-                
-                Spacer()
-                    .frame(height: 30)
+                Spacer().frame(height: 30)
             }
             .padding(.top, 20)
         }
     }
     
-    // MARK: - HEADER CARD MIGLIORATA con badge Apple (SENZA modifica nome)
     private var headerCard: some View {
         VStack(spacing: 16) {
-            // Avatar con badge Apple
-            ZStack(alignment: .bottomTrailing) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [.accentCyan.opacity(0.3), .blue.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 90, height: 90)
-                    
-                    Text(initials)
-                        .font(.largeTitle.bold())
-                        .foregroundColor(.accentCyan)
-                }
-                
-                // Badge Apple
+            ZStack {
                 Circle()
-                    .fill(Color.black)
-                    .frame(width: 28, height: 28)
-                    .overlay(
-                        Image(systemName: "apple.logo")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
+                    .fill(
+                        LinearGradient(
+                            colors: [.accentCyan.opacity(0.3), .blue.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                    .offset(x: 5, y: 5)
+                    .frame(width: 90, height: 90)
+                
+                Text(initials)
+                    .font(.largeTitle.bold())
+                    .foregroundColor(.accentCyan)
             }
             .padding(.top, 20)
             
@@ -227,24 +142,15 @@ struct ProfileView: View {
                     .font(.title.bold())
                     .foregroundColor(.white)
                 
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.caption)
-                        .foregroundColor(.accentCyan)
-                    
-                    Text("Account Apple Verificato")
-                        .font(.caption)
-                        .foregroundColor(.accentCyan)
-                }
+                Text(displayEmail)
+                    .font(.caption)
+                    .foregroundColor(.gray)
             }
             
-            Text("Saldo: €\(vm.balance, specifier: "%.2f")")
+            Text("Saldo: EUR \(vm.balance, specifier: \"%.2f\")")
                 .font(.title3.bold())
                 .foregroundColor(.accentCyan)
                 .padding(.top, 4)
-            
-            // ⭐⭐⭐ RIMOSSO: Bottone "Modifica nome visualizzato"
-            // Il nome non si può modificare, viene da Apple
         }
         .padding()
         .frame(maxWidth: .infinity)
@@ -259,102 +165,27 @@ struct ProfileView: View {
         .padding(.horizontal)
     }
     
-    // ⭐⭐⭐ NUOVO: Card info account Apple
-    private var appleAccountCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+    private var accountCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "apple.logo")
+                Image(systemName: "person.fill")
                     .foregroundColor(.accentCyan)
                     .frame(width: 24)
-                
-                Text("Account Apple Collegato")
+                Text("Account")
                     .font(.headline)
                     .foregroundColor(.white)
-                
                 Spacer()
             }
             
-            VStack(spacing: 12) {
-                HStack {
-                    Image(systemName: "person.fill")
-                        .foregroundColor(.gray)
-                        .frame(width: 28)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Nome Apple")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        
-                        Text(displayName)
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                    }
-                    
-                    Spacer()
-                    
-                    Image(systemName: "lock.fill")
-                        .foregroundColor(.green)
-                        .font(.caption)
-                }
-                .padding(.vertical, 8)
-                
-                Divider()
-                    .background(Color.gray.opacity(0.3))
-                
-                HStack {
-                    Image(systemName: "envelope.fill")
-                        .foregroundColor(.gray)
-                        .frame(width: 28)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Email Apple")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        
-                        Text(displayEmail)
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                    }
-                    
-                    Spacer()
-                    
-                    Image(systemName: "eye.slash.fill")
-                        .foregroundColor(.blue)
-                        .font(.caption)
-                }
-                .padding(.vertical, 8)
-                
-                Divider()
-                    .background(Color.gray.opacity(0.3))
-                
-                HStack {
-                    Image(systemName: "person.badge.key.fill")
-                        .foregroundColor(.gray)
-                        .frame(width: 28)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("ID Utente Apple")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        
-                        if !appleUserID.isEmpty {
-                            Text("••••\(String(appleUserID.suffix(6)))")
-                                .font(.system(.subheadline, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.8))
-                        } else {
-                            Text("ID sicuro Apple")
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-                    }
-                    
-                    Spacer()
-                }
-                .padding(.vertical, 8)
+            HStack {
+                Text("Email")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                Spacer()
+                Text(displayEmail)
+                    .font(.subheadline)
+                    .foregroundColor(.white)
             }
-            .padding()
-            .background(Color.white.opacity(0.03))
-            .cornerRadius(12)
         }
         .padding()
         .background(Color.white.opacity(0.05))
@@ -369,18 +200,8 @@ struct ProfileView: View {
                 .foregroundColor(.white)
             
             VStack(spacing: 12) {
-                toggleRow(
-                    icon: "bell",
-                    title: "Notifiche",
-                    isOn: $vm.notificationsEnabled
-                )
-                
-                toggleRow(
-                    icon: "lock",
-                    title: "Privacy",
-                    isOn: $vm.privacyEnabled
-                )
-                
+                toggleRow(icon: "bell", title: "Notifiche", isOn: $vm.notificationsEnabled)
+                toggleRow(icon: "lock", title: "Privacy", isOn: $vm.privacyEnabled)
                 Button {
                     showPreferences = true
                 } label: {
@@ -388,12 +209,9 @@ struct ProfileView: View {
                         Image(systemName: "gearshape")
                             .foregroundColor(.accentCyan)
                             .frame(width: 28)
-                        
                         Text("Preferenze app")
                             .foregroundColor(.white)
-                        
                         Spacer()
-                        
                         Image(systemName: "chevron.right")
                             .foregroundColor(.gray)
                     }
@@ -438,35 +256,17 @@ struct ProfileView: View {
                 .foregroundColor(.white)
             
             VStack(spacing: 12) {
-                actionButton(
-                    icon: "arrow.counterclockwise",
-                    title: "Reset account",
-                    color: .red,
-                    action: { showResetAlert = true }
-                )
+                actionButton(icon: "arrow.counterclockwise", title: "Reset account", color: .red) {
+                    showResetAlert = true
+                }
                 
-                actionButton(
-                    icon: "plus.circle",
-                    title: "Deposita €100",
-                    color: .green,
-                    action: depositFunds
-                )
+                actionButton(icon: "plus.circle", title: "Deposita EUR 100", color: .green) {
+                    depositFunds()
+                }
                 
-                actionButton(
-                    icon: "person.crop.circle.badge.gear",
-                    title: "Gestisci account Apple",
-                    color: .accentCyan,
-                    action: manageAppleAccount,
-                    showsChevron: true
-                )
-                
-                actionButton(
-                    icon: "info.circle",
-                    title: "Info app",
-                    color: .accentCyan,
-                    action: { showAppInfoAlert = true },
-                    showsChevron: true
-                )
+                actionButton(icon: "info.circle", title: "Info app", color: .accentCyan, showsChevron: true) {
+                    showAppInfoAlert = true
+                }
             }
             .padding()
             .background(Color.white.opacity(0.05))
@@ -475,14 +275,12 @@ struct ProfileView: View {
         .padding(.horizontal)
     }
     
-    // ⭐⭐⭐ NUOVO: Bottone per disconnettersi
     private var signOutButton: some View {
         Button(action: signOut) {
             HStack {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
                     .font(.system(size: 18))
-                
-                Text("Esci dall'account Apple")
+                Text("Esci dall'account")
                     .font(.headline)
             }
             .foregroundColor(.red)
@@ -494,82 +292,15 @@ struct ProfileView: View {
         .padding(.horizontal)
     }
     
-    // MARK: - FUNZIONI PROFILO
-    
-    // ⭐⭐⭐ MODIFICATA: Carica dati Apple dal Keychain/UserDefaults
-    private func loadAppleUserData() {
-        // Recupera l'userID salvato
-        appleUserID = UserDefaults.standard.string(forKey: "appleUserID") ?? ""
-        
-        // ⭐⭐⭐ MODIFICA: In un'app reale, recupereresti i dati dal Keychain
-        // Per ora, usiamo un placeholder che mostra come funzionerebbe
-        if !appleUserID.isEmpty {
-            // Simula dati Apple (in produzione verrebbero dal Keychain)
-            appleEmail = "utente.apple@icloud.com"
-            appleName = UserDefaults.standard.string(forKey: "appleUserName") ?? "Utente Apple"
-            
-            // Se non abbiamo un nome salvato, mostra un placeholder
-            if appleName == "Utente Apple" {
-                // Potresti avere salvato il nome in un'altra chiave
-                if let savedName = UserDefaults.standard.string(forKey: "userName"), !savedName.isEmpty {
-                    appleName = savedName
-                }
-            }
-        }
-    }
-    
-    // ⭐⭐⭐ NUOVO: Gestisci account Apple (apre impostazioni iOS)
-    private func manageAppleAccount() {
-        if let url = URL(string: "App-Prefs:APPLE_ID_SETTINGS") {
-            UIApplication.shared.open(url)
-        }
-    }
-    
-    // ⭐⭐⭐ NUOVO: Disconnetti account Apple
-    private func signOut() {
-        // Rimuove l'ID Apple salvato
-        UserDefaults.standard.removeObject(forKey: "appleUserID")
-        UserDefaults.standard.removeObject(forKey: "appleUserName")
-        UserDefaults.standard.removeObject(forKey: "userName")
-        
-        // Resetta i dati Apple locali
-        appleUserID = ""
-        appleEmail = ""
-        appleName = ""
-        
-        // Forza il refresh della vista principale
-        NotificationCenter.default.post(
-            name: NSNotification.Name("AppleSignOutCompleted"),
-            object: nil
-        )
-    }
-    
     private func depositFunds() {
         vm.balance += 100
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
     }
     
-    // MARK: - FUNZIONI HELPER
-    
-    private func securityInfoRow(icon: String, title: String, description: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(.accentCyan)
-                .frame(width: 24)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.bold())
-                    .foregroundColor(.white)
-                
-                Text(description)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
-            
-            Spacer()
-        }
+    private func signOut() {
+        auth.signOut()
+        vm.setCurrentUserId(nil)
     }
     
     private func toggleRow(icon: String, title: String, isOn: Binding<Bool>) -> some View {
@@ -586,7 +317,7 @@ struct ProfileView: View {
             Toggle("", isOn: isOn)
                 .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
                 .labelsHidden()
-                .onChange(of: isOn.wrappedValue) { _, newValue in
+                .onChange(of: isOn.wrappedValue) { _, _ in
                     let generator = UIImpactFeedbackGenerator(style: .light)
                     generator.impactOccurred()
                 }
@@ -612,8 +343,8 @@ struct ProfileView: View {
         icon: String,
         title: String,
         color: Color,
-        action: @escaping () -> Void,
-        showsChevron: Bool = false
+        showsChevron: Bool = false,
+        action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack {
