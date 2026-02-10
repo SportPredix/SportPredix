@@ -1,637 +1,210 @@
-//
-//  ProfileView.swift
-//  SportPredix
-//
-//  Created by Francesco on 16/01/26.
-//
-
 import SwiftUI
-import AuthenticationServices
 
 struct ProfileView: View {
-    
-    @EnvironmentObject var vm: BettingViewModel
-    @State private var showResetAlert = false
-    @State private var showPreferences = false
-    @State private var showAppInfoAlert = false
-    @State private var appleUserID: String = ""
-    @State private var appleEmail: String = ""
-    @State private var appleName: String = ""
-    
-    // ⭐⭐⭐ NUOVO: Calcola le iniziali con stile Apple
-    var initials: String {
-        // Usa solo il nome Apple
-        if !appleName.isEmpty {
-            let parts = appleName.split(separator: " ")
-            if let firstChar = parts.first?.first, let lastChar = parts.last?.first, parts.count >= 2 {
-                return "\(firstChar)\(lastChar)".uppercased()
-            } else if let firstChar = parts.first?.first {
-                return String(firstChar).uppercased()
-            }
-        }
-        
-        // Fallback se non c'è nome
-        return "?"
-    }
-    
-    // ⭐⭐⭐ NUOVO: Nome visualizzato (solo Apple)
-    var displayName: String {
-        if !appleName.isEmpty {
-            return appleName
-        } else {
-            return "Utente Apple"
-        }
-    }
-    
-    // ⭐⭐⭐ NUOVO: Email mascherata Apple
-    var displayEmail: String {
-        if !appleEmail.isEmpty {
-            if appleEmail.contains("privaterelay.appleid.com") {
-                // Email mascherata Apple
-                let components = appleEmail.split(separator: "@")
-                if let localPart = components.first, localPart.count > 4 {
-                    let masked = "\(localPart.prefix(2))•••\(localPart.suffix(2))"
-                    return "\(masked)@icloud.com"
-                }
-            }
-            return appleEmail
-        }
-        return "email-privata@icloud.com"
-    }
+    @EnvironmentObject var authManager: AuthManager
+    @State private var showLogoutAlert = false
     
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color(UIColor(red: 0.06, green: 0.06, blue: 0.12, alpha: 1.0))
+                .ignoresSafeArea()
             
-            // ⭐⭐⭐ MODIFICATO: Controllo se utente è loggato con Apple
-            if vm.isSignedInWithApple {
-                // Utente autenticato
-                authenticatedProfileView
-            } else {
-                // Utente non autenticato
-                notAuthenticatedView
-            }
-        }
-        .alert("Reset Account", isPresented: $showResetAlert) {
-            Button("Annulla", role: .cancel) { }
-            Button("Reset", role: .destructive) {
-                vm.resetAccount()
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.success)
-            }
-        } message: {
-            Text("Vuoi davvero resettare il tuo account? Perderai tutte le scommesse piazzate e il saldo tornerà a €1000.")
-        }
-        .alert("SportPredix Info", isPresented: $showAppInfoAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Versione 2.0\nSign in with Apple Esclusivo\n© 2026 SportPredix")
-        }
-        .sheet(isPresented: $showPreferences) {
-            PreferencesView()
-        }
-        .onAppear {
-            loadAppleUserData()
-        }
-    }
-    
-    // ⭐⭐⭐ NUOVO: Vista per utente NON autenticato
-    private var notAuthenticatedView: some View {
-        VStack(spacing: 30) {
-            Spacer()
-            
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.accentCyan.opacity(0.2), .blue.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 120, height: 120)
-                
-                Image(systemName: "apple.logo")
-                    .font(.system(size: 50))
-                    .foregroundColor(.accentCyan)
-            }
-            
-            VStack(spacing: 12) {
-                Text("Accesso Apple Richiesto")
-                    .font(.title.bold())
-                    .foregroundColor(.white)
-                
-                Text("Devi accedere con Apple ID per accedere al profilo.\nTorna alla schermata principale per autenticarti.")
-                    .font(.body)
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-            }
-            .padding(.horizontal, 40)
-            
-            // Informazioni sicurezza Apple
-            VStack(alignment: .leading, spacing: 16) {
-                securityInfoRow(
-                    icon: "lock.shield.fill",
-                    title: "Sicurezza Apple",
-                    description: "Face ID / Touch ID integrati"
-                )
-                
-                securityInfoRow(
-                    icon: "envelope.badge.fill",
-                    title: "Privacy",
-                    description: "La tua email non viene condivisa"
-                )
-                
-                securityInfoRow(
-                    icon: "person.badge.key.fill",
-                    title: "Accesso Unico",
-                    description: "Solo account Apple autorizzati"
-                )
-            }
-            .padding()
-            .background(Color.white.opacity(0.05))
-            .cornerRadius(16)
-            .padding(.horizontal, 20)
-            
-            Spacer()
-        }
-    }
-    
-    // ⭐⭐⭐ MODIFICATO: Vista profilo autenticato (SENZA modifica nome)
-    private var authenticatedProfileView: some View {
-        ScrollView {
-            VStack(spacing: 28) {
-                
-                // MARK: - HEADER CARD MIGLIORATA
-                headerCard
-                
-                // ⭐⭐⭐ NUOVO: CARD INFO ACCOUNT APPLE
-                appleAccountCard
-                
-                // MARK: - QUICK SETTINGS (FUNZIONANTI)
-                quickSettings
-                
-                // MARK: - USER STATS
-                userStats
-                
-                // MARK: - ACCOUNT ACTIONS
-                accountActions
-                
-                // ⭐⭐⭐ NUOVO: BOTTONE DISCONNESSIONE
-                signOutButton
-                
-                Spacer()
-                    .frame(height: 30)
-            }
-            .padding(.top, 20)
-        }
-    }
-    
-    // MARK: - HEADER CARD MIGLIORATA con badge Apple (SENZA modifica nome)
-    private var headerCard: some View {
-        VStack(spacing: 16) {
-            // Avatar con badge Apple
-            ZStack(alignment: .bottomTrailing) {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [.accentCyan.opacity(0.3), .blue.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 90, height: 90)
+            VStack(spacing: 0) {
+                // Header
+                VStack(spacing: 15) {
+                    Text("Profilo")
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundColor(.white)
                     
-                    Text(initials)
-                        .font(.largeTitle.bold())
-                        .foregroundColor(.accentCyan)
-                }
-                
-                // Badge Apple
-                Circle()
-                    .fill(Color.black)
-                    .frame(width: 28, height: 28)
-                    .overlay(
-                        Image(systemName: "apple.logo")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
-                    )
-                    .offset(x: 5, y: 5)
-            }
-            .padding(.top, 20)
-            
-            VStack(spacing: 4) {
-                Text(displayName)
-                    .font(.title.bold())
-                    .foregroundColor(.white)
-                
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.caption)
-                        .foregroundColor(.accentCyan)
-                    
-                    Text("Account Apple Verificato")
-                        .font(.caption)
-                        .foregroundColor(.accentCyan)
-                }
-            }
-            
-            Text("Saldo: €\(vm.balance, specifier: "%.2f")")
-                .font(.title3.bold())
-                .foregroundColor(.accentCyan)
-                .padding(.top, 4)
-            
-            // ⭐⭐⭐ RIMOSSO: Bottone "Modifica nome visualizzato"
-            // Il nome non si può modificare, viene da Apple
-        }
-        .padding()
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.white.opacity(0.05))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.accentCyan.opacity(0.2), lineWidth: 1)
-                )
-        )
-        .padding(.horizontal)
-    }
-    
-    // ⭐⭐⭐ NUOVO: Card info account Apple
-    private var appleAccountCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "apple.logo")
-                    .foregroundColor(.accentCyan)
-                    .frame(width: 24)
-                
-                Text("Account Apple Collegato")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                
-                Spacer()
-            }
-            
-            VStack(spacing: 12) {
-                HStack {
-                    Image(systemName: "person.fill")
+                    Text("Gestisci il tuo account")
+                        .font(.system(size: 14, weight: .regular))
                         .foregroundColor(.gray)
-                        .frame(width: 28)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Nome Apple")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        
-                        Text(displayName)
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                    }
-                    
-                    Spacer()
-                    
-                    Image(systemName: "lock.fill")
-                        .foregroundColor(.green)
-                        .font(.caption)
                 }
-                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
+                .padding(.vertical, 25)
                 
-                Divider()
-                    .background(Color.gray.opacity(0.3))
-                
-                HStack {
-                    Image(systemName: "envelope.fill")
-                        .foregroundColor(.gray)
-                        .frame(width: 28)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Email Apple")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        
-                        Text(displayEmail)
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                    }
-                    
-                    Spacer()
-                    
-                    Image(systemName: "eye.slash.fill")
-                        .foregroundColor(.blue)
-                        .font(.caption)
-                }
-                .padding(.vertical, 8)
-                
-                Divider()
-                    .background(Color.gray.opacity(0.3))
-                
-                HStack {
-                    Image(systemName: "person.badge.key.fill")
-                        .foregroundColor(.gray)
-                        .frame(width: 28)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("ID Utente Apple")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        
-                        if !appleUserID.isEmpty {
-                            Text("••••\(String(appleUserID.suffix(6)))")
-                                .font(.system(.subheadline, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.8))
-                        } else {
-                            Text("ID sicuro Apple")
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.8))
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Avatar e Nome
+                        VStack(spacing: 15) {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [
+                                            Color(UIColor(red: 0.2, green: 1.0, blue: 0.6, alpha: 1.0)),
+                                            Color(UIColor(red: 0.1, green: 0.8, blue: 0.5, alpha: 1.0))
+                                        ]),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 80, height: 80)
+                                .overlay(
+                                    Text(String(authManager.currentUserName?.prefix(1) ?? "U").uppercased())
+                                        .font(.system(size: 32, weight: .bold))
+                                        .foregroundColor(.black)
+                                )
+                            
+                            Text(authManager.currentUserName ?? "Utente")
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(.white)
+                            
+                            Text(authManager.currentUserEmail ?? "")
+                                .font(.system(size: 13, weight: .regular))
+                                .foregroundColor(.gray)
                         }
-                    }
-                    
-                    Spacer()
-                }
-                .padding(.vertical, 8)
-            }
-            .padding()
-            .background(Color.white.opacity(0.03))
-            .cornerRadius(12)
-        }
-        .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(16)
-        .padding(.horizontal)
-    }
-    
-    private var quickSettings: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Impostazioni rapide")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            VStack(spacing: 12) {
-                toggleRow(
-                    icon: "bell",
-                    title: "Notifiche",
-                    isOn: $vm.notificationsEnabled
-                )
-                
-                toggleRow(
-                    icon: "lock",
-                    title: "Privacy",
-                    isOn: $vm.privacyEnabled
-                )
-                
-                Button {
-                    showPreferences = true
-                } label: {
-                    HStack {
-                        Image(systemName: "gearshape")
-                            .foregroundColor(.accentCyan)
-                            .frame(width: 28)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 30)
+                        .background(Color.white.opacity(0.03))
+                        .cornerRadius(15)
                         
-                        Text("Preferenze app")
+                        // Informazioni Account
+                        VStack(spacing: 0) {
+                            Text("Informazioni Account")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 15)
+                                .padding(.vertical, 12)
+                            
+                            Divider()
+                                .background(Color.white.opacity(0.1))
+                            
+                            VStack(spacing: 12) {
+                                HStack {
+                                    Label("Email", systemImage: "envelope.fill")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(.gray)
+                                        .frame(width: 100, alignment: .leading)
+                                    
+                                    Spacer()
+                                    
+                                    Text(authManager.currentUserEmail ?? "N/A")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white)
+                                        .lineLimit(1)
+                                }
+                                
+                                Divider()
+                                    .background(Color.white.opacity(0.05))
+                                
+                                HStack {
+                                    Label("ID Utente", systemImage: "person.crop.square.fill")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(.gray)
+                                        .frame(width: 100, alignment: .leading)
+                                    
+                                    Spacer()
+                                    
+                                    Text(authManager.currentUserID?.prefix(8).uppercased() ?? "N/A")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(Color(UIColor(red: 0.2, green: 1.0, blue: 0.6, alpha: 1.0)))
+                                        .lineLimit(1)
+                                }
+                            }
+                            .padding(.horizontal, 15)
+                            .padding(.vertical, 12)
+                        }
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(12)
+                        
+                        // Impostazioni
+                        VStack(spacing: 0) {
+                            Text("Impostazioni")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 15)
+                                .padding(.vertical, 12)
+                            
+                            Divider()
+                                .background(Color.white.opacity(0.1))
+                            
+                            VStack(spacing: 0) {
+                                VStack(spacing: 10) {
+                                    HStack {
+                                        Label("Notifiche", systemImage: "bell.fill")
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(.gray)
+                                        
+                                        Spacer()
+                                        
+                                        Toggle("", isOn: .constant(true))
+                                    }
+                                    
+                                    HStack {
+                                        Label("Tema Scuro", systemImage: "moon.fill")
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(.gray)
+                                        
+                                        Spacer()
+                                        
+                                        Toggle("", isOn: .constant(true))
+                                    }
+                                }
+                                .padding(12)
+                            }
+                        }
+                        .background(Color.white.opacity(0.05))
+                        .cornerRadius(12)
+                        
+                        // Pulsante Logout
+                        Button(action: {
+                            showLogoutAlert = true
+                        }) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "door.left.hand.open")
+                                Text("Esci")
+                                    .font(.system(size: 16, weight: .bold))
+                            }
                             .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.red.opacity(0.8),
+                                        Color.red.opacity(0.6)
+                                    ]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(12)
+                        }
+                        .padding(.top, 10)
                         
-                        Spacer()
-                        
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.gray)
+                        // Footer
+                        VStack(spacing: 8) {
+                            Text("SportPredix v1.0")
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundColor(.gray)
+                            
+                            Text("© 2026 SportPredix. All rights reserved.")
+                                .font(.system(size: 11, weight: .regular))
+                                .foregroundColor(.gray.opacity(0.7))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
                     }
-                    .padding(.vertical, 6)
-                }
-            }
-            .padding()
-            .background(Color.white.opacity(0.05))
-            .cornerRadius(16)
-        }
-        .padding(.horizontal)
-    }
-    
-    private var userStats: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Statistiche utente")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            VStack(spacing: 12) {
-                statRow(title: "Scommesse piazzate", value: "\(vm.totalBetsCount)")
-                statRow(title: "Vinte", value: "\(vm.totalWins)")
-                statRow(title: "Perse", value: "\(vm.totalLosses)")
-                
-                if vm.totalBetsCount > 0 {
-                    let winRate = Double(vm.totalWins) / Double(vm.totalBetsCount) * 100
-                    let formattedWinRate = String(format: "%.1f%%", winRate)
-                    statRow(title: "Percentuale vittorie", value: formattedWinRate)
-                }
-            }
-            .padding()
-            .background(Color.white.opacity(0.05))
-            .cornerRadius(16)
-        }
-        .padding(.horizontal)
-    }
-    
-    private var accountActions: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Azioni account")
-                .font(.headline)
-                .foregroundColor(.white)
-            
-            VStack(spacing: 12) {
-                actionButton(
-                    icon: "arrow.counterclockwise",
-                    title: "Reset account",
-                    color: .red,
-                    action: { showResetAlert = true }
-                )
-                
-                actionButton(
-                    icon: "plus.circle",
-                    title: "Deposita €100",
-                    color: .green,
-                    action: depositFunds
-                )
-                
-                actionButton(
-                    icon: "person.crop.circle.badge.gear",
-                    title: "Gestisci account Apple",
-                    color: .accentCyan,
-                    action: manageAppleAccount,
-                    showsChevron: true
-                )
-                
-                actionButton(
-                    icon: "info.circle",
-                    title: "Info app",
-                    color: .accentCyan,
-                    action: { showAppInfoAlert = true },
-                    showsChevron: true
-                )
-            }
-            .padding()
-            .background(Color.white.opacity(0.05))
-            .cornerRadius(16)
-        }
-        .padding(.horizontal)
-    }
-    
-    // ⭐⭐⭐ NUOVO: Bottone per disconnettersi
-    private var signOutButton: some View {
-        Button(action: signOut) {
-            HStack {
-                Image(systemName: "rectangle.portrait.and.arrow.right")
-                    .font(.system(size: 18))
-                
-                Text("Esci dall'account Apple")
-                    .font(.headline)
-            }
-            .foregroundColor(.red)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.red.opacity(0.1))
-            .cornerRadius(12)
-        }
-        .padding(.horizontal)
-    }
-    
-    // MARK: - FUNZIONI PROFILO
-    
-    // ⭐⭐⭐ MODIFICATA: Carica dati Apple dal Keychain/UserDefaults
-    private func loadAppleUserData() {
-        // Recupera l'userID salvato
-        appleUserID = UserDefaults.standard.string(forKey: "appleUserID") ?? ""
-        
-        // ⭐⭐⭐ MODIFICA: In un'app reale, recupereresti i dati dal Keychain
-        // Per ora, usiamo un placeholder che mostra come funzionerebbe
-        if !appleUserID.isEmpty {
-            // Simula dati Apple (in produzione verrebbero dal Keychain)
-            appleEmail = "utente.apple@icloud.com"
-            appleName = UserDefaults.standard.string(forKey: "appleUserName") ?? "Utente Apple"
-            
-            // Se non abbiamo un nome salvato, mostra un placeholder
-            if appleName == "Utente Apple" {
-                // Potresti avere salvato il nome in un'altra chiave
-                if let savedName = UserDefaults.standard.string(forKey: "userName"), !savedName.isEmpty {
-                    appleName = savedName
+                    .padding(.horizontal)
+                    .padding(.vertical, 20)
                 }
             }
         }
-    }
-    
-    // ⭐⭐⭐ NUOVO: Gestisci account Apple (apre impostazioni iOS)
-    private func manageAppleAccount() {
-        if let url = URL(string: "App-Prefs:APPLE_ID_SETTINGS") {
-            UIApplication.shared.open(url)
-        }
-    }
-    
-    // ⭐⭐⭐ NUOVO: Disconnetti account Apple
-    private func signOut() {
-        // Rimuove l'ID Apple salvato
-        UserDefaults.standard.removeObject(forKey: "appleUserID")
-        UserDefaults.standard.removeObject(forKey: "appleUserName")
-        UserDefaults.standard.removeObject(forKey: "userName")
-        
-        // Resetta i dati Apple locali
-        appleUserID = ""
-        appleEmail = ""
-        appleName = ""
-        
-        // Forza il refresh della vista principale
-        NotificationCenter.default.post(
-            name: NSNotification.Name("AppleSignOutCompleted"),
-            object: nil
-        )
-    }
-    
-    private func depositFunds() {
-        vm.balance += 100
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
-    }
-    
-    // MARK: - FUNZIONI HELPER
-    
-    private func securityInfoRow(icon: String, title: String, description: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(.accentCyan)
-                .frame(width: 24)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.bold())
-                    .foregroundColor(.white)
-                
-                Text(description)
-                    .font(.caption)
-                    .foregroundColor(.gray)
+        .alert("Conferma Logout", isPresented: $showLogoutAlert) {
+            Button("Annulla", role: .cancel) { }
+            Button("Esci", role: .destructive) {
+                authManager.logout()
             }
-            
-            Spacer()
+        } message: {
+            Text("Sei sicuro di voler uscire?")
         }
     }
-    
-    private func toggleRow(icon: String, title: String, isOn: Binding<Bool>) -> some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundColor(.accentCyan)
-                .frame(width: 28)
-            
-            Text(title)
-                .foregroundColor(.white)
-            
-            Spacer()
-            
-            Toggle("", isOn: isOn)
-                .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
-                .labelsHidden()
-                .onChange(of: isOn.wrappedValue) { _, newValue in
-                    let generator = UIImpactFeedbackGenerator(style: .light)
-                    generator.impactOccurred()
-                }
-        }
-        .padding(.vertical, 6)
-    }
-    
-    private func statRow(title: String, value: String) -> some View {
-        HStack {
-            Text(title)
-                .foregroundColor(.white)
-            
-            Spacer()
-            
-            Text(value)
-                .foregroundColor(.accentCyan)
-                .fontWeight(.medium)
-        }
-        .padding(.vertical, 4)
-    }
-    
-    private func actionButton(
-        icon: String,
-        title: String,
-        color: Color,
-        action: @escaping () -> Void,
-        showsChevron: Bool = false
-    ) -> some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundColor(color)
-                    .frame(width: 28)
-                
-                Text(title)
-                    .foregroundColor(color)
-                
-                Spacer()
-                
-                if showsChevron {
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(.gray)
-                }
-            }
-            .padding(.vertical, 10)
-        }
-    }
+}
+
+#Preview {
+    ProfileView()
+        .environmentObject(AuthManager.shared)
 }

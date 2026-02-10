@@ -7,34 +7,45 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1300489B2F1D28A80085CC1A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130048992F1D28A80085CC1A /* Models.swift */; };
-		1300489C2F1D28A80085CC1A /* OddsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1300489A2F1D28A80085CC1A /* OddsService.swift */; };
-		130048A52F1D28B90085CC1A /* BetSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1300489D2F1D28B70085CC1A /* BetSheet.swift */; };
-		130048A62F1D28B90085CC1A /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1300489E2F1D28B70085CC1A /* ProfileView.swift */; };
-		130048A72F1D28B90085CC1A /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1300489F2F1D28B80085CC1A /* ContentView.swift */; };
-		130048A82F1D28B90085CC1A /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130048A02F1D28B80085CC1A /* PreferencesView.swift */; };
-		130048A92F1D28B90085CC1A /* SlipDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130048A12F1D28B80085CC1A /* SlipDetailView.swift */; };
-		130048AA2F1D28B90085CC1A /* SportPredixApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130048A22F1D28B80085CC1A /* SportPredixApp.swift */; };
-		130048AB2F1D28B90085CC1A /* MatchDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130048A32F1D28B80085CC1A /* MatchDetailsView.swift */; };
-		130048AC2F1D28B90085CC1A /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130048A42F1D28B90085CC1A /* GameView.swift */; };
 		136C9E792F156C32006386A3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 136C9E782F156C32006386A3 /* Assets.xcassets */; };
 		136C9E7C2F156C32006386A3 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 136C9E7B2F156C32006386A3 /* Preview Assets.xcassets */; };
+		1396CB152F3BC2F200B49CB2 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 1396CB142F3BC2F200B49CB2 /* FirebaseAuth */; };
+		1396CB172F3BC2F200B49CB2 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 1396CB162F3BC2F200B49CB2 /* FirebaseCore */; };
+		1396CB192F3BC2F200B49CB2 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 1396CB182F3BC2F200B49CB2 /* FirebaseFirestore */; };
+		1396CB282F3BC35000B49CB2 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB1B2F3BC34600B49CB2 /* GameView.swift */; };
+		1396CB292F3BC35000B49CB2 /* SlipDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB1C2F3BC34600B49CB2 /* SlipDetailView.swift */; };
+		1396CB2A2F3BC35000B49CB2 /* FirebaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB1D2F3BC34600B49CB2 /* FirebaseManager.swift */; };
+		1396CB2B2F3BC35000B49CB2 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB1E2F3BC34600B49CB2 /* PreferencesView.swift */; };
+		1396CB2C2F3BC35000B49CB2 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB1F2F3BC34600B49CB2 /* Models.swift */; };
+		1396CB2D2F3BC35000B49CB2 /* SportPredixApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB202F3BC34700B49CB2 /* SportPredixApp.swift */; };
+		1396CB2E2F3BC35000B49CB2 /* BetSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB212F3BC34700B49CB2 /* BetSheet.swift */; };
+		1396CB2F2F3BC35000B49CB2 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB222F3BC34900B49CB2 /* ProfileView.swift */; };
+		1396CB302F3BC35000B49CB2 /* OddsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB232F3BC34900B49CB2 /* OddsService.swift */; };
+		1396CB312F3BC35000B49CB2 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB242F3BC34F00B49CB2 /* AuthView.swift */; };
+		1396CB322F3BC35000B49CB2 /* MatchDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB252F3BC34F00B49CB2 /* MatchDetailsView.swift */; };
+		1396CB332F3BC35000B49CB2 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB262F3BC34F00B49CB2 /* AuthManager.swift */; };
+		1396CB342F3BC35000B49CB2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB272F3BC34F00B49CB2 /* ContentView.swift */; };
+		1396CB362F3BC37300B49CB2 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1396CB352F3BC37300B49CB2 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		130048992F1D28A80085CC1A /* Models.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
-		1300489A2F1D28A80085CC1A /* OddsService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OddsService.swift; sourceTree = "<group>"; };
-		1300489D2F1D28B70085CC1A /* BetSheet.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BetSheet.swift; sourceTree = "<group>"; };
-		1300489E2F1D28B70085CC1A /* ProfileView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
-		1300489F2F1D28B80085CC1A /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		130048A02F1D28B80085CC1A /* PreferencesView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
-		130048A12F1D28B80085CC1A /* SlipDetailView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SlipDetailView.swift; sourceTree = "<group>"; };
-		130048A22F1D28B80085CC1A /* SportPredixApp.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SportPredixApp.swift; sourceTree = "<group>"; };
-		130048A32F1D28B80085CC1A /* MatchDetailsView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MatchDetailsView.swift; sourceTree = "<group>"; };
-		130048A42F1D28B90085CC1A /* GameView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
 		136C9E712F156C29006386A3 /* SportPredix.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SportPredix.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		136C9E782F156C32006386A3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		136C9E7B2F156C32006386A3 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		1396CB1B2F3BC34600B49CB2 /* GameView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
+		1396CB1C2F3BC34600B49CB2 /* SlipDetailView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SlipDetailView.swift; sourceTree = "<group>"; };
+		1396CB1D2F3BC34600B49CB2 /* FirebaseManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FirebaseManager.swift; sourceTree = "<group>"; };
+		1396CB1E2F3BC34600B49CB2 /* PreferencesView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
+		1396CB1F2F3BC34600B49CB2 /* Models.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		1396CB202F3BC34700B49CB2 /* SportPredixApp.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SportPredixApp.swift; sourceTree = "<group>"; };
+		1396CB212F3BC34700B49CB2 /* BetSheet.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BetSheet.swift; sourceTree = "<group>"; };
+		1396CB222F3BC34900B49CB2 /* ProfileView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		1396CB232F3BC34900B49CB2 /* OddsService.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OddsService.swift; sourceTree = "<group>"; };
+		1396CB242F3BC34F00B49CB2 /* AuthView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		1396CB252F3BC34F00B49CB2 /* MatchDetailsView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MatchDetailsView.swift; sourceTree = "<group>"; };
+		1396CB262F3BC34F00B49CB2 /* AuthManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		1396CB272F3BC34F00B49CB2 /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		1396CB352F3BC37300B49CB2 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		13CDB0852F3648D90019F0BE /* SportPredix.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SportPredix.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -43,6 +54,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1396CB172F3BC2F200B49CB2 /* FirebaseCore in Frameworks */,
+				1396CB152F3BC2F200B49CB2 /* FirebaseAuth in Frameworks */,
+				1396CB192F3BC2F200B49CB2 /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -68,17 +82,21 @@
 		136C9E732F156C29006386A3 /* SportPredix */ = {
 			isa = PBXGroup;
 			children = (
+				1396CB262F3BC34F00B49CB2 /* AuthManager.swift */,
+				1396CB242F3BC34F00B49CB2 /* AuthView.swift */,
+				1396CB212F3BC34700B49CB2 /* BetSheet.swift */,
+				1396CB272F3BC34F00B49CB2 /* ContentView.swift */,
+				1396CB1D2F3BC34600B49CB2 /* FirebaseManager.swift */,
+				1396CB1B2F3BC34600B49CB2 /* GameView.swift */,
+				1396CB252F3BC34F00B49CB2 /* MatchDetailsView.swift */,
+				1396CB1F2F3BC34600B49CB2 /* Models.swift */,
+				1396CB232F3BC34900B49CB2 /* OddsService.swift */,
+				1396CB1E2F3BC34600B49CB2 /* PreferencesView.swift */,
+				1396CB222F3BC34900B49CB2 /* ProfileView.swift */,
+				1396CB1C2F3BC34600B49CB2 /* SlipDetailView.swift */,
+				1396CB202F3BC34700B49CB2 /* SportPredixApp.swift */,
+				1396CB352F3BC37300B49CB2 /* GoogleService-Info.plist */,
 				13CDB0852F3648D90019F0BE /* SportPredix.entitlements */,
-				130048992F1D28A80085CC1A /* Models.swift */,
-				1300489A2F1D28A80085CC1A /* OddsService.swift */,
-				1300489D2F1D28B70085CC1A /* BetSheet.swift */,
-				1300489F2F1D28B80085CC1A /* ContentView.swift */,
-				130048A42F1D28B90085CC1A /* GameView.swift */,
-				130048A32F1D28B80085CC1A /* MatchDetailsView.swift */,
-				130048A02F1D28B80085CC1A /* PreferencesView.swift */,
-				1300489E2F1D28B70085CC1A /* ProfileView.swift */,
-				130048A12F1D28B80085CC1A /* SlipDetailView.swift */,
-				130048A22F1D28B80085CC1A /* SportPredixApp.swift */,
 				136C9E782F156C32006386A3 /* Assets.xcassets */,
 				136C9E7A2F156C32006386A3 /* Preview Content */,
 			);
@@ -109,6 +127,11 @@
 			dependencies = (
 			);
 			name = SportPredix;
+			packageProductDependencies = (
+				1396CB142F3BC2F200B49CB2 /* FirebaseAuth */,
+				1396CB162F3BC2F200B49CB2 /* FirebaseCore */,
+				1396CB182F3BC2F200B49CB2 /* FirebaseFirestore */,
+			);
 			productName = SportPredix;
 			productReference = 136C9E712F156C29006386A3 /* SportPredix.app */;
 			productType = "com.apple.product-type.application";
@@ -125,6 +148,7 @@
 				TargetAttributes = {
 					136C9E702F156C29006386A3 = {
 						CreatedOnToolsVersion = 15.2;
+						LastSwiftMigration = 1520;
 					};
 				};
 			};
@@ -137,6 +161,9 @@
 				Base,
 			);
 			mainGroup = 136C9E682F156C29006386A3;
+			packageReferences = (
+				1396CB132F3BC2F200B49CB2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			productRefGroup = 136C9E722F156C29006386A3 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -153,6 +180,7 @@
 			files = (
 				136C9E7C2F156C32006386A3 /* Preview Assets.xcassets in Resources */,
 				136C9E792F156C32006386A3 /* Assets.xcassets in Resources */,
+				1396CB362F3BC37300B49CB2 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -163,16 +191,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				130048AB2F1D28B90085CC1A /* MatchDetailsView.swift in Sources */,
-				130048A62F1D28B90085CC1A /* ProfileView.swift in Sources */,
-				130048A82F1D28B90085CC1A /* PreferencesView.swift in Sources */,
-				130048A92F1D28B90085CC1A /* SlipDetailView.swift in Sources */,
-				130048AC2F1D28B90085CC1A /* GameView.swift in Sources */,
-				130048A72F1D28B90085CC1A /* ContentView.swift in Sources */,
-				130048AA2F1D28B90085CC1A /* SportPredixApp.swift in Sources */,
-				1300489C2F1D28A80085CC1A /* OddsService.swift in Sources */,
-				1300489B2F1D28A80085CC1A /* Models.swift in Sources */,
-				130048A52F1D28B90085CC1A /* BetSheet.swift in Sources */,
+				1396CB2F2F3BC35000B49CB2 /* ProfileView.swift in Sources */,
+				1396CB332F3BC35000B49CB2 /* AuthManager.swift in Sources */,
+				1396CB2E2F3BC35000B49CB2 /* BetSheet.swift in Sources */,
+				1396CB2A2F3BC35000B49CB2 /* FirebaseManager.swift in Sources */,
+				1396CB2B2F3BC35000B49CB2 /* PreferencesView.swift in Sources */,
+				1396CB2D2F3BC35000B49CB2 /* SportPredixApp.swift in Sources */,
+				1396CB282F3BC35000B49CB2 /* GameView.swift in Sources */,
+				1396CB312F3BC35000B49CB2 /* AuthView.swift in Sources */,
+				1396CB292F3BC35000B49CB2 /* SlipDetailView.swift in Sources */,
+				1396CB302F3BC35000B49CB2 /* OddsService.swift in Sources */,
+				1396CB342F3BC35000B49CB2 /* ContentView.swift in Sources */,
+				1396CB2C2F3BC35000B49CB2 /* Models.swift in Sources */,
+				1396CB322F3BC35000B49CB2 /* MatchDetailsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -303,11 +334,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = SportPredix/SportPredix.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"SportPredix/Preview Content\"";
-				DEVELOPMENT_TEAM = USF65A4WGS;
+				DEVELOPMENT_TEAM = 399LMK6Q2Y;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -323,6 +355,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.formatiks.SportPredix;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "SportPredix/SportPredix-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -333,11 +367,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = SportPredix/SportPredix.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"SportPredix/Preview Content\"";
-				DEVELOPMENT_TEAM = USF65A4WGS;
+				DEVELOPMENT_TEAM = 399LMK6Q2Y;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -353,6 +388,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.formatiks.SportPredix;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "SportPredix/SportPredix-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -380,6 +416,35 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		1396CB132F3BC2F200B49CB2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1396CB142F3BC2F200B49CB2 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1396CB132F3BC2F200B49CB2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		1396CB162F3BC2F200B49CB2 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1396CB132F3BC2F200B49CB2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		1396CB182F3BC2F200B49CB2 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1396CB132F3BC2F200B49CB2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 136C9E692F156C29006386A3 /* Project object */;
 }
