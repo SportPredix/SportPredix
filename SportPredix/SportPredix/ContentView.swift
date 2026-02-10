@@ -753,8 +753,6 @@ final class BettingViewModel: ObservableObject {
     
         let normHomeProb = homeProb / totalProb
         let normDrawProb = drawProb / totalProb
-        let normAwayProb = awayProb / totalProb
-    
         let randomValue = Double.random(in: 0..<1)
         
         if randomValue < normHomeProb {

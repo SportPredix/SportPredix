@@ -165,6 +165,7 @@ struct ScratchCardView: View {
     @State private var gameState: GameState = .initial
     @State private var showInsufficientBalance = false
     @State private var animating = false
+    @State private var confetti: [Confetti] = []
     
     enum GameState {
         case initial
@@ -186,6 +187,11 @@ struct ScratchCardView: View {
             // Sfondo semplice
             Color(red: 0.95, green: 0.95, blue: 0.97)
                 .ignoresSafeArea()
+
+            // Confetti
+            ForEach(confetti.indices, id: \.self) { index in
+                ConfettiView(confetto: confetti[index])
+            }
             
             VStack(spacing: 0) {
                 // HEADER
@@ -240,7 +246,7 @@ struct ScratchCardView: View {
         .alert("Saldo insufficiente", isPresented: $showInsufficientBalance) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("Serve €50 per giocare.\nTuo saldo: €\(balance, specifier: "%.2f")")
+            Text(String(format: "Serve €50 per giocare.\nTuo saldo: €%.2f", balance))
         }
     }
     
@@ -388,7 +394,7 @@ struct ScratchCardView: View {
                 }
                 ResultRow(
                     label: "Nuovo saldo",
-                    value: "€\(balance, specifier: "%.2f")",
+                    value: String(format: "€%.2f", balance),
                     color: .black,
                     isBold: true
                 )
@@ -503,7 +509,6 @@ struct ScratchCardView: View {
         for _ in 0..<40 {
             confetti.append(
                 Confetti(
-                    id: UUID(),
                     x: CGFloat.random(in: 30...UIScreen.main.bounds.width - 30),
                     y: -10,
                     color: [.yellow, .orange, .green].randomElement()!,
@@ -769,7 +774,7 @@ struct SlotMachineView: View {
         .alert("Saldo insufficiente", isPresented: $showInsufficientBalance) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("Serve €10 per giocare.\nTuo saldo: €\(balance, specifier: "%.2f")")
+            Text(String(format: "Serve €10 per giocare.\nTuo saldo: €%.2f", balance))
         }
     }
     
@@ -956,7 +961,7 @@ struct SlotMachineView: View {
                 }
                 ResultRow(
                     label: "Nuovo saldo",
-                    value: "€\(balance, specifier: "%.2f")",
+                    value: String(format: "€%.2f", balance),
                     color: .black,
                     isBold: true
                 )
@@ -1024,13 +1029,14 @@ struct SlotMachineView: View {
         generator.impactOccurred()
         
         // Animazione spinning
+        let startTime = Date()
         _ = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timerRef in
             for i in 0..<3 {
                 reels[i].currentIndex = Int.random(in: 0..<symbols.count)
             }
             
             // Stop dopo ~2.5 secondi
-            if timerRef.timeElapsed > 2.5 {
+            if Date().timeIntervalSince(startTime) > 2.5 {
                 timerRef.invalidate()
                 stopSpin()
             }
@@ -1093,7 +1099,6 @@ struct SlotMachineView: View {
         for _ in 0..<50 {
             confetti.append(
                 Confetti(
-                    id: UUID(),
                     x: CGFloat.random(in: 30...UIScreen.main.bounds.width - 30),
                     y: -10,
                     color: [.yellow, .red, .green].randomElement()!,
