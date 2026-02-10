@@ -751,15 +751,21 @@ final class BettingViewModel: ObservableObject {
         let totalProb = homeProb + awayProb
         
         let normHomeProb = homeProb / totalProb
+        let normDrawProb = drawProb / totalProb
         
         let random = Double.random(in: 0...1)
         
         if random < normHomeProb {
-            let sets = Int.random(in: 3...5)
-            return (.home, sets)
+            let goals = Int.random(in: 1...4)
+            let awayGoals = Int.random(in: 0...goals-1)
+            return (.home, goals + awayGoals)
+        } else if random < normHomeProb + normDrawProb {
+            let goals = Int.random(in: 0...3)
+            return (.draw, goals * 2)
         } else {
-            let sets = Int.random(in: 3...5)
-            return (.away, sets)
+            let goals = Int.random(in: 1...4)
+            let homeGoals = Int.random(in: 0...goals-1)
+            return (.away, goals + homeGoals)
         }
     }
     
@@ -1578,23 +1584,26 @@ struct AppleSignInRequiredView: View {
             switch result {
             case .success(let authorization):
                 if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
-                    // Salva l'userID di Apple
                     let userID = credential.user
                     UserDefaults.standard.set(userID, forKey: "appleUserID")
                     
-                    // Salva il nome se disponibile
-                    if let fullName = credential.fullName {
-                        let nameComponents = [fullName.givenName, fullName.familyName]
-                            .compactMap { $0 }
-                        
-                        if !nameComponents.isEmpty {
-                            let fullNameString = nameComponents.joined(separator: " ")
-                            UserDefaults.standard.set(fullNameString, forKey: "userName")
-                            print("✅ Nome Apple salvato: \(fullNameString)")
-                        } else if let currentName = UserDefaults.standard.string(forKey: "userName") {
-                            // Mantieni il nome esistente se non c'è nuovo nome
-                            UserDefaults.standard.set(currentName, forKey: "userName")
-                            print("✅ Mantenuto nome esistente: \(currentName)")
+                    let name = [credential.fullName?.givenName, credential.fullName?.familyName]
+                        .compactMap { $0 }
+                        .joined(separator: " ")
+                    
+                    let email = credential.email ?? "privato@appleid.com"
+                    
+                    // 🔥 SALVA SU FIREBASE
+                    FirebaseManager.shared.saveUserProfile(
+                        userID: userID,
+                        name: name.isEmpty ? "Utente" : name,
+                        email: email
+                    ) { result in
+                        switch result {
+                        case .success:
+                            print("✅ Profilo salvato su Firebase")
+                        case .failure(let error):
+                            print("❌ Errore Firebase: \(error.localizedDescription)")
                         }
                     }
                     
