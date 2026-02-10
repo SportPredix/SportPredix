@@ -13,13 +13,17 @@ fi
 
 cd build
 
+PACKAGES_DIR="$WORKING_LOCATION/build/SourcePackages"
+
 xcodebuild -resolvePackageDependencies \
     -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
-    -scheme "$APPLICATION_NAME"
+    -scheme "$APPLICATION_NAME" \
+    -clonedSourcePackagesDirPath "$PACKAGES_DIR"
 
 xcodebuild -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
     -scheme "$APPLICATION_NAME" \
     -configuration Release \
+    -clonedSourcePackagesDirPath "$PACKAGES_DIR" \
     -derivedDataPath "$WORKING_LOCATION/build/DerivedDataApp" \
     -destination 'generic/platform=iOS' \
     clean build \
