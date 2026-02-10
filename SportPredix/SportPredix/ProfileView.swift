@@ -2,195 +2,26 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var authManager: AuthManager
+    @EnvironmentObject var vm: BettingViewModel
     @State private var showLogoutAlert = false
     
     var body: some View {
         ZStack {
-            Color(UIColor(red: 0.06, green: 0.06, blue: 0.12, alpha: 1.0))
-                .ignoresSafeArea()
+            background
             
-            VStack(spacing: 0) {
-                // Header
-                VStack(spacing: 15) {
-                    Text("Profilo")
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(.white)
-                    
-                    Text("Gestisci il tuo account")
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(.gray)
+            ScrollView {
+                VStack(spacing: 20) {
+                    header
+                    userCard
+                    statsRow
+                    accountCard
+                    settingsCard
+                    logoutButton
+                    footer
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
-                .padding(.vertical, 25)
-                
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Avatar e Nome
-                        VStack(spacing: 15) {
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [
-                                            Color(UIColor(red: 0.2, green: 1.0, blue: 0.6, alpha: 1.0)),
-                                            Color(UIColor(red: 0.1, green: 0.8, blue: 0.5, alpha: 1.0))
-                                        ]),
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .frame(width: 80, height: 80)
-                                .overlay(
-                                    Text(String(authManager.currentUserName?.prefix(1) ?? "U").uppercased())
-                                        .font(.system(size: 32, weight: .bold))
-                                        .foregroundColor(.black)
-                                )
-                            
-                            Text(authManager.currentUserName ?? "Utente")
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(.white)
-                            
-                            Text(authManager.currentUserEmail ?? "")
-                                .font(.system(size: 13, weight: .regular))
-                                .foregroundColor(.gray)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 30)
-                        .background(Color.white.opacity(0.03))
-                        .cornerRadius(15)
-                        
-                        // Informazioni Account
-                        VStack(spacing: 0) {
-                            Text("Informazioni Account")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 15)
-                                .padding(.vertical, 12)
-                            
-                            Divider()
-                                .background(Color.white.opacity(0.1))
-                            
-                            VStack(spacing: 12) {
-                                HStack {
-                                    Label("Email", systemImage: "envelope.fill")
-                                        .font(.system(size: 14, weight: .medium))
-                                        .foregroundColor(.gray)
-                                        .frame(width: 100, alignment: .leading)
-                                    
-                                    Spacer()
-                                    
-                                    Text(authManager.currentUserEmail ?? "N/A")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(.white)
-                                        .lineLimit(1)
-                                }
-                                
-                                Divider()
-                                    .background(Color.white.opacity(0.05))
-                                
-                                HStack {
-                                    Label("ID Utente", systemImage: "person.crop.square.fill")
-                                        .font(.system(size: 14, weight: .medium))
-                                        .foregroundColor(.gray)
-                                        .frame(width: 100, alignment: .leading)
-                                    
-                                    Spacer()
-                                    
-                                    Text(authManager.currentUserID?.prefix(8).uppercased() ?? "N/A")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(Color(UIColor(red: 0.2, green: 1.0, blue: 0.6, alpha: 1.0)))
-                                        .lineLimit(1)
-                                }
-                            }
-                            .padding(.horizontal, 15)
-                            .padding(.vertical, 12)
-                        }
-                        .background(Color.white.opacity(0.05))
-                        .cornerRadius(12)
-                        
-                        // Impostazioni
-                        VStack(spacing: 0) {
-                            Text("Impostazioni")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 15)
-                                .padding(.vertical, 12)
-                            
-                            Divider()
-                                .background(Color.white.opacity(0.1))
-                            
-                            VStack(spacing: 0) {
-                                VStack(spacing: 10) {
-                                    HStack {
-                                        Label("Notifiche", systemImage: "bell.fill")
-                                            .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(.gray)
-                                        
-                                        Spacer()
-                                        
-                                        Toggle("", isOn: .constant(true))
-                                    }
-                                    
-                                    HStack {
-                                        Label("Tema Scuro", systemImage: "moon.fill")
-                                            .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(.gray)
-                                        
-                                        Spacer()
-                                        
-                                        Toggle("", isOn: .constant(true))
-                                    }
-                                }
-                                .padding(12)
-                            }
-                        }
-                        .background(Color.white.opacity(0.05))
-                        .cornerRadius(12)
-                        
-                        // Pulsante Logout
-                        Button(action: {
-                            showLogoutAlert = true
-                        }) {
-                            HStack(spacing: 10) {
-                                Image(systemName: "door.left.hand.open")
-                                Text("Esci")
-                                    .font(.system(size: 16, weight: .bold))
-                            }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        Color.red.opacity(0.8),
-                                        Color.red.opacity(0.6)
-                                    ]),
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(12)
-                        }
-                        .padding(.top, 10)
-                        
-                        // Footer
-                        VStack(spacing: 8) {
-                            Text("SportPredix v1.0")
-                                .font(.system(size: 12, weight: .regular))
-                                .foregroundColor(.gray)
-                            
-                            Text("© 2026 SportPredix. All rights reserved.")
-                                .font(.system(size: 11, weight: .regular))
-                                .foregroundColor(.gray.opacity(0.7))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 20)
-                    }
-                    .padding(.horizontal)
-                    .padding(.vertical, 20)
-                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 30)
             }
         }
         .alert("Conferma Logout", isPresented: $showLogoutAlert) {
@@ -202,9 +33,237 @@ struct ProfileView: View {
             Text("Sei sicuro di voler uscire?")
         }
     }
+    
+    private var background: some View {
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.black,
+                    Color(red: 0.06, green: 0.07, blue: 0.1)
+                ]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            
+            RadialGradient(
+                gradient: Gradient(colors: [
+                    Color.accentCyan.opacity(0.25),
+                    Color.clear
+                ]),
+                center: .topTrailing,
+                startRadius: 20,
+                endRadius: 320
+            )
+        }
+        .ignoresSafeArea()
+    }
+    
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Il tuo profilo")
+                .font(.title3.bold())
+                .foregroundColor(.white)
+            
+            Text("Gestisci account e preferenze")
+                .font(.caption)
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    private var userCard: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.accentCyan,
+                                Color.blue.opacity(0.7)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 84, height: 84)
+                    .shadow(color: Color.accentCyan.opacity(0.35), radius: 12, x: 0, y: 6)
+                
+                Text(String(authManager.currentUserName?.prefix(1) ?? "U").uppercased())
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundColor(.black)
+            }
+            
+            Text(authManager.currentUserName ?? "Utente")
+                .font(.title3.bold())
+                .foregroundColor(.white)
+            
+            Text(authManager.currentUserEmail ?? "Email non disponibile")
+                .font(.caption)
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 22)
+        .background(glassCard(cornerRadius: 18))
+    }
+    
+    private var statsRow: some View {
+        HStack(spacing: 12) {
+            statCard(title: "Puntate", value: "\(vm.totalBetsCount)", color: .accentCyan)
+            statCard(title: "Vinte", value: "\(vm.totalWins)", color: .green)
+            statCard(title: "Perse", value: "\(vm.totalLosses)", color: .red)
+        }
+    }
+    
+    private var accountCard: some View {
+        sectionCard(title: "Account") {
+            accountRow(
+                icon: "envelope.fill",
+                label: "Email",
+                value: authManager.currentUserEmail ?? "N/A"
+            )
+            
+            Divider().background(Color.white.opacity(0.08))
+            
+            accountRow(
+                icon: "person.crop.square.fill",
+                label: "ID Utente",
+                value: authManager.currentUserID?.prefix(8).uppercased() ?? "N/A",
+                valueColor: .accentCyan
+            )
+        }
+    }
+    
+    private var settingsCard: some View {
+        sectionCard(title: "Impostazioni") {
+            Toggle(isOn: $vm.notificationsEnabled) {
+                HStack(spacing: 10) {
+                    Image(systemName: "bell.fill")
+                        .foregroundColor(.accentCyan)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Notifiche")
+                            .foregroundColor(.white)
+                            .font(.subheadline.bold())
+                        Text("Aggiornamenti su quote e risultati")
+                            .foregroundColor(.gray)
+                            .font(.caption)
+                    }
+                }
+            }
+            .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
+            
+            Divider().background(Color.white.opacity(0.08))
+            
+            Toggle(isOn: $vm.privacyEnabled) {
+                HStack(spacing: 10) {
+                    Image(systemName: "lock.shield.fill")
+                        .foregroundColor(.accentCyan)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Privacy")
+                            .foregroundColor(.white)
+                            .font(.subheadline.bold())
+                        Text("Riduci la visibilita dei dati")
+                            .foregroundColor(.gray)
+                            .font(.caption)
+                    }
+                }
+            }
+            .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
+        }
+    }
+    
+    private var logoutButton: some View {
+        Button(action: { showLogoutAlert = true }) {
+            HStack(spacing: 10) {
+                Image(systemName: "door.left.hand.open")
+                Text("Esci")
+                    .font(.system(size: 16, weight: .bold))
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color.red.opacity(0.9),
+                        Color.red.opacity(0.7)
+                    ]),
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .cornerRadius(14)
+            .shadow(color: Color.red.opacity(0.35), radius: 12, x: 0, y: 6)
+        }
+        .padding(.top, 6)
+    }
+    
+    private var footer: some View {
+        VStack(spacing: 6) {
+            Text("SportPredix v1.0")
+                .font(.caption)
+                .foregroundColor(.gray)
+            
+            Text("Copyright 2026 SportPredix. All rights reserved.")
+                .font(.caption2)
+                .foregroundColor(.gray.opacity(0.7))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+    
+    private func statCard(title: String, value: String, color: Color) -> some View {
+        VStack(spacing: 6) {
+            Text(value)
+                .font(.title3.bold())
+                .foregroundColor(color)
+            
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(glassCard(cornerRadius: 14))
+    }
+    
+    private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.white)
+            
+            content()
+        }
+        .padding(16)
+        .background(glassCard(cornerRadius: 16))
+    }
+    
+    private func accountRow(icon: String, label: String, value: String, valueColor: Color = .white) -> some View {
+        HStack {
+            Label(label, systemImage: icon)
+                .font(.subheadline)
+                .foregroundColor(.gray)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            Text(value)
+                .font(.subheadline.bold())
+                .foregroundColor(valueColor)
+                .lineLimit(1)
+        }
+    }
+    
+    private func glassCard(cornerRadius: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color.white.opacity(0.06))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.accentCyan.opacity(0.18), lineWidth: 1)
+            )
+    }
 }
 
 #Preview {
     ProfileView()
         .environmentObject(AuthManager.shared)
+        .environmentObject(BettingViewModel())
 }

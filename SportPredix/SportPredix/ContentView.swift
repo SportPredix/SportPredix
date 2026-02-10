@@ -4,7 +4,6 @@
 //
 
 import SwiftUI
-import AuthenticationServices
 
 // MARK: - THEME
 
@@ -392,10 +391,6 @@ final class BettingViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var lastUpdateTime: Date?
     
-    var isSignedInWithApple: Bool {
-        UserDefaults.standard.string(forKey: "appleUserID") != nil
-    }
-    
     private let slipsKey = "savedSlips"
     private let matchesKey = "savedMatches"
     private let lastFetchKey = "lastBetstackFetch"
@@ -420,72 +415,6 @@ final class BettingViewModel: ObservableObject {
         
         loadMatchesForAllDays()
         
-        setupAuthNotifications()
-    }
-    
-    private func setupAuthNotifications() {
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("AppleSignInCompleted"),
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            print("🔄 ViewModel ricevuta notifica AppleSignInCompleted")
-            self?.objectWillChange.send()
-        }
-        
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("AppleSignOutCompleted"),
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            print("🔄 ViewModel ricevuta notifica AppleSignOutCompleted")
-            self?.objectWillChange.send()
-        }
-    }
-    
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-    
-    func checkAppleAuthOnLaunch() {
-        guard let userID = UserDefaults.standard.string(forKey: "appleUserID") else {
-            print("ℹ️ Nessun Apple User ID trovato")
-            return
-        }
-        
-        print("🔍 Verificando stato Apple ID per: \(userID)")
-        let provider = ASAuthorizationAppleIDProvider()
-        provider.getCredentialState(forUserID: userID) { state, error in
-            if let error = error {
-                print("❌ Errore verifica Apple ID: \(error.localizedDescription)")
-                DispatchQueue.main.async {
-                    UserDefaults.standard.removeObject(forKey: "appleUserID")
-                    self.objectWillChange.send()
-                }
-                return
-            }
-            
-            switch state {
-            case .authorized:
-                print("✅ Apple ID autorizzato")
-            case .revoked:
-                print("❌ Apple ID revocato")
-                DispatchQueue.main.async {
-                    UserDefaults.standard.removeObject(forKey: "appleUserID")
-                    self.objectWillChange.send()
-                }
-            case .notFound:
-                print("❌ Apple ID non trovato")
-                DispatchQueue.main.async {
-                    UserDefaults.standard.removeObject(forKey: "appleUserID")
-                    self.objectWillChange.send()
-                }
-            case .transferred:
-                print("ℹ️ Apple ID trasferito")
-            @unknown default:
-                print("❓ Stato Apple ID sconosciuto")
-            }
-        }
     }
     
     private func loadMatchesForAllDays() {
@@ -1027,58 +956,53 @@ struct ContentView: View {
                 // Sfondo principale
                 Color.black.ignoresSafeArea()
                 
-                if vm.isSignedInWithApple {
-                    ZStack {
-                        // CONTENUTO PRINCIPALE (sotto la toolbar)
-                        VStack(spacing: 0) {
-                            // Header fluttuante (tranne per Casino)
-                            if vm.selectedTab != 1 {
-                                FloatingHeader(
-                                    title: vm.selectedTab == 0 ? "Sport" : 
-                                           vm.selectedTab == 2 ? "Storico" : "Profilo",
-                                    balance: vm.balance,
-                                    showSportPicker: $vm.showSportPicker
-                                )
-                            }
-                            
-                            // Contenuto per ogni tab - CON PADDING PER LA TOOLBAR
-                            if vm.selectedTab == 0 {
-                                calendarBarView
-                                
-                                if vm.isLoading {
-                                    loadingView
-                                } else {
-                                    matchListView
-                                        .padding(.bottom, 100) // AGGIUNTO PADDING BOTTOM
-                                }
-                            } else if vm.selectedTab == 1 {
-                                // Casino - layout speciale FIXATO
-                                CasinoFullView()
-                                    .environmentObject(vm)
-                                    .edgesIgnoringSafeArea(.bottom) // FIX
-                            } else if vm.selectedTab == 2 {
-                                placedBetsView
-                                    .padding(.bottom, 100)
-                            } else if vm.selectedTab == 3 {
-                                ProfileView()
-                                    .environmentObject(vm)
-                                    .padding(.bottom, 100)
-                            } else {
-                                Color.black
-                                    .padding(.bottom, 100)
-                            }
+                ZStack {
+                    // CONTENUTO PRINCIPALE (sotto la toolbar)
+                    VStack(spacing: 0) {
+                        // Header fluttuante (tranne per Casino)
+                        if vm.selectedTab != 1 {
+                            FloatingHeader(
+                                title: vm.selectedTab == 0 ? "Sport" :
+                                       vm.selectedTab == 2 ? "Storico" : "Profilo",
+                                balance: vm.balance,
+                                showSportPicker: $vm.showSportPicker
+                            )
                         }
-                        .id(refreshID)
                         
-                        // TOOLBAR FLUTTUANTE SOPRA IL CONTENUTO
-                        FloatingGlassToolbar(selectedTab: $vm.selectedTab)
-                        
-                        // Bottoni fluttuanti per scommesse
-                        floatingButtonView
+                        // Contenuto per ogni tab - CON PADDING PER LA TOOLBAR
+                        if vm.selectedTab == 0 {
+                            calendarBarView
+                            
+                            if vm.isLoading {
+                                loadingView
+                            } else {
+                                matchListView
+                                    .padding(.bottom, 100) // AGGIUNTO PADDING BOTTOM
+                            }
+                        } else if vm.selectedTab == 1 {
+                            // Casino - layout speciale FIXATO
+                            CasinoFullView()
+                                .environmentObject(vm)
+                                .edgesIgnoringSafeArea(.bottom) // FIX
+                        } else if vm.selectedTab == 2 {
+                            placedBetsView
+                                .padding(.bottom, 100)
+                        } else if vm.selectedTab == 3 {
+                            ProfileView()
+                                .environmentObject(vm)
+                                .padding(.bottom, 100)
+                        } else {
+                            Color.black
+                                .padding(.bottom, 100)
+                        }
                     }
-                } else {
-                    // Utente NON autenticato
-                    AppleSignInRequiredView()
+                    .id(refreshID)
+                    
+                    // TOOLBAR FLUTTUANTE SOPRA IL CONTENUTO
+                    FloatingGlassToolbar(selectedTab: $vm.selectedTab)
+                    
+                    // Bottoni fluttuanti per scommesse
+                    floatingButtonView
                 }
             }
             .sheet(isPresented: $vm.showSheet) {
@@ -1091,19 +1015,6 @@ struct ContentView: View {
             .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
         }
         .navigationBarHidden(true)
-        .onAppear {
-            vm.checkAppleAuthOnLaunch()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("AppleSignInCompleted"))) { _ in
-            print("🔄 ContentView: Ricevuta notifica AppleSignInCompleted")
-            refreshID = UUID()
-            vm.objectWillChange.send()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("AppleSignOutCompleted"))) { _ in
-            print("🔄 ContentView: Ricevuta notifica AppleSignOutCompleted")
-            refreshID = UUID()
-            vm.objectWillChange.send()
-        }
     }
     
     // MARK: - CALENDAR BAR
@@ -1396,294 +1307,6 @@ struct ContentView: View {
                 }
             }
         }
-    }
-}
-
-// MARK: - APPLE SIGN IN REQUIRED VIEW (senza modifiche)
-
-struct AppleSignInRequiredView: View {
-    @State private var isSigningIn = false
-    @State private var showError = false
-    @State private var errorMessage = ""
-    @State private var signInTimeoutTask: DispatchWorkItem?
-    
-    var body: some View {
-        VStack(spacing: 30) {
-            Spacer()
-            
-            // Icona Apple con animazione
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.accentCyan.opacity(0.2), .blue.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 120, height: 120)
-                
-                Image(systemName: "apple.logo")
-                    .font(.system(size: 50))
-                    .foregroundColor(.accentCyan)
-            }
-            
-            VStack(spacing: 12) {
-                Text("Benvenuto in SportPredix")
-                    .font(.title.bold())
-                    .foregroundColor(.white)
-                
-                Text("Accedi con il tuo Apple ID per iniziare a scommettere\nÈ l'unico metodo di accesso disponibile per garantire la massima sicurezza.")
-                    .font(.body)
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-            }
-            .padding(.horizontal, 40)
-            
-            // Benefici Apple Sign In
-            VStack(alignment: .leading, spacing: 16) {
-                benefitRow(
-                    icon: "lock.shield.fill",
-                    title: "Privacy Garantita",
-                    description: "Apple non traccia la tua attività nelle scommesse"
-                )
-                
-                benefitRow(
-                    icon: "envelope.badge.fill",
-                    title: "Email Protetta",
-                    description: "La tua email personale rimane sempre privata"
-                )
-                
-                benefitRow(
-                    icon: "checkmark.seal.fill",
-                    title: "Sicurezza Apple",
-                    description: "Face ID / Touch ID integrati"
-                )
-                
-                benefitRow(
-                    icon: "person.badge.key.fill",
-                    title: "Accesso Esclusivo",
-                    description: "Solo utenti Apple possono utilizzare l'app"
-                )
-            }
-            .padding()
-            .background(Color.white.opacity(0.05))
-            .cornerRadius(16)
-            .padding(.horizontal, 20)
-            
-            Spacer()
-            
-            // Bottone Sign In
-            if isSigningIn {
-                VStack(spacing: 15) {
-                    ProgressView()
-                        .scaleEffect(1.2)
-                        .tint(.accentCyan)
-                    
-                    Text("Accesso in corso...")
-                        .foregroundColor(.accentCyan)
-                        .font(.caption)
-                }
-                .padding(.bottom, 40)
-            } else {
-                VStack(spacing: 12) {
-                    SignInWithAppleButton(.signIn) { request in
-                        request.requestedScopes = [.fullName, .email]
-                        isSigningIn = true
-                        startSignInTimeout()
-                        
-                        // Debug
-                        print("📱 Apple Sign In iniziato...")
-                    } onCompletion: { result in
-                        handleSignInCompletion(result)
-                    }
-                    .signInWithAppleButtonStyle(.white)
-                    .frame(height: 50)
-                    
-                    // Bottone debug per test senza Apple Sign In
-                    Button(action: {
-                        // Simula login per testing
-                        print("🔧 Debug Login attivato")
-                        let debugUserID = "debug_user_\(UUID().uuidString)"
-                        UserDefaults.standard.set(debugUserID, forKey: "appleUserID")
-                        UserDefaults.standard.set("Debug User", forKey: "userName")
-                        UserDefaults.standard.synchronize()
-                        
-                        // Debug
-                        print("✅ Debug UserID salvato: \(debugUserID)")
-                        print("✅ Nome salvato: Debug User")
-                        
-                        // Forza il salvataggio
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            NotificationCenter.default.post(
-                                name: NSNotification.Name("AppleSignInCompleted"),
-                                object: nil
-                            )
-                        }
-                    }) {
-                        Text("Debug Login (testing)")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                            .padding(8)
-                            .background(Color.gray.opacity(0.2))
-                            .cornerRadius(8)
-                    }
-                    .padding(.top, 10)
-                    
-                    Text("Nessun altro metodo di accesso disponibile")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
-                .padding(.horizontal, 40)
-                .padding(.bottom, 40)
-            }
-        }
-        .padding()
-        .alert("Errore Accesso", isPresented: $showError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(errorMessage)
-        }
-        .onAppear {
-            print("🔄 AppleSignInRequiredView caricato")
-        }
-    }
-    
-    private func benefitRow(icon: String, title: String, description: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(.accentCyan)
-                .frame(width: 24)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.bold())
-                    .foregroundColor(.white)
-                
-                Text(description)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
-            
-            Spacer()
-        }
-    }
-    
-    private func handleSignInCompletion(_ result: Result<ASAuthorization, Error>) {
-        DispatchQueue.main.async {
-            signInTimeoutTask?.cancel()
-            signInTimeoutTask = nil
-            isSigningIn = false
-            
-            switch result {
-            case .success(let authorization):
-                if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
-                    let userID = credential.user
-                    UserDefaults.standard.set(userID, forKey: "appleUserID")
-                    
-                    let name = [credential.fullName?.givenName, credential.fullName?.familyName]
-                        .compactMap { $0 }
-                        .joined(separator: " ")
-                    
-                    let email = credential.email ?? "privato@appleid.com"
-                    
-                    // 🔥 SALVA SU FIREBASE
-                    FirebaseManager.shared.saveUserProfile(
-                        userID: userID,
-                        name: name.isEmpty ? "Utente" : name,
-                        email: email
-                    ) { result in
-                        switch result {
-                        case .success:
-                            print("✅ Profilo salvato su Firebase")
-                        case .failure(let error):
-                            print("❌ Errore Firebase: \(error.localizedDescription)")
-                        }
-                    }
-                    
-                    // Forza il salvataggio immediato
-                    UserDefaults.standard.synchronize()
-                    
-                    // Debug: verifica che l'ID sia salvato
-                    print("✅ Apple Sign In completato - UserID salvato: \(userID)")
-                    let isAuthenticated = UserDefaults.standard.string(forKey: "appleUserID") != nil
-                    print("✅ Stato autenticazione: \(isAuthenticated ? "Autenticato" : "Non autenticato")")
-                    
-                    // Posta la notifica
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("AppleSignInCompleted"),
-                        object: nil,
-                        userInfo: ["userID": userID]
-                    )
-                    
-                    // Aggiungi un piccolo delay per assicurarsi che tutto sia salvato
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        // Forza un aggiornamento dell'interfaccia
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("AppleSignInCompleted"),
-                            object: nil
-                        )
-                    }
-                } else {
-                    print("❌ Credenziale Apple non valida")
-                    errorMessage = "Credenziale di autenticazione non valida"
-                    showError = true
-                }
-                
-            case .failure(let error):
-                print("❌ Errore Apple Sign In: \(error.localizedDescription)")
-                errorMessage = "Errore: \(error.localizedDescription)"
-                
-                // Controlla se l'utente ha annullato
-                if let authError = error as? ASAuthorizationError {
-                    switch authError.code {
-                    case .canceled:
-                        errorMessage = "Accesso annullato (codice: \(authError.code.rawValue))"
-                        print("ℹ️ Utente ha annullato l'accesso")
-                    case .failed:
-                        errorMessage = "Accesso fallito (codice: \(authError.code.rawValue))"
-                    case .invalidResponse:
-                        errorMessage = "Risposta non valida (codice: \(authError.code.rawValue))"
-                    case .notHandled:
-                        errorMessage = "Richiesta non gestita (codice: \(authError.code.rawValue))"
-                    case .unknown:
-                        errorMessage = "Errore sconosciuto (codice: \(authError.code.rawValue))"
-                    case .notInteractive:
-                        errorMessage = "Richiesta non interattiva (codice: \(authError.code.rawValue))"
-                    case .matchedExcludedCredential:
-                        errorMessage = "Credenziali escluse (codice: \(authError.code.rawValue))"
-                    case .credentialImport:
-                        errorMessage = "Errore import credenziali (codice: \(authError.code.rawValue))"
-                    case .credentialExport:
-                        errorMessage = "Errore export credenziali (codice: \(authError.code.rawValue))"
-                    case .preferSignInWithApple:
-                        errorMessage = "Preferito Sign in with Apple (codice: \(authError.code.rawValue))"
-                    case .deviceNotConfiguredForPasskeyCreation:
-                        errorMessage = "Dispositivo non configurato (codice: \(authError.code.rawValue))"
-                    @unknown default:
-                        errorMessage = "Errore sconosciuto (codice: \(authError.code.rawValue))"
-                    }
-                }
-                
-                showError = true
-            }
-        }
-    }
-
-    private func startSignInTimeout() {
-        signInTimeoutTask?.cancel()
-        let task = DispatchWorkItem {
-            DispatchQueue.main.async {
-                if isSigningIn {
-                    isSigningIn = false
-                    errorMessage = "Timeout Apple Sign In: nessuna risposta entro 5s. Verifica rete, stato iCloud sul device, capability Sign In with Apple e provisioning."
-                    showError = true
-                }
-            }
-        }
-        signInTimeoutTask = task
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: task)
     }
 }
 
