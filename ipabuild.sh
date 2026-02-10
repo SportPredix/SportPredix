@@ -23,12 +23,16 @@ xcodebuild -resolvePackageDependencies \
     -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
 >>>>>>> parent of 9e03a33 (gfgf)
     -scheme "$APPLICATION_NAME" \
+<<<<<<< HEAD
     -destination 'generic/platform=iOS' \
     -clonedSourcePackagesDirPath "$PACKAGES_DIR" \
     -quiet > "$WORKING_LOCATION/build/resolve_packages.log" 2>&1; then
   cat "$WORKING_LOCATION/build/resolve_packages.log"
   exit 1
 fi
+=======
+    -clonedSourcePackagesDirPath "$PACKAGES_DIR"
+>>>>>>> parent of a64a51e (3)
 
 xcodebuild -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
     -scheme "$APPLICATION_NAME" \

@@ -34,8 +34,7 @@ jobs:
         run: |
           xcodebuild -resolvePackageDependencies \
             -project SportPredix/SportPredix.xcodeproj \
-            -scheme SportPredix \
-            -destination 'generic/platform=iOS'
+            -scheme SportPredix
 
 >>>>>>> parent of 9e03a33 (gfgf)
 #      - name: Compress IPA
@@ -50,3 +49,4 @@ jobs:
           path: build/SportPredix.ipa
 #          path: build/SportPredix.zip
           retention-days: 30
+
