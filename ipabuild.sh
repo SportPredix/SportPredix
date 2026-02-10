@@ -14,6 +14,7 @@ fi
 cd build
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 PACKAGES_DIR="$WORKING_LOCATION/build/SourcePackages"
 
 <<<<<<< HEAD
@@ -40,6 +41,8 @@ xcodebuild -resolvePackageDependencies \
     -scheme "$APPLICATION_NAME"
 >>>>>>> parent of 14cb2b9 (2)
 
+=======
+>>>>>>> parent of d3b8d72 (1)
 xcodebuild -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
     -scheme "$APPLICATION_NAME" \
     -configuration Release \
