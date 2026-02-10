@@ -6,9 +6,14 @@
 //
 
 import SwiftUI
+import FirebaseCore
 
 @main
 struct SportPredixApp: App {
+    init() {
+        FirebaseManager.shared.configureFirebase()
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
