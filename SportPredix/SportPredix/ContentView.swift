@@ -1404,6 +1404,7 @@ struct AppleSignInRequiredView: View {
     @State private var isSigningIn = false
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var signInTimeoutTask: DispatchWorkItem?
     
     var body: some View {
         VStack(spacing: 30) {
@@ -1489,6 +1490,7 @@ struct AppleSignInRequiredView: View {
                     SignInWithAppleButton(.signIn) { request in
                         request.requestedScopes = [.fullName, .email]
                         isSigningIn = true
+                        startSignInTimeout()
                         
                         // Debug
                         print("📱 Apple Sign In iniziato...")
@@ -1569,6 +1571,8 @@ struct AppleSignInRequiredView: View {
     
     private func handleSignInCompletion(_ result: Result<ASAuthorization, Error>) {
         DispatchQueue.main.async {
+            signInTimeoutTask?.cancel()
+            signInTimeoutTask = nil
             isSigningIn = false
             
             switch result {
@@ -1625,42 +1629,57 @@ struct AppleSignInRequiredView: View {
                 
             case .failure(let error):
                 print("❌ Errore Apple Sign In: \(error.localizedDescription)")
-                errorMessage = error.localizedDescription
+                errorMessage = "Errore: \(error.localizedDescription)"
                 
                 // Controlla se l'utente ha annullato
                 if let authError = error as? ASAuthorizationError {
                     switch authError.code {
                     case .canceled:
-                        errorMessage = "Accesso annullato"
+                        errorMessage = "Accesso annullato (codice: \(authError.code.rawValue))"
                         print("ℹ️ Utente ha annullato l'accesso")
                     case .failed:
-                        errorMessage = "Accesso fallito"
+                        errorMessage = "Accesso fallito (codice: \(authError.code.rawValue))"
                     case .invalidResponse:
-                        errorMessage = "Risposta non valida"
+                        errorMessage = "Risposta non valida (codice: \(authError.code.rawValue))"
                     case .notHandled:
-                        errorMessage = "Richiesta non gestita"
+                        errorMessage = "Richiesta non gestita (codice: \(authError.code.rawValue))"
                     case .unknown:
-                        errorMessage = "Errore sconosciuto"
+                        errorMessage = "Errore sconosciuto (codice: \(authError.code.rawValue))"
                     case .notInteractive:
-                        errorMessage = "Richiesta non interattiva"
+                        errorMessage = "Richiesta non interattiva (codice: \(authError.code.rawValue))"
                     case .matchedExcludedCredential:
-                        errorMessage = "Credenziali escluse"
+                        errorMessage = "Credenziali escluse (codice: \(authError.code.rawValue))"
                     case .credentialImport:
-                        errorMessage = "Errore import credenziali"
+                        errorMessage = "Errore import credenziali (codice: \(authError.code.rawValue))"
                     case .credentialExport:
-                        errorMessage = "Errore export credenziali"
+                        errorMessage = "Errore export credenziali (codice: \(authError.code.rawValue))"
                     case .preferSignInWithApple:
-                        errorMessage = "Preferito Sign in with Apple"
+                        errorMessage = "Preferito Sign in with Apple (codice: \(authError.code.rawValue))"
                     case .deviceNotConfiguredForPasskeyCreation:
-                        errorMessage = "Dispositivo non configurato"
+                        errorMessage = "Dispositivo non configurato (codice: \(authError.code.rawValue))"
                     @unknown default:
-                        errorMessage = "Errore sconosciuto"
+                        errorMessage = "Errore sconosciuto (codice: \(authError.code.rawValue))"
                     }
                 }
                 
                 showError = true
             }
         }
+    }
+
+    private func startSignInTimeout() {
+        signInTimeoutTask?.cancel()
+        let task = DispatchWorkItem {
+            DispatchQueue.main.async {
+                if isSigningIn {
+                    isSigningIn = false
+                    errorMessage = "Timeout Apple Sign In: nessuna risposta entro 5s. Verifica rete, stato iCloud sul device, capability Sign In with Apple e provisioning."
+                    showError = true
+                }
+            }
+        }
+        signInTimeoutTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: task)
     }
 }
 
