@@ -748,24 +748,21 @@ final class BettingViewModel: ObservableObject {
     private func generateTennisResult(homeOdd: Double, awayOdd: Double) -> (MatchOutcome?, Int?) {
         let homeProb = 1 / homeOdd
         let awayProb = 1 / awayOdd
+        let drawProb = 0.0  // ← AGGIUNGI QUESTA LINEA
         let totalProb = homeProb + awayProb
-        
+    
         let normHomeProb = homeProb / totalProb
         let normDrawProb = drawProb / totalProb
+        let normAwayProb = awayProb / totalProb
+    
+        let randomValue = Double.random(in: 0..<1)
         
-        let random = Double.random(in: 0...1)
-        
-        if random < normHomeProb {
-            let goals = Int.random(in: 1...4)
-            let awayGoals = Int.random(in: 0...goals-1)
-            return (.home, goals + awayGoals)
-        } else if random < normHomeProb + normDrawProb {
-            let goals = Int.random(in: 0...3)
-            return (.draw, goals * 2)
+        if randomValue < normHomeProb {
+            return (.home, Int.random(in: 2...4))
+        } else if randomValue < normHomeProb + normDrawProb {
+            return (.draw, 1)
         } else {
-            let goals = Int.random(in: 1...4)
-            let homeGoals = Int.random(in: 0...goals-1)
-            return (.away, goals + homeGoals)
+            return (.away, Int.random(in: 2...4))
         }
     }
     

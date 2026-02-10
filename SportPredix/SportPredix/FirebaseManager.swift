@@ -12,6 +12,10 @@ class FirebaseManager: ObservableObject {
     
     private init() {}
     
+    func configureFirebase() {
+        FirebaseApp.configure()
+    }
+    
     // MARK: - Salva profilo utente su Firestore
     func saveUserProfile(userID: String, name: String, email: String, completion: @escaping (Result<Void, Error>) -> Void) {
         let db = Firestore.firestore()
@@ -53,20 +57,18 @@ class FirebaseManager: ObservableObject {
     }
     
     // MARK: - Salva scommesse su Firestore
-    func saveBetSlip(userID: String, slip: BetSlip, completion: @escaping (Result<Void, Error>) -> Void) {
+    func saveBetSlip(userID: String, betID: String, stake: Double, totalOdd: Double, potentialWin: Double, completion: @escaping (Result<Void, Error>) -> Void) {
         let db = Firestore.firestore()
         
         let slipData: [String: Any] = [
-            "id": slip.id.uuidString,
-            "stake": slip.stake,
-            "totalOdd": slip.totalOdd,
-            "potentialWin": slip.potentialWin,
-            "isWon": slip.isWon as Any,
-            "isEvaluated": slip.isEvaluated,
+            "id": betID,
+            "stake": stake,
+            "totalOdd": totalOdd,
+            "potentialWin": potentialWin,
             "createdAt": FieldValue.serverTimestamp()
         ]
         
-        db.collection("users").document(userID).collection("bets").document(slip.id.uuidString).setData(slipData) { error in
+        db.collection("users").document(userID).collection("bets").document(betID).setData(slipData) { error in
             if let error = error {
                 completion(.failure(error))
             } else {

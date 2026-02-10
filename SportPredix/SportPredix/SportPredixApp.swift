@@ -10,13 +10,21 @@ import FirebaseCore
 
 @main
 struct SportPredixApp: App {
+    @StateObject private var authManager = AuthManager.shared
+    
     init() {
-        FirebaseManager.shared.configureFirebase()
+        FirebaseApp.configure()
     }
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if authManager.isLoggedIn {
+                ContentView()
+                    .environmentObject(authManager)
+            } else {
+                AuthView()
+                    .environmentObject(authManager)
+            }
         }
     }
 }

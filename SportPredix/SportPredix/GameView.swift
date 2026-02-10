@@ -141,7 +141,15 @@ struct GameButton: View {
             } else if title == "Slot Machine" {
                 SlotMachineView(balance: $vm.balance)
             } else {
-                ComingSoonView(gameName: title)
+                VStack {
+                    Text(title)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.white)
+                    Text("Prossimamente...")
+                        .foregroundColor(.gray)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 16)
             }
         }
     }
@@ -155,7 +163,6 @@ struct ScratchCardView: View {
     @State private var scratchProgress: Double = 0.0
     @State private var prize: Int = 0
     @State private var gameState: GameState = .initial
-    @State private var confetti: [Confetti] = []
     @State private var showInsufficientBalance = false
     @State private var animating = false
     
@@ -180,11 +187,6 @@ struct ScratchCardView: View {
             Color(red: 0.95, green: 0.95, blue: 0.97)
                 .ignoresSafeArea()
             
-            // Confetti
-            ForEach(confetti.indices, id: \.self) { index in
-                ConfettiView(confetto: confetti[index])
-            }
-            
             VStack(spacing: 0) {
                 // HEADER
                 HStack {
@@ -208,7 +210,7 @@ struct ScratchCardView: View {
                         Text("Saldo")
                             .font(.caption)
                             .foregroundColor(.gray)
-                        Text("€\(balance, specifier: "%.2f")")
+                        Text(String(format: "€%.2f", balance))
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.black)
                     }
@@ -740,7 +742,7 @@ struct SlotMachineView: View {
                         Text("Saldo")
                             .font(.caption)
                             .foregroundColor(.gray)
-                        Text("€\(balance, specifier: "%.2f")")
+                        Text(String(format: "€%.2f", balance))
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.black)
                     }
@@ -1022,16 +1024,13 @@ struct SlotMachineView: View {
         generator.impactOccurred()
         
         // Animazione spinning
-        var spins = 0
-        let timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timerRef in
-            spins += 1
-            
+        _ = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timerRef in
             for i in 0..<3 {
                 reels[i].currentIndex = Int.random(in: 0..<symbols.count)
             }
             
             // Stop dopo ~2.5 secondi
-            if spins > 50 {
+            if timerRef.timeElapsed > 2.5 {
                 timerRef.invalidate()
                 stopSpin()
             }
@@ -1194,5 +1193,80 @@ struct SlotReelView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - CONFETTI
+struct Confetti: Identifiable {
+    let id: UUID = UUID()
+    let x: CGFloat
+    let y: CGFloat
+    let color: Color
+    let size: CGFloat
+    let speed: CGFloat
+}
+
+// MARK: - CONFETTI VIEW
+struct ConfettiView: View {
+    let confetto: Confetti
+    @State private var offset: CGFloat = 0
+    @State private var opacity: Double = 1.0
+    
+    var body: some View {
+        Circle()
+            .fill(confetto.color)
+            .frame(width: confetto.size, height: confetto.size)
+            .offset(x: confetto.x, y: confetto.y + offset)
+            .opacity(opacity)
+            .onAppear {
+                withAnimation(.linear(duration: 3)) {
+                    offset = UIScreen.main.bounds.height + 50
+                }
+                withAnimation(.easeOut(duration: 3)) {
+                    opacity = 0
+                }
+            }
+    }
+}
+
+// MARK: - COMING SOON VIEW
+struct ComingSoonView: View {
+    let gameName: String
+    @Environment(\.presentationMode) var presentationMode
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            
+            Image(systemName: "clock.badge")
+                .font(.system(size: 60))
+                .foregroundColor(.orange)
+            
+            Text("\(gameName) - Presto disponibile")
+                .font(.title.bold())
+                .foregroundColor(.black)
+            
+            Text("Questo gioco sarà disponibile nelle prossime versioni")
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            
+            Spacer()
+            
+            Button {
+                presentationMode.wrappedValue.dismiss()
+            } label: {
+                Text("Torna Indietro")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .foregroundColor(.white)
+                    .background(Color.orange)
+                    .cornerRadius(8)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+        }
+        .padding()
+        .background(Color(red: 0.95, green: 0.95, blue: 0.97))
     }
 }
