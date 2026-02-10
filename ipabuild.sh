@@ -13,6 +13,7 @@ fi
 
 cd build
 
+<<<<<<< HEAD
 PACKAGES_DIR="$WORKING_LOCATION/build/SourcePackages"
 
 <<<<<<< HEAD
@@ -33,11 +34,15 @@ fi
 =======
     -clonedSourcePackagesDirPath "$PACKAGES_DIR"
 >>>>>>> parent of a64a51e (3)
+=======
+xcodebuild -resolvePackageDependencies \
+    -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
+    -scheme "$APPLICATION_NAME"
+>>>>>>> parent of 14cb2b9 (2)
 
 xcodebuild -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
     -scheme "$APPLICATION_NAME" \
     -configuration Release \
-    -clonedSourcePackagesDirPath "$PACKAGES_DIR" \
     -derivedDataPath "$WORKING_LOCATION/build/DerivedDataApp" \
     -destination 'generic/platform=iOS' \
     clean build \
