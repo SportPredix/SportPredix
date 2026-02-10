@@ -10,10 +10,11 @@ import FirebaseCore
 
 @main
 struct SportPredixApp: App {
-    @StateObject private var auth = AuthViewModel()
+    @StateObject private var auth: AuthViewModel
     
     init() {
         FirebaseApp.configure()
+        _auth = StateObject(wrappedValue: AuthViewModel())
     }
     
     var body: some Scene {

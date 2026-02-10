@@ -31,7 +31,7 @@ jobs:
         if: failure()
         run: |
           xcodebuild -resolvePackageDependencies \
-            -project SportPredix/SportPredix.xcodeproj \
+            -workspace SportPredix/SportPredix.xcodeproj/project.xcworkspace \
             -scheme SportPredix \
             -destination 'generic/platform=iOS'
 

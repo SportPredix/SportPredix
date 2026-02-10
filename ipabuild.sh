@@ -6,6 +6,8 @@ cd "$(dirname "$0")"
 
 WORKING_LOCATION="$(pwd)"
 APPLICATION_NAME=SportPredix
+PROJECT_PATH="$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj"
+WORKSPACE_PATH="$PROJECT_PATH/project.xcworkspace"
 
 if [ ! -d "build" ]; then
     mkdir build
@@ -16,12 +18,12 @@ cd build
 PACKAGES_DIR="$WORKING_LOCATION/build/SourcePackages"
 
 xcodebuild -resolvePackageDependencies \
-    -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
+    -workspace "$WORKSPACE_PATH" \
     -scheme "$APPLICATION_NAME" \
     -destination 'generic/platform=iOS' \
     -clonedSourcePackagesDirPath "$PACKAGES_DIR"
 
-xcodebuild -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
+xcodebuild -workspace "$WORKSPACE_PATH" \
     -scheme "$APPLICATION_NAME" \
     -configuration Release \
     -clonedSourcePackagesDirPath "$PACKAGES_DIR" \
