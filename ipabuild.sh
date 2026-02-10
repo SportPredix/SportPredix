@@ -13,6 +13,10 @@ fi
 
 cd build
 
+xcodebuild -resolvePackageDependencies \
+    -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
+    -scheme "$APPLICATION_NAME"
+
 xcodebuild -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
     -scheme "$APPLICATION_NAME" \
     -configuration Release \
