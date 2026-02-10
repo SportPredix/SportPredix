@@ -18,6 +18,7 @@ PACKAGES_DIR="$WORKING_LOCATION/build/SourcePackages"
 xcodebuild -resolvePackageDependencies \
     -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
     -scheme "$APPLICATION_NAME" \
+    -destination 'generic/platform=iOS' \
     -clonedSourcePackagesDirPath "$PACKAGES_DIR"
 
 xcodebuild -project "$WORKING_LOCATION/$APPLICATION_NAME/$APPLICATION_NAME.xcodeproj" \
