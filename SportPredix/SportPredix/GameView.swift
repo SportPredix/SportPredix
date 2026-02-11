@@ -2,7 +2,7 @@
 //  GameView.swift
 //  SportPredix
 //
-//  Created by Redesign
+//  Created by Redesign Final
 //
 
 import SwiftUI
@@ -319,7 +319,7 @@ struct ScratchCardView: View {
             }
             .padding(.horizontal, 4)
             
-            ScratchableCardRedesigned(
+            ScratchableCardRedesignedFinal(
                 prize: prize,
                 prizeColor: prizeColor,
                 onScratch: { progress in
@@ -559,8 +559,8 @@ struct ScratchCardView: View {
     }
 }
 
-// MARK: - SCRATCHABLE CARD RIDESIGNED (MIGLIORATA)
-struct ScratchableCardRedesigned: View {
+// MARK: - SCRATCHABLE CARD FINAL - FIXED SWIPE ISSUE
+struct ScratchableCardRedesignedFinal: View {
     let prize: Int
     let prizeColor: Color
     var onScratch: (Double) -> Void
@@ -615,8 +615,8 @@ struct ScratchableCardRedesigned: View {
                     )
                 )
                 
-                // Layer grattabile MIGLIORATO
-                ScratchOverlayRedesignedImproved(
+                // Layer grattabile FIXED - Niente gesture, solo UIView
+                ScratchOverlayFinal(
                     touchPoints: $touchPoints,
                     scratchedPercentage: $scratchedPercentage,
                     onScratch: onScratch,
@@ -624,7 +624,6 @@ struct ScratchableCardRedesigned: View {
                 )
                 .background(
                     ZStack {
-                        // Pattern metallico più realistico
                         LinearGradient(
                             gradient: Gradient(colors: [
                                 Color(red: 0.35, green: 0.35, blue: 0.4),
@@ -635,7 +634,6 @@ struct ScratchableCardRedesigned: View {
                             endPoint: .bottomTrailing
                         )
                         
-                        // Effetto scintillio
                         RadialGradient(
                             gradient: Gradient(colors: [
                                 Color.white.opacity(0.15),
@@ -646,11 +644,9 @@ struct ScratchableCardRedesigned: View {
                             endRadius: 150
                         )
                         
-                        // Pattern griglia fine
                         GridPatternFine()
                             .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
                         
-                        // Texture puntinata
                         DottedPattern()
                             .fill(Color.white.opacity(0.1))
                     }
@@ -711,15 +707,15 @@ struct DottedPattern: Shape {
     }
 }
 
-// MARK: - SCRATCH OVERLAY RIDESIGNED MIGLIORATO
-struct ScratchOverlayRedesignedImproved: UIViewRepresentable {
+// MARK: - SCRATCH OVERLAY FINAL - NO SWIPE ISSUE
+struct ScratchOverlayFinal: UIViewRepresentable {
     @Binding var touchPoints: [CGPoint]
     @Binding var scratchedPercentage: Double
     var onScratch: (Double) -> Void
     @Binding var showHint: Bool
     
-    func makeUIView(context: Context) -> ScratchUIViewImproved {
-        let view = ScratchUIViewImproved()
+    func makeUIView(context: Context) -> ScratchUIViewFinal {
+        let view = ScratchUIViewFinal()
         view.onScratch = onScratch
         view.scratchedPercentageBinding = $scratchedPercentage
         view.touchPointsBinding = $touchPoints
@@ -727,12 +723,12 @@ struct ScratchOverlayRedesignedImproved: UIViewRepresentable {
         return view
     }
     
-    func updateUIView(_ uiView: ScratchUIViewImproved, context: Context) {
+    func updateUIView(_ uiView: ScratchUIViewFinal, context: Context) {
         uiView.showHint = showHint
     }
 }
 
-class ScratchUIViewImproved: UIView {
+class ScratchUIViewFinal: UIView {
     var onScratch: ((Double) -> Void)?
     var scratchedPercentageBinding: Binding<Double>?
     var touchPointsBinding: Binding<[CGPoint]>?
@@ -756,7 +752,9 @@ class ScratchUIViewImproved: UIView {
     }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        // IMPEDISCE PROPAGAZIONE AI GESTI SOTTOSTANTI
         super.touchesBegan(touches, with: event)
+        next?.touchesBegan(touches, with: event)
         
         if isFirstTouch {
             showHintBinding?.wrappedValue = false
@@ -768,7 +766,17 @@ class ScratchUIViewImproved: UIView {
     }
     
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        // IMPEDISCE PROPAGAZIONE AI GESTI SOTTOSTANTI
+        super.touchesMoved(touches, with: event)
+        next?.touchesMoved(touches, with: event)
+        
         handleTouches(touches)
+    }
+    
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        // IMPEDISCE PROPAGAZIONE AI GESTI SOTTOSTANTI
+        super.touchesEnded(touches, with: event)
+        next?.touchesEnded(touches, with: event)
     }
     
     private func handleTouches(_ touches: Set<UITouch>) {
@@ -778,14 +786,12 @@ class ScratchUIViewImproved: UIView {
         
         touchPointsBinding?.wrappedValue.append(point)
         
-        // Calcola area grattata in modo più realistico
+        // Calcola area grattata
         let distance = hypot(point.x - previousPoint.x, point.y - previousPoint.y)
         let radius = brushSize * (1 + CGFloat.random(in: -0.2...0.2))
         
-        // Aggiungi area basata sulla distanza percorsa
         if distance > 0 {
             scratchedArea += CGFloat.pi * radius * radius * 0.5
-            // Aggiungi area extra per movimento veloce
             scratchedArea += distance * radius * 1.5
         } else {
             scratchedArea += CGFloat.pi * radius * radius
@@ -794,7 +800,6 @@ class ScratchUIViewImproved: UIView {
         let totalArea = bounds.width * bounds.height
         let percentage = min((scratchedArea / totalArea) * 100, 100)
         
-        // Aggiorna percentuale solo se cambiata significativamente
         if abs(percentage - lastPercentage) > 0.5 {
             scratchedPercentageBinding?.wrappedValue = percentage
             onScratch?(percentage)
@@ -807,11 +812,11 @@ class ScratchUIViewImproved: UIView {
     override func draw(_ rect: CGRect) {
         guard let context = UIGraphicsGetCurrentContext() else { return }
         
-        // Sfondo semi-trasparente con texture
+        // Sfondo
         context.setFillColor(UIColor(white: 0.22, alpha: 0.98).cgColor)
         context.fill(rect)
         
-        // Disegna pattern metallico
+        // Pattern
         context.setFillColor(UIColor(white: 0.28, alpha: 1).cgColor)
         let step: CGFloat = 6
         for x in stride(from: 0, through: rect.width, by: step) {
@@ -823,24 +828,13 @@ class ScratchUIViewImproved: UIView {
             }
         }
         
-        // Disegna linee incrociate per effetto graffio
-        context.setStrokeColor(UIColor(white: 0.32, alpha: 0.5).cgColor)
-        context.setLineWidth(0.5)
-        for x in stride(from: 0, through: rect.width, by: 15) {
-            context.move(to: CGPoint(x: x, y: 0))
-            context.addLine(to: CGPoint(x: x + 10, y: rect.height))
-            context.strokePath()
-        }
-        
-        // Rimuovi aree grattate con effetto pennello realistico
+        // Rimuovi aree grattate
         context.setBlendMode(.clear)
         
         if let binding = touchPointsBinding {
-            // Usa solo gli ultimi 100 punti per performance
-            let points = binding.wrappedValue.suffix(100)
+            let points = binding.wrappedValue.suffix(150)
             
             for point in points {
-                // Cerchio principale con variazione di dimensione
                 let size = brushSize + CGFloat.random(in: -5...8)
                 let circleRect = CGRect(
                     x: point.x - size/2,
@@ -850,7 +844,6 @@ class ScratchUIViewImproved: UIView {
                 )
                 context.fillEllipse(in: circleRect)
                 
-                // Punti extra per effetto texture
                 for _ in 0..<8 {
                     let offsetX = CGFloat.random(in: -size...size)
                     let offsetY = CGFloat.random(in: -size...size)
@@ -868,7 +861,7 @@ class ScratchUIViewImproved: UIView {
     }
 }
 
-// MARK: - SLOT MACHINE RIDESIGNED (MIGLIORATA)
+// MARK: - SLOT MACHINE FINAL - PROPORZIONI PERFETTE
 struct SlotMachineView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var balance: Double
@@ -882,8 +875,8 @@ struct SlotMachineView: View {
     @State private var showInsufficientBalance = false
     @State private var spinCount = 0
     @State private var spinTimer: Timer? = nil
-    @State private var reelOffsets: [CGFloat] = [0, 0, 0]
-    @State private var reelVelocities: [CGFloat] = [0, 0, 0]
+    @State private var reelPositions: [CGFloat] = [0, 0, 0]
+    @State private var reelSpeeds: [CGFloat] = [0, 0, 0]
     @State private var showWinAnimation = false
     
     enum GameState {
@@ -1003,7 +996,6 @@ struct SlotMachineView: View {
                 
                 Spacer()
                 
-                // Icona slot machine e saldo
                 HStack(spacing: 6) {
                     Image(systemName: "slot.machine")
                         .font(.system(size: 16))
@@ -1216,37 +1208,38 @@ struct SlotMachineView: View {
     private var spinningContent: some View {
         VStack(spacing: 28) {
             VStack(spacing: 20) {
-                HStack(spacing: 16) {
-                    SlotReelRealisticView(
+                HStack(spacing: 12) {
+                    SlotReelProportionalView(
                         symbol: $reel1Index,
                         symbols: symbols,
                         isSpinning: isSpinning,
-                        offset: $reelOffsets[0],
-                        velocity: $reelVelocities[0]
+                        position: $reelPositions[0],
+                        speed: $reelSpeeds[0],
+                        reelIndex: 0
                     )
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 160)
+                    .frame(width: 100, height: 160)
                     
-                    SlotReelRealisticView(
+                    SlotReelProportionalView(
                         symbol: $reel2Index,
                         symbols: symbols,
                         isSpinning: isSpinning,
-                        offset: $reelOffsets[1],
-                        velocity: $reelVelocities[1]
+                        position: $reelPositions[1],
+                        speed: $reelSpeeds[1],
+                        reelIndex: 1
                     )
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 160)
+                    .frame(width: 100, height: 160)
                     
-                    SlotReelRealisticView(
+                    SlotReelProportionalView(
                         symbol: $reel3Index,
                         symbols: symbols,
                         isSpinning: isSpinning,
-                        offset: $reelOffsets[2],
-                        velocity: $reelVelocities[2]
+                        position: $reelPositions[2],
+                        speed: $reelSpeeds[2],
+                        reelIndex: 2
                     )
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 160)
+                    .frame(width: 100, height: 160)
                 }
+                .frame(maxWidth: .infinity)
             }
             .padding(20)
             .background(
@@ -1320,14 +1313,13 @@ struct SlotMachineView: View {
     private var resultContent: some View {
         VStack(spacing: 28) {
             VStack(spacing: 20) {
-                HStack(spacing: 16) {
+                HStack(spacing: 12) {
                     VStack {
                         Text(symbols[reel1Index])
-                            .font(.system(size: 64))
+                            .font(.system(size: 56))
                             .shadow(color: winAmount > 0 ? .yellow.opacity(0.8) : .clear, radius: 10)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 140)
+                    .frame(width: 100, height: 140)
                     .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .fill(
@@ -1353,11 +1345,10 @@ struct SlotMachineView: View {
                     
                     VStack {
                         Text(symbols[reel2Index])
-                            .font(.system(size: 64))
+                            .font(.system(size: 56))
                             .shadow(color: winAmount > 0 ? .yellow.opacity(0.8) : .clear, radius: 10)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 140)
+                    .frame(width: 100, height: 140)
                     .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .fill(
@@ -1383,11 +1374,10 @@ struct SlotMachineView: View {
                     
                     VStack {
                         Text(symbols[reel3Index])
-                            .font(.system(size: 64))
+                            .font(.system(size: 56))
                             .shadow(color: winAmount > 0 ? .yellow.opacity(0.8) : .clear, radius: 10)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 140)
+                    .frame(width: 100, height: 140)
                     .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .fill(
@@ -1411,6 +1401,7 @@ struct SlotMachineView: View {
                             )
                     )
                 }
+                .frame(maxWidth: .infinity)
                 
                 if winAmount > 0 {
                     Text("JACKPOT!")
@@ -1599,54 +1590,82 @@ struct SlotMachineView: View {
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
         
-        // Avvia timer con fisica realistica
+        // Reset velocità con valori iniziali diversi per ogni rullo
+        for i in 0..<3 {
+            reelSpeeds[i] = CGFloat.random(in: 15...25)
+            reelPositions[i] = 0
+        }
+        
+        // Timer per animazione con fisica realistica
         spinTimer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { _ in
-            // Aggiorna velocità con accelerazione
             for i in 0..<3 {
-                reelVelocities[i] += CGFloat.random(in: 2...5)
-                reelVelocities[i] = min(reelVelocities[i], 40)
-                reelOffsets[i] += reelVelocities[i]
+                // Accelerazione graduale
+                if reelSpeeds[i] < 35 {
+                    reelSpeeds[i] += CGFloat.random(in: 0.3...0.7)
+                }
                 
-                if reelOffsets[i] > 100 {
-                    reelOffsets[i] -= 100
-                    reel1Index = Int.random(in: 0..<symbols.count)
-                    if i == 1 { reel2Index = Int.random(in: 0..<symbols.count) }
-                    if i == 2 { reel3Index = Int.random(in: 0..<symbols.count) }
+                // Movimento
+                reelPositions[i] += reelSpeeds[i]
+                
+                // Reset posizione e cambio simbolo
+                if reelPositions[i] > 80 {
+                    reelPositions[i] -= 80
+                    
+                    switch i {
+                    case 0: reel1Index = Int.random(in: 0..<symbols.count)
+                    case 1: reel2Index = Int.random(in: 0..<symbols.count)
+                    case 2: reel3Index = Int.random(in: 0..<symbols.count)
+                    default: break
+                    }
                 }
             }
         }
         
-        // Stop con decelerazione
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+        // Stop con decelerazione progressiva
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             stopSpinWithDeceleration()
         }
     }
     
     private func stopSpinWithDeceleration() {
-        // Decelerazione progressiva
         var decelerationCount = 0
-        let decelerationTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
+        
+        let decelerationTimer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { timer in
             decelerationCount += 1
+            var allStopped = true
             
             for i in 0..<3 {
-                reelVelocities[i] *= 0.7
-                reelOffsets[i] += reelVelocities[i]
+                // Decelerazione
+                if reelSpeeds[i] > 0.5 {
+                    reelSpeeds[i] *= 0.82
+                    reelSpeeds[i] -= 0.3
+                    allStopped = false
+                } else {
+                    reelSpeeds[i] = 0
+                }
                 
-                if reelOffsets[i] > 100 {
-                    reelOffsets[i] -= 100
-                    if i == 0 { reel1Index = Int.random(in: 0..<symbols.count) }
-                    if i == 1 { reel2Index = Int.random(in: 0..<symbols.count) }
-                    if i == 2 { reel3Index = Int.random(in: 0..<symbols.count) }
+                // Movimento residuo
+                reelPositions[i] += reelSpeeds[i]
+                
+                if reelPositions[i] > 80 {
+                    reelPositions[i] -= 80
+                    
+                    switch i {
+                    case 0: reel1Index = Int.random(in: 0..<symbols.count)
+                    case 1: reel2Index = Int.random(in: 0..<symbols.count)
+                    case 2: reel3Index = Int.random(in: 0..<symbols.count)
+                    default: break
+                    }
                 }
             }
             
-            if decelerationCount > 10 || reelVelocities.allSatisfy({ $0 < 1 }) {
+            if allStopped || decelerationCount > 35 {
                 timer.invalidate()
                 finalizeSpin()
             }
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             decelerationTimer.invalidate()
             finalizeSpin()
         }
@@ -1657,12 +1676,14 @@ struct SlotMachineView: View {
         spinTimer = nil
         isSpinning = false
         
-        // Imposta simboli finali
+        // Posizioni finali
+        reelPositions = [0, 0, 0]
+        reelSpeeds = [0, 0, 0]
+        
+        // Simboli finali
         reel1Index = Int.random(in: 0..<symbols.count)
         reel2Index = Int.random(in: 0..<symbols.count)
         reel3Index = Int.random(in: 0..<symbols.count)
-        reelOffsets = [0, 0, 0]
-        reelVelocities = [0, 0, 0]
         
         // Calcola vincita
         if reel1Index == reel2Index && reel2Index == reel3Index {
@@ -1694,7 +1715,6 @@ struct SlotMachineView: View {
             winAmount = 0
             showWinAnimation = false
             
-            // Resetta e riparti subito
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 startSpin()
             }
@@ -1702,15 +1722,14 @@ struct SlotMachineView: View {
     }
 }
 
-// MARK: - SLOT REEL REALISTIC VIEW
-struct SlotReelRealisticView: View {
+// MARK: - SLOT REEL PROPORTIONAL VIEW - PERFETTE PROPORZIONI
+struct SlotReelProportionalView: View {
     @Binding var symbol: Int
     let symbols: [String]
     let isSpinning: Bool
-    @Binding var offset: CGFloat
-    @Binding var velocity: CGFloat
-    
-    @State private var blurAmount: CGFloat = 0
+    @Binding var position: CGFloat
+    @Binding var speed: CGFloat
+    let reelIndex: Int
     
     var body: some View {
         ZStack {
@@ -1727,26 +1746,26 @@ struct SlotReelRealisticView: View {
                     )
                 )
             
-            // Simboli animati
-            VStack(spacing: 20) {
+            // Simboli animati - 5 simboli per scorrimento fluido
+            VStack(spacing: 8) {
                 ForEach(-2..<3) { i in
                     let index = (symbol + i + symbols.count * 2) % symbols.count
                     Text(symbols[index])
-                        .font(.system(size: 48))
+                        .font(.system(size: 42))
                         .shadow(color: .white.opacity(0.2), radius: 2)
-                        .blur(radius: isSpinning ? min(abs(velocity) / 20, 2) : 0)
+                        .blur(radius: isSpinning ? min(speed / 12, 2.5) : 0)
                 }
             }
-            .offset(y: offset)
+            .offset(y: position)
             
-            // Effetti di luce realistici
+            // Effetti di luce
             VStack {
                 LinearGradient(
                     colors: [Color.white.opacity(0.15), .clear],
                     startPoint: .top,
                     endPoint: .center
                 )
-                .frame(height: 40)
+                .frame(height: 35)
                 
                 Spacer()
                 
@@ -1755,7 +1774,7 @@ struct SlotReelRealisticView: View {
                     startPoint: .center,
                     endPoint: .bottom
                 )
-                .frame(height: 40)
+                .frame(height: 35)
             }
             .clipShape(RoundedRectangle(cornerRadius: 16))
             
@@ -1773,27 +1792,8 @@ struct SlotReelRealisticView: View {
                     ),
                     lineWidth: 2
                 )
-            
-            // Riflesso laterale
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.2),
-                            .clear,
-                            .clear
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    lineWidth: 1
-                )
-                .blur(radius: 0.5)
         }
-        .frame(height: 160)
-        .onChange(of: velocity) { newVelocity in
-            blurAmount = min(abs(newVelocity) / 15, 2)
-        }
+        .frame(width: 100, height: 160)
     }
 }
 
