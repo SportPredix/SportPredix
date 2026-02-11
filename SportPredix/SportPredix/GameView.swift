@@ -2,10 +2,11 @@
 //  GameView.swift
 //  SportPredix
 //
-//  Created by Formatiks Team
+//  Created by Redesign
 //
 
 import SwiftUI
+import Combine
 
 // MARK: - GIOCO GRATTA E VINCI RIDESIGNED
 struct ScratchCardView: View {
@@ -326,15 +327,7 @@ struct ScratchCardView: View {
                 }
                 
                 ProgressView(value: scratchProgress, total: 100)
-                    .progressViewStyle(
-                        LinearProgressViewStyle(
-                            tint: LinearGradient(
-                                colors: [.accentCyan, .blue],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                    )
+                    .progressViewStyle(LinearProgressViewStyle(tint: .accentCyan))
                     .scaleEffect(x: 1, y: 2, anchor: .center)
                     .shadow(color: .accentCyan.opacity(0.3), radius: 4)
             }
@@ -847,6 +840,8 @@ struct SlotMachineView: View {
     @State private var isSpinning = false
     @State private var showInsufficientBalance = false
     @State private var spinCount = 0
+    @State private var spinTimer: Timer.TimerPublisher = Timer.publish(every: 0.05, on: .main, in: .common)
+    @State private var timerSubscription: AnyCancellable?
     
     enum GameState {
         case initial
@@ -887,6 +882,9 @@ struct SlotMachineView: View {
                     .padding(.vertical, 24)
                 }
             }
+        }
+        .onDisappear {
+            timerSubscription?.cancel()
         }
         .alert("Saldo insufficiente", isPresented: $showInsufficientBalance) {
             Button("OK", role: .cancel) { }
@@ -1186,7 +1184,9 @@ struct SlotMachineView: View {
                     ForEach(0..<3) { index in
                         SlotReelViewRedesigned(
                             reelState: $reels[index],
-                            isSpinning: isSpinning
+                            isSpinning: isSpinning,
+                            spinTimer: $spinTimer,
+                            timerSubscription: $timerSubscription
                         )
                         .frame(maxWidth: .infinity)
                         .frame(height: 160)
@@ -1481,10 +1481,9 @@ struct SlotMachineView: View {
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
         
-        // Avvia spinning
-        for i in 0..<3 {
-            reels[i].startSpinning()
-        }
+        // Avvia il timer per lo spinning
+        spinTimer = Timer.publish(every: 0.05, on: .main, in: .common)
+        timerSubscription = spinTimer.connect()
         
         // Stop dopo 2.5 secondi
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
@@ -1494,10 +1493,7 @@ struct SlotMachineView: View {
     
     private func stopSpin() {
         isSpinning = false
-        
-        for i in 0..<3 {
-            reels[i].stopSpinning()
-        }
+        timerSubscription?.cancel()
         
         // Calcola vincita
         let symbol1 = reels[0].currentIndex
@@ -1557,7 +1553,6 @@ struct SlotReelState {
     
     mutating func stopSpinning() {
         isSpinning = false
-        currentIndex = Int.random(in: 0..<symbols.count)
         offset = 0
     }
     
@@ -1576,9 +1571,8 @@ struct SlotReelState {
 struct SlotReelViewRedesigned: View {
     @Binding var reelState: SlotReelState
     let isSpinning: Bool
-    
-    @State private var timer: Timer.TimerPublisher = Timer.publish(every: 0.05, on: .main, in: .common)
-    @State private var timerConnection: Cancellable?
+    @Binding var spinTimer: Timer.TimerPublisher
+    @Binding var timerSubscription: AnyCancellable?
     
     var body: some View {
         ZStack {
@@ -1641,7 +1635,7 @@ struct SlotReelViewRedesigned: View {
                     lineWidth: 1.5
                 )
             
-            // Effetto scintillio quando vince
+            // Effetto scintillio quando fermo
             if !isSpinning && reelState.isSpinning == false {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(Color.yellow.opacity(0.3), lineWidth: 2)
@@ -1649,22 +1643,16 @@ struct SlotReelViewRedesigned: View {
             }
         }
         .frame(height: 160)
-        .onAppear {
-            timerConnection = timer.connect()
-        }
-        .onDisappear {
-            timerConnection?.cancel()
-        }
-        .onReceive(timer) { _ in
+        .onReceive(spinTimer) { _ in
             if isSpinning {
                 reelState.updateSpin()
             }
         }
         .onChange(of: isSpinning) { newValue in
             if newValue {
-                timerConnection = timer.connect()
+                reelState.startSpinning()
             } else {
-                timerConnection?.cancel()
+                reelState.stopSpinning()
             }
         }
     }
