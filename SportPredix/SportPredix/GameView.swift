@@ -35,11 +35,9 @@ struct ScratchCardView: View {
     
     var body: some View {
         ZStack {
-            // Sfondo come l'app principale
             backgroundGradient
             
             VStack(spacing: 0) {
-                // Header con vetro
                 glassHeader
                 
                 ScrollView {
@@ -67,7 +65,6 @@ struct ScratchCardView: View {
         }
     }
     
-    // MARK: - Background
     private var backgroundGradient: some View {
         ZStack {
             LinearGradient(
@@ -104,7 +101,6 @@ struct ScratchCardView: View {
         }
     }
     
-    // MARK: - Header con vetro
     private var glassHeader: some View {
         VStack(spacing: 0) {
             HStack {
@@ -137,7 +133,6 @@ struct ScratchCardView: View {
                 
                 Spacer()
                 
-                // Saldo
                 HStack(spacing: 6) {
                     Image(systemName: "eurosign.circle.fill")
                         .font(.system(size: 14))
@@ -161,7 +156,6 @@ struct ScratchCardView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
             
-            // Linea sottile divisoria
             Capsule()
                 .fill(
                     LinearGradient(
@@ -181,10 +175,8 @@ struct ScratchCardView: View {
         .background(Color.black.opacity(0.3).background(.ultraThinMaterial.opacity(0.7)))
     }
     
-    // MARK: - Initial Content
     private var initialContent: some View {
         VStack(spacing: 28) {
-            // Card principale
             VStack(spacing: 24) {
                 ZStack {
                     Circle()
@@ -231,14 +223,12 @@ struct ScratchCardView: View {
                     )
             )
             
-            // Info cards
             VStack(spacing: 12) {
                 infoCard(icon: "eurosign.circle", title: "Costo", value: "€50", color: .accentCyan)
                 infoCard(icon: "crown.fill", title: "Premio massimo", value: "€1.000", color: .yellow)
                 infoCard(icon: "percent", title: "Probabilità vincita", value: "60%", color: .green)
             }
             
-            // Bottone
             Button(action: startGame) {
                 HStack(spacing: 12) {
                     Image(systemName: "play.fill")
@@ -271,10 +261,8 @@ struct ScratchCardView: View {
         }
     }
     
-    // MARK: - Info Card
     private func infoCard(icon: String, title: String, value: String, color: Color) -> some View {
         HStack(spacing: 16) {
-            // Icona
             ZStack {
                 Circle()
                     .fill(color.opacity(0.15))
@@ -309,10 +297,8 @@ struct ScratchCardView: View {
         )
     }
     
-    // MARK: - Playing Content
     private var playingContent: some View {
         VStack(spacing: 28) {
-            // Progress bar
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("Progresso grattamento")
@@ -333,26 +319,26 @@ struct ScratchCardView: View {
             }
             .padding(.horizontal, 4)
             
-            // Card grattabile
             ScratchableCardRedesigned(
                 prize: prize,
                 prizeColor: prizeColor,
                 onScratch: { progress in
                     scratchProgress = progress
                     if progress >= 75 {
-                        revealCard()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            revealCard()
+                        }
                     }
                 }
             )
             .frame(height: 380)
             
-            // Istruzioni
             HStack(spacing: 10) {
                 Image(systemName: "hand.point.up.left.fill")
                     .font(.caption)
                     .foregroundColor(.accentCyan)
                 
-                Text("Gratta l'area grigia per scoprire il premio")
+                Text("Gratta con il dito - Più gratti, più scopri!")
                     .font(.caption)
                     .foregroundColor(.gray)
             }
@@ -369,10 +355,8 @@ struct ScratchCardView: View {
         }
     }
     
-    // MARK: - Result Content
     private var resultContent: some View {
         VStack(spacing: 28) {
-            // Risultato card
             VStack(spacing: 24) {
                 ZStack {
                     Circle()
@@ -419,7 +403,6 @@ struct ScratchCardView: View {
                     )
             )
             
-            // Riepilogo
             VStack(spacing: 16) {
                 resultRow(label: "Costo biglietto", value: "-€50", color: .red)
                 
@@ -457,15 +440,13 @@ struct ScratchCardView: View {
                     )
             )
             
-            // Bottom buttons
             HStack(spacing: 16) {
-                // Rigioca button
                 Button(action: playAgain) {
                     HStack(spacing: 10) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.system(size: 16, weight: .semibold))
                         
-                        Text("RIGIOCA")
+                        Text("RIGIOCA SUBITO")
                             .font(.system(size: 16, weight: .bold))
                     }
                     .foregroundColor(.black)
@@ -485,7 +466,6 @@ struct ScratchCardView: View {
                     )
                 }
                 
-                // Menu button
                 Button(action: { presentationMode.wrappedValue.dismiss() }) {
                     HStack(spacing: 10) {
                         Image(systemName: "house.fill")
@@ -508,7 +488,6 @@ struct ScratchCardView: View {
         }
     }
     
-    // MARK: - Result Row
     private func resultRow(label: String, value: String, color: Color, isBold: Bool = false) -> some View {
         HStack {
             Text(label)
@@ -523,7 +502,6 @@ struct ScratchCardView: View {
         }
     }
     
-    // MARK: - Helper
     private var prizeColor: Color {
         prizes.first(where: { $0.amount == prize })?.color ?? .accentCyan
     }
@@ -561,8 +539,8 @@ struct ScratchCardView: View {
     
     private func playAgain() {
         withAnimation(.easeOut(duration: 0.3)) {
+            gameState = .playing
             scratchProgress = 0
-            gameState = .initial
             selectProbabilisticPrize()
         }
     }
@@ -581,7 +559,7 @@ struct ScratchCardView: View {
     }
 }
 
-// MARK: - SCRATCHABLE CARD RIDESIGNED
+// MARK: - SCRATCHABLE CARD RIDESIGNED (MIGLIORATA)
 struct ScratchableCardRedesigned: View {
     let prize: Int
     let prizeColor: Color
@@ -598,7 +576,6 @@ struct ScratchableCardRedesigned: View {
                 VStack(spacing: 20) {
                     Spacer()
                     
-                    // Icona premio
                     Image(systemName: prize > 0 ? "crown.fill" : "xmark.circle.fill")
                         .font(.system(size: 60))
                         .foregroundColor(prizeColor.opacity(0.8))
@@ -638,17 +615,19 @@ struct ScratchableCardRedesigned: View {
                     )
                 )
                 
-                // Layer grattabile
-                ScratchOverlayRedesigned(
+                // Layer grattabile MIGLIORATO
+                ScratchOverlayRedesignedImproved(
                     touchPoints: $touchPoints,
                     scratchedPercentage: $scratchedPercentage,
-                    onScratch: onScratch
+                    onScratch: onScratch,
+                    showHint: $showScratchHint
                 )
                 .background(
                     ZStack {
-                        // Pattern grattabile
+                        // Pattern metallico più realistico
                         LinearGradient(
                             gradient: Gradient(colors: [
+                                Color(red: 0.35, green: 0.35, blue: 0.4),
                                 Color(red: 0.25, green: 0.25, blue: 0.3),
                                 Color(red: 0.2, green: 0.2, blue: 0.25)
                             ]),
@@ -656,33 +635,24 @@ struct ScratchableCardRedesigned: View {
                             endPoint: .bottomTrailing
                         )
                         
-                        // Effetto metallico
+                        // Effetto scintillio
                         RadialGradient(
                             gradient: Gradient(colors: [
-                                Color.white.opacity(0.1),
+                                Color.white.opacity(0.15),
                                 Color.clear
                             ]),
                             center: .center,
                             startRadius: 0,
-                            endRadius: 200
+                            endRadius: 150
                         )
                         
-                        // Pattern griglia
-                        GridPattern()
-                            .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+                        // Pattern griglia fine
+                        GridPatternFine()
+                            .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
                         
-                        // Hint iniziale
-                        if showScratchHint && touchPoints.isEmpty {
-                            VStack(spacing: 16) {
-                                Image(systemName: "hand.draw.fill")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.white.opacity(0.5))
-                                
-                                Text("Gratta qui")
-                                    .font(.headline)
-                                    .foregroundColor(.white.opacity(0.5))
-                            }
-                        }
+                        // Texture puntinata
+                        DottedPattern()
+                            .fill(Color.white.opacity(0.1))
                     }
                 )
                 .mask(
@@ -704,11 +674,11 @@ struct ScratchableCardRedesigned: View {
     }
 }
 
-// MARK: - GRID PATTERN
-struct GridPattern: Shape {
+// MARK: - GRID PATTERN FINE
+struct GridPatternFine: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        let step: CGFloat = 20
+        let step: CGFloat = 12
         
         for x in stride(from: 0, through: rect.width, by: step) {
             path.move(to: CGPoint(x: x, y: 0))
@@ -724,55 +694,112 @@ struct GridPattern: Shape {
     }
 }
 
-// MARK: - SCRATCH OVERLAY RIDESIGNED
-struct ScratchOverlayRedesigned: UIViewRepresentable {
+// MARK: - DOTTED PATTERN
+struct DottedPattern: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let step: CGFloat = 8
+        
+        for x in stride(from: 2, through: rect.width, by: step) {
+            for y in stride(from: 2, through: rect.height, by: step) {
+                let dotRect = CGRect(x: x, y: y, width: 1.5, height: 1.5)
+                path.addEllipse(in: dotRect)
+            }
+        }
+        
+        return path
+    }
+}
+
+// MARK: - SCRATCH OVERLAY RIDESIGNED MIGLIORATO
+struct ScratchOverlayRedesignedImproved: UIViewRepresentable {
     @Binding var touchPoints: [CGPoint]
     @Binding var scratchedPercentage: Double
     var onScratch: (Double) -> Void
+    @Binding var showHint: Bool
     
-    func makeUIView(context: Context) -> ScratchUIView {
-        let view = ScratchUIView()
+    func makeUIView(context: Context) -> ScratchUIViewImproved {
+        let view = ScratchUIViewImproved()
         view.onScratch = onScratch
         view.scratchedPercentageBinding = $scratchedPercentage
         view.touchPointsBinding = $touchPoints
+        view.showHintBinding = $showHint
         return view
     }
     
-    func updateUIView(_ uiView: ScratchUIView, context: Context) {}
+    func updateUIView(_ uiView: ScratchUIViewImproved, context: Context) {
+        uiView.showHint = showHint
+    }
 }
 
-class ScratchUIView: UIView {
+class ScratchUIViewImproved: UIView {
     var onScratch: ((Double) -> Void)?
     var scratchedPercentageBinding: Binding<Double>?
     var touchPointsBinding: Binding<[CGPoint]>?
+    var showHintBinding: Binding<Bool>?
+    var showHint: Bool = true
+    
     private var scratchedArea: CGFloat = 0
     private var lastPercentage: Double = 0
+    private var brushSize: CGFloat = 35
+    private var isFirstTouch = true
     
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .clear
         isUserInteractionEnabled = true
+        isMultipleTouchEnabled = true
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesBegan(touches, with: event)
+        
+        if isFirstTouch {
+            showHintBinding?.wrappedValue = false
+            showHint = false
+            isFirstTouch = false
+        }
+        
+        handleTouches(touches)
+    }
+    
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        handleTouches(touches)
+    }
+    
+    private func handleTouches(_ touches: Set<UITouch>) {
         guard let touch = touches.first else { return }
         let point = touch.location(in: self)
+        let previousPoint = touch.previousLocation(in: self)
         
         touchPointsBinding?.wrappedValue.append(point)
         
-        // Calcola area grattata
-        let radius: CGFloat = 20
-        scratchedArea += CGFloat.pi * radius * radius
+        // Calcola area grattata in modo più realistico
+        let distance = hypot(point.x - previousPoint.x, point.y - previousPoint.y)
+        let radius = brushSize * (1 + CGFloat.random(in: -0.2...0.2))
+        
+        // Aggiungi area basata sulla distanza percorsa
+        if distance > 0 {
+            scratchedArea += CGFloat.pi * radius * radius * 0.5
+            // Aggiungi area extra per movimento veloce
+            scratchedArea += distance * radius * 1.5
+        } else {
+            scratchedArea += CGFloat.pi * radius * radius
+        }
         
         let totalArea = bounds.width * bounds.height
         let percentage = min((scratchedArea / totalArea) * 100, 100)
         
-        scratchedPercentageBinding?.wrappedValue = percentage
-        onScratch?(percentage)
+        // Aggiorna percentuale solo se cambiata significativamente
+        if abs(percentage - lastPercentage) > 0.5 {
+            scratchedPercentageBinding?.wrappedValue = percentage
+            onScratch?(percentage)
+            lastPercentage = percentage
+        }
         
         setNeedsDisplay()
     }
@@ -780,43 +807,59 @@ class ScratchUIView: UIView {
     override func draw(_ rect: CGRect) {
         guard let context = UIGraphicsGetCurrentContext() else { return }
         
-        // Sfondo semi-trasparente
-        context.setFillColor(UIColor(white: 0.2, alpha: 0.95).cgColor)
+        // Sfondo semi-trasparente con texture
+        context.setFillColor(UIColor(white: 0.22, alpha: 0.98).cgColor)
         context.fill(rect)
         
-        // Disegna pattern
-        context.setFillColor(UIColor(white: 0.25, alpha: 1).cgColor)
-        let step: CGFloat = 8
+        // Disegna pattern metallico
+        context.setFillColor(UIColor(white: 0.28, alpha: 1).cgColor)
+        let step: CGFloat = 6
         for x in stride(from: 0, through: rect.width, by: step) {
             for y in stride(from: 0, through: rect.height, by: step) {
-                if (Int(x/step) + Int(y/step)) % 2 == 0 {
+                if (Int(x/step) + Int(y/step)) % 3 == 0 {
                     let dotRect = CGRect(x: x, y: y, width: 2, height: 2)
                     context.fill(dotRect)
                 }
             }
         }
         
-        // Rimuovi aree grattate
+        // Disegna linee incrociate per effetto graffio
+        context.setStrokeColor(UIColor(white: 0.32, alpha: 0.5).cgColor)
+        context.setLineWidth(0.5)
+        for x in stride(from: 0, through: rect.width, by: 15) {
+            context.move(to: CGPoint(x: x, y: 0))
+            context.addLine(to: CGPoint(x: x + 10, y: rect.height))
+            context.strokePath()
+        }
+        
+        // Rimuovi aree grattate con effetto pennello realistico
         context.setBlendMode(.clear)
+        
         if let binding = touchPointsBinding {
-            for point in binding.wrappedValue {
+            // Usa solo gli ultimi 100 punti per performance
+            let points = binding.wrappedValue.suffix(100)
+            
+            for point in points {
+                // Cerchio principale con variazione di dimensione
+                let size = brushSize + CGFloat.random(in: -5...8)
                 let circleRect = CGRect(
-                    x: point.x - 20,
-                    y: point.y - 20,
-                    width: 40,
-                    height: 40
+                    x: point.x - size/2,
+                    y: point.y - size/2,
+                    width: size,
+                    height: size
                 )
                 context.fillEllipse(in: circleRect)
                 
-                // Aggiungi qualche punto extra per effetto realistico
-                for _ in 0..<3 {
-                    let offsetX = CGFloat.random(in: -15...15)
-                    let offsetY = CGFloat.random(in: -15...15)
+                // Punti extra per effetto texture
+                for _ in 0..<8 {
+                    let offsetX = CGFloat.random(in: -size...size)
+                    let offsetY = CGFloat.random(in: -size...size)
+                    let extraSize = CGFloat.random(in: 5...12)
                     let extraRect = CGRect(
-                        x: point.x + offsetX - 8,
-                        y: point.y + offsetY - 8,
-                        width: 16,
-                        height: 16
+                        x: point.x + offsetX - extraSize/2,
+                        y: point.y + offsetY - extraSize/2,
+                        width: extraSize,
+                        height: extraSize
                     )
                     context.fillEllipse(in: extraRect)
                 }
@@ -825,7 +868,7 @@ class ScratchUIView: UIView {
     }
 }
 
-// MARK: - SLOT MACHINE RIDESIGNED (SENZA TIMER)
+// MARK: - SLOT MACHINE RIDESIGNED (MIGLIORATA)
 struct SlotMachineView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var balance: Double
@@ -839,6 +882,9 @@ struct SlotMachineView: View {
     @State private var showInsufficientBalance = false
     @State private var spinCount = 0
     @State private var spinTimer: Timer? = nil
+    @State private var reelOffsets: [CGFloat] = [0, 0, 0]
+    @State private var reelVelocities: [CGFloat] = [0, 0, 0]
+    @State private var showWinAnimation = false
     
     enum GameState {
         case initial
@@ -858,11 +904,9 @@ struct SlotMachineView: View {
     
     var body: some View {
         ZStack {
-            // Sfondo come l'app principale
             backgroundGradient
             
             VStack(spacing: 0) {
-                // Header con vetro
                 glassHeader
                 
                 ScrollView {
@@ -891,7 +935,6 @@ struct SlotMachineView: View {
         }
     }
     
-    // MARK: - Background
     private var backgroundGradient: some View {
         ZStack {
             LinearGradient(
@@ -928,7 +971,6 @@ struct SlotMachineView: View {
         }
     }
     
-    // MARK: - Header
     private var glassHeader: some View {
         VStack(spacing: 0) {
             HStack {
@@ -961,8 +1003,12 @@ struct SlotMachineView: View {
                 
                 Spacer()
                 
-                // Saldo
+                // Icona slot machine e saldo
                 HStack(spacing: 6) {
+                    Image(systemName: "slot.machine")
+                        .font(.system(size: 16))
+                        .foregroundColor(.pink)
+                    
                     Image(systemName: "eurosign.circle.fill")
                         .font(.system(size: 14))
                         .foregroundColor(.accentCyan)
@@ -978,7 +1024,7 @@ struct SlotMachineView: View {
                         .fill(Color.white.opacity(0.06))
                         .overlay(
                             Capsule()
-                                .stroke(Color.accentCyan.opacity(0.3), lineWidth: 1)
+                                .stroke(Color.pink.opacity(0.3), lineWidth: 1)
                         )
                 )
             }
@@ -1004,10 +1050,8 @@ struct SlotMachineView: View {
         .background(Color.black.opacity(0.3).background(.ultraThinMaterial.opacity(0.7)))
     }
     
-    // MARK: - Initial Content
     private var initialContent: some View {
         VStack(spacing: 28) {
-            // Card principale
             VStack(spacing: 24) {
                 ZStack {
                     Circle()
@@ -1054,14 +1098,12 @@ struct SlotMachineView: View {
                     )
             )
             
-            // Info cards
             VStack(spacing: 12) {
                 infoCardSlot(icon: "eurosign.circle", title: "Costo per giro", value: "€10", color: .pink)
                 infoCardSlot(icon: "crown.fill", title: "Premio massimo", value: "€500", color: .yellow)
                 infoCardSlot(icon: "checkmark.circle", title: "3 simboli uguali", value: "Vincita!", color: .green)
             }
             
-            // Bottone
             Button(action: startSpin) {
                 HStack(spacing: 12) {
                     Image(systemName: "play.fill")
@@ -1092,7 +1134,6 @@ struct SlotMachineView: View {
                 .shadow(color: .pink.opacity(0.35), radius: 14, x: 0, y: 8)
             }
             
-            // Tabella premi
             VStack(alignment: .leading, spacing: 16) {
                 Text("TABELLA PREMI")
                     .font(.caption.bold())
@@ -1136,7 +1177,6 @@ struct SlotMachineView: View {
         }
     }
     
-    // MARK: - Info Card Slot
     private func infoCardSlot(icon: String, title: String, value: String, color: Color) -> some View {
         HStack(spacing: 16) {
             ZStack {
@@ -1173,35 +1213,36 @@ struct SlotMachineView: View {
         )
     }
     
-    // MARK: - Spinning Content
     private var spinningContent: some View {
         VStack(spacing: 28) {
-            // Rulli animati
             VStack(spacing: 20) {
                 HStack(spacing: 16) {
-                    // Rullo 1
-                    SlotReelSimpleView(
+                    SlotReelRealisticView(
                         symbol: $reel1Index,
                         symbols: symbols,
-                        isSpinning: isSpinning
+                        isSpinning: isSpinning,
+                        offset: $reelOffsets[0],
+                        velocity: $reelVelocities[0]
                     )
                     .frame(maxWidth: .infinity)
                     .frame(height: 160)
                     
-                    // Rullo 2
-                    SlotReelSimpleView(
+                    SlotReelRealisticView(
                         symbol: $reel2Index,
                         symbols: symbols,
-                        isSpinning: isSpinning
+                        isSpinning: isSpinning,
+                        offset: $reelOffsets[1],
+                        velocity: $reelVelocities[1]
                     )
                     .frame(maxWidth: .infinity)
                     .frame(height: 160)
                     
-                    // Rullo 3
-                    SlotReelSimpleView(
+                    SlotReelRealisticView(
                         symbol: $reel3Index,
                         symbols: symbols,
-                        isSpinning: isSpinning
+                        isSpinning: isSpinning,
+                        offset: $reelOffsets[2],
+                        velocity: $reelVelocities[2]
                     )
                     .frame(maxWidth: .infinity)
                     .frame(height: 160)
@@ -1234,7 +1275,6 @@ struct SlotMachineView: View {
                     .shadow(color: .pink.opacity(0.2), radius: 20, x: 0, y: 10)
             )
             
-            // Stato spinning
             VStack(spacing: 12) {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: .pink))
@@ -1259,7 +1299,6 @@ struct SlotMachineView: View {
                     )
             )
             
-            // Pulsante disabilitato
             Button(action: {}) {
                 HStack(spacing: 12) {
                     Image(systemName: "stop.fill")
@@ -1278,17 +1317,14 @@ struct SlotMachineView: View {
         }
     }
     
-    // MARK: - Result Content
     private var resultContent: some View {
         VStack(spacing: 28) {
-            // Rulli finali
             VStack(spacing: 20) {
                 HStack(spacing: 16) {
-                    // Rullo 1
                     VStack {
                         Text(symbols[reel1Index])
                             .font(.system(size: 64))
-                            .shadow(color: winAmount > 0 ? .yellow.opacity(0.5) : .clear, radius: 10)
+                            .shadow(color: winAmount > 0 ? .yellow.opacity(0.8) : .clear, radius: 10)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 140)
@@ -1308,18 +1344,17 @@ struct SlotMachineView: View {
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                                     .stroke(
                                         winAmount > 0 ?
-                                        Color.yellow.opacity(0.6) :
+                                        Color.yellow.opacity(0.8) :
                                         Color.white.opacity(0.1),
-                                        lineWidth: winAmount > 0 ? 2 : 1
+                                        lineWidth: winAmount > 0 ? 3 : 1
                                     )
                             )
                     )
                     
-                    // Rullo 2
                     VStack {
                         Text(symbols[reel2Index])
                             .font(.system(size: 64))
-                            .shadow(color: winAmount > 0 ? .yellow.opacity(0.5) : .clear, radius: 10)
+                            .shadow(color: winAmount > 0 ? .yellow.opacity(0.8) : .clear, radius: 10)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 140)
@@ -1339,18 +1374,17 @@ struct SlotMachineView: View {
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                                     .stroke(
                                         winAmount > 0 ?
-                                        Color.yellow.opacity(0.6) :
+                                        Color.yellow.opacity(0.8) :
                                         Color.white.opacity(0.1),
-                                        lineWidth: winAmount > 0 ? 2 : 1
+                                        lineWidth: winAmount > 0 ? 3 : 1
                                     )
                             )
                     )
                     
-                    // Rullo 3
                     VStack {
                         Text(symbols[reel3Index])
                             .font(.system(size: 64))
-                            .shadow(color: winAmount > 0 ? .yellow.opacity(0.5) : .clear, radius: 10)
+                            .shadow(color: winAmount > 0 ? .yellow.opacity(0.8) : .clear, radius: 10)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 140)
@@ -1370,12 +1404,25 @@ struct SlotMachineView: View {
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                                     .stroke(
                                         winAmount > 0 ?
-                                        Color.yellow.opacity(0.6) :
+                                        Color.yellow.opacity(0.8) :
                                         Color.white.opacity(0.1),
-                                        lineWidth: winAmount > 0 ? 2 : 1
+                                        lineWidth: winAmount > 0 ? 3 : 1
                                     )
                             )
                     )
+                }
+                
+                if winAmount > 0 {
+                    Text("JACKPOT!")
+                        .font(.title.bold())
+                        .foregroundColor(.yellow)
+                        .scaleEffect(showWinAnimation ? 1.2 : 1.0)
+                        .animation(
+                            Animation.easeInOut(duration: 0.6).repeatForever(autoreverses: true),
+                            value: showWinAnimation
+                        )
+                        .onAppear { showWinAnimation = true }
+                        .onDisappear { showWinAnimation = false }
                 }
             }
             .padding(20)
@@ -1388,7 +1435,6 @@ struct SlotMachineView: View {
                     )
             )
             
-            // Risultato
             VStack(spacing: 16) {
                 ZStack {
                     Circle()
@@ -1439,7 +1485,6 @@ struct SlotMachineView: View {
                     )
             )
             
-            // Riepilogo
             VStack(spacing: 16) {
                 resultRowSlot(label: "Costo giro", value: "-€10", color: .red)
                 
@@ -1477,14 +1522,13 @@ struct SlotMachineView: View {
                     )
             )
             
-            // Bottom buttons
             HStack(spacing: 16) {
                 Button(action: playAgain) {
                     HStack(spacing: 10) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.system(size: 16, weight: .semibold))
                         
-                        Text("RIGIOCA")
+                        Text("RIGIOCA SUBITO")
                             .font(.system(size: 16, weight: .bold))
                     }
                     .foregroundColor(.black)
@@ -1526,7 +1570,6 @@ struct SlotMachineView: View {
         }
     }
     
-    // MARK: - Result Row Slot
     private func resultRowSlot(label: String, value: String, color: Color, isBold: Bool = false) -> some View {
         HStack {
             Text(label)
@@ -1541,7 +1584,6 @@ struct SlotMachineView: View {
         }
     }
     
-    // MARK: - Functions
     private func startSpin() {
         guard balance >= 10 else {
             showInsufficientBalance = true
@@ -1552,40 +1594,90 @@ struct SlotMachineView: View {
         gameState = .spinning
         isSpinning = true
         spinCount += 1
+        showWinAnimation = false
         
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
         
-        // Timer per animazione spinning
-        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { _ in
-            reel1Index = Int.random(in: 0..<symbols.count)
-            reel2Index = Int.random(in: 0..<symbols.count)
-            reel3Index = Int.random(in: 0..<symbols.count)
+        // Avvia timer con fisica realistica
+        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { _ in
+            // Aggiorna velocità con accelerazione
+            for i in 0..<3 {
+                reelVelocities[i] += CGFloat.random(in: 2...5)
+                reelVelocities[i] = min(reelVelocities[i], 40)
+                reelOffsets[i] += reelVelocities[i]
+                
+                if reelOffsets[i] > 100 {
+                    reelOffsets[i] -= 100
+                    reel1Index = Int.random(in: 0..<symbols.count)
+                    if i == 1 { reel2Index = Int.random(in: 0..<symbols.count) }
+                    if i == 2 { reel3Index = Int.random(in: 0..<symbols.count) }
+                }
+            }
         }
         
-        // Stop dopo 2 secondi
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            stopSpin()
+        // Stop con decelerazione
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+            stopSpinWithDeceleration()
         }
     }
     
-    private func stopSpin() {
+    private func stopSpinWithDeceleration() {
+        // Decelerazione progressiva
+        var decelerationCount = 0
+        let decelerationTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
+            decelerationCount += 1
+            
+            for i in 0..<3 {
+                reelVelocities[i] *= 0.7
+                reelOffsets[i] += reelVelocities[i]
+                
+                if reelOffsets[i] > 100 {
+                    reelOffsets[i] -= 100
+                    if i == 0 { reel1Index = Int.random(in: 0..<symbols.count) }
+                    if i == 1 { reel2Index = Int.random(in: 0..<symbols.count) }
+                    if i == 2 { reel3Index = Int.random(in: 0..<symbols.count) }
+                }
+            }
+            
+            if decelerationCount > 10 || reelVelocities.allSatisfy({ $0 < 1 }) {
+                timer.invalidate()
+                finalizeSpin()
+            }
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            decelerationTimer.invalidate()
+            finalizeSpin()
+        }
+    }
+    
+    private func finalizeSpin() {
         spinTimer?.invalidate()
         spinTimer = nil
         isSpinning = false
+        
+        // Imposta simboli finali
+        reel1Index = Int.random(in: 0..<symbols.count)
+        reel2Index = Int.random(in: 0..<symbols.count)
+        reel3Index = Int.random(in: 0..<symbols.count)
+        reelOffsets = [0, 0, 0]
+        reelVelocities = [0, 0, 0]
         
         // Calcola vincita
         if reel1Index == reel2Index && reel2Index == reel3Index {
             let symbol = symbols[reel1Index]
             let multiplier = symbolMultipliers[symbol] ?? 0
-            winAmount = multiplier * 10 // €10 per moltiplicatore
+            winAmount = multiplier * 10
             
             balance += Double(winAmount)
             
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
+            showWinAnimation = true
         } else {
             winAmount = 0
+            showWinAnimation = false
             
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.warning)
@@ -1598,23 +1690,27 @@ struct SlotMachineView: View {
     
     private func playAgain() {
         withAnimation(.easeOut(duration: 0.3)) {
-            gameState = .initial
+            gameState = .spinning
             winAmount = 0
-            reel1Index = Int.random(in: 0..<symbols.count)
-            reel2Index = Int.random(in: 0..<symbols.count)
-            reel3Index = Int.random(in: 0..<symbols.count)
+            showWinAnimation = false
+            
+            // Resetta e riparti subito
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                startSpin()
+            }
         }
     }
 }
 
-// MARK: - SLOT REEL SIMPLE VIEW
-struct SlotReelSimpleView: View {
+// MARK: - SLOT REEL REALISTIC VIEW
+struct SlotReelRealisticView: View {
     @Binding var symbol: Int
     let symbols: [String]
     let isSpinning: Bool
+    @Binding var offset: CGFloat
+    @Binding var velocity: CGFloat
     
-    @State private var offset: CGFloat = 0
-    @State private var timer: Timer? = nil
+    @State private var blurAmount: CGFloat = 0
     
     var body: some View {
         ZStack {
@@ -1633,19 +1729,20 @@ struct SlotReelSimpleView: View {
             
             // Simboli animati
             VStack(spacing: 20) {
-                ForEach(-1..<2) { i in
-                    let index = (symbol + i + symbols.count) % symbols.count
+                ForEach(-2..<3) { i in
+                    let index = (symbol + i + symbols.count * 2) % symbols.count
                     Text(symbols[index])
                         .font(.system(size: 48))
                         .shadow(color: .white.opacity(0.2), radius: 2)
+                        .blur(radius: isSpinning ? min(abs(velocity) / 20, 2) : 0)
                 }
             }
             .offset(y: offset)
             
-            // Effetti di luce
+            // Effetti di luce realistici
             VStack {
                 LinearGradient(
-                    colors: [Color.white.opacity(0.1), .clear],
+                    colors: [Color.white.opacity(0.15), .clear],
                     startPoint: .top,
                     endPoint: .center
                 )
@@ -1654,7 +1751,7 @@ struct SlotReelSimpleView: View {
                 Spacer()
                 
                 LinearGradient(
-                    colors: [.clear, Color.white.opacity(0.1)],
+                    colors: [.clear, Color.white.opacity(0.15)],
                     startPoint: .center,
                     endPoint: .bottom
                 )
@@ -1662,53 +1759,41 @@ struct SlotReelSimpleView: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: 16))
             
-            // Bordo
+            // Bordo metallico
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.3),
+                            Color.white.opacity(0.4),
                             Color.white.opacity(0.1),
-                            Color.white.opacity(0.3)
+                            Color.white.opacity(0.4)
                         ],
                         startPoint: .top,
                         endPoint: .bottom
                     ),
-                    lineWidth: 1.5
+                    lineWidth: 2
                 )
+            
+            // Riflesso laterale
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.2),
+                            .clear,
+                            .clear
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    lineWidth: 1
+                )
+                .blur(radius: 0.5)
         }
         .frame(height: 160)
-        .onChange(of: isSpinning) { newValue in
-            if newValue {
-                startAnimation()
-            } else {
-                stopAnimation()
-            }
+        .onChange(of: velocity) { newVelocity in
+            blurAmount = min(abs(newVelocity) / 15, 2)
         }
-        .onAppear {
-            if isSpinning {
-                startAnimation()
-            }
-        }
-        .onDisappear {
-            stopAnimation()
-        }
-    }
-    
-    private func startAnimation() {
-        stopAnimation()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
-            offset += 30
-            if offset > 100 {
-                offset = 0
-            }
-        }
-    }
-    
-    private func stopAnimation() {
-        timer?.invalidate()
-        timer = nil
-        offset = 0
     }
 }
 
@@ -1722,7 +1807,6 @@ struct GameButton: View {
     
     var body: some View {
         Button {
-            // Verifica saldo per Gratta e Vinci
             if title == "Gratta e Vinci" && vm.balance < 50 {
                 let generator = UINotificationFeedbackGenerator()
                 generator.notificationOccurred(.error)
@@ -1735,15 +1819,12 @@ struct GameButton: View {
             showGame = true
         } label: {
             VStack(spacing: 16) {
-                // Icona con effetto vetro
                 ZStack {
-                    // Glow
                     Circle()
                         .fill(color.opacity(0.15))
                         .frame(width: 70, height: 70)
                         .blur(radius: 8)
                     
-                    // Cerchio principale
                     Circle()
                         .fill(
                             LinearGradient(
@@ -1782,7 +1863,6 @@ struct GameButton: View {
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                 
-                // Prezzo badge
                 Text(title == "Gratta e Vinci" ? "€50" : "Gioca")
                     .font(.caption.bold())
                     .foregroundColor(title == "Gratta e Vinci" ? .black : .white)
