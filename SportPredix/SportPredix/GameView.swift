@@ -825,23 +825,20 @@ class ScratchUIView: UIView {
     }
 }
 
-// MARK: - SLOT MACHINE RIDESIGNED
+// MARK: - SLOT MACHINE RIDESIGNED (SENZA TIMER)
 struct SlotMachineView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var balance: Double
     
     @State private var gameState: GameState = .initial
-    @State private var reels: [SlotReelState] = [
-        SlotReelState(symbols: ["🍒", "🍋", "🍊", "🔔", "💎", "7️⃣"]),
-        SlotReelState(symbols: ["🍒", "🍋", "🍊", "🔔", "💎", "7️⃣"]),
-        SlotReelState(symbols: ["🍒", "🍋", "🍊", "🔔", "💎", "7️⃣"])
-    ]
+    @State private var reel1Index: Int = Int.random(in: 0..<6)
+    @State private var reel2Index: Int = Int.random(in: 0..<6)
+    @State private var reel3Index: Int = Int.random(in: 0..<6)
     @State private var winAmount: Int = 0
     @State private var isSpinning = false
     @State private var showInsufficientBalance = false
     @State private var spinCount = 0
-    @State private var spinTimer: Timer.TimerPublisher = Timer.publish(every: 0.05, on: .main, in: .common)
-    @State private var timerSubscription: AnyCancellable?
+    @State private var spinTimer: Timer? = nil
     
     enum GameState {
         case initial
@@ -884,7 +881,8 @@ struct SlotMachineView: View {
             }
         }
         .onDisappear {
-            timerSubscription?.cancel()
+            spinTimer?.invalidate()
+            spinTimer = nil
         }
         .alert("Saldo insufficiente", isPresented: $showInsufficientBalance) {
             Button("OK", role: .cancel) { }
@@ -1181,16 +1179,32 @@ struct SlotMachineView: View {
             // Rulli animati
             VStack(spacing: 20) {
                 HStack(spacing: 16) {
-                    ForEach(0..<3) { index in
-                        SlotReelViewRedesigned(
-                            reelState: $reels[index],
-                            isSpinning: isSpinning,
-                            spinTimer: $spinTimer,
-                            timerSubscription: $timerSubscription
-                        )
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 160)
-                    }
+                    // Rullo 1
+                    SlotReelSimpleView(
+                        symbol: $reel1Index,
+                        symbols: symbols,
+                        isSpinning: isSpinning
+                    )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 160)
+                    
+                    // Rullo 2
+                    SlotReelSimpleView(
+                        symbol: $reel2Index,
+                        symbols: symbols,
+                        isSpinning: isSpinning
+                    )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 160)
+                    
+                    // Rullo 3
+                    SlotReelSimpleView(
+                        symbol: $reel3Index,
+                        symbols: symbols,
+                        isSpinning: isSpinning
+                    )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 160)
                 }
             }
             .padding(20)
@@ -1270,37 +1284,98 @@ struct SlotMachineView: View {
             // Rulli finali
             VStack(spacing: 20) {
                 HStack(spacing: 16) {
-                    ForEach(0..<3) { index in
-                        VStack {
-                            Text(symbols[reels[index].currentIndex])
-                                .font(.system(size: 64))
-                                .shadow(color: winAmount > 0 ? .yellow.opacity(0.5) : .clear, radius: 10)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 140)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color(red: 0.15, green: 0.15, blue: 0.18),
-                                            Color(red: 0.1, green: 0.1, blue: 0.12)
-                                        ],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .stroke(
-                                            winAmount > 0 ?
-                                            Color.yellow.opacity(0.6) :
-                                            Color.white.opacity(0.1),
-                                            lineWidth: winAmount > 0 ? 2 : 1
-                                        )
-                                )
-                        )
+                    // Rullo 1
+                    VStack {
+                        Text(symbols[reel1Index])
+                            .font(.system(size: 64))
+                            .shadow(color: winAmount > 0 ? .yellow.opacity(0.5) : .clear, radius: 10)
                     }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 140)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.15, green: 0.15, blue: 0.18),
+                                        Color(red: 0.1, green: 0.1, blue: 0.12)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(
+                                        winAmount > 0 ?
+                                        Color.yellow.opacity(0.6) :
+                                        Color.white.opacity(0.1),
+                                        lineWidth: winAmount > 0 ? 2 : 1
+                                    )
+                            )
+                    )
+                    
+                    // Rullo 2
+                    VStack {
+                        Text(symbols[reel2Index])
+                            .font(.system(size: 64))
+                            .shadow(color: winAmount > 0 ? .yellow.opacity(0.5) : .clear, radius: 10)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 140)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.15, green: 0.15, blue: 0.18),
+                                        Color(red: 0.1, green: 0.1, blue: 0.12)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(
+                                        winAmount > 0 ?
+                                        Color.yellow.opacity(0.6) :
+                                        Color.white.opacity(0.1),
+                                        lineWidth: winAmount > 0 ? 2 : 1
+                                    )
+                            )
+                    )
+                    
+                    // Rullo 3
+                    VStack {
+                        Text(symbols[reel3Index])
+                            .font(.system(size: 64))
+                            .shadow(color: winAmount > 0 ? .yellow.opacity(0.5) : .clear, radius: 10)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 140)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.15, green: 0.15, blue: 0.18),
+                                        Color(red: 0.1, green: 0.1, blue: 0.12)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(
+                                        winAmount > 0 ?
+                                        Color.yellow.opacity(0.6) :
+                                        Color.white.opacity(0.1),
+                                        lineWidth: winAmount > 0 ? 2 : 1
+                                    )
+                            )
+                    )
                 }
             }
             .padding(20)
@@ -1481,27 +1556,27 @@ struct SlotMachineView: View {
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
         
-        // Avvia il timer per lo spinning
-        spinTimer = Timer.publish(every: 0.05, on: .main, in: .common)
-        timerSubscription = spinTimer.connect()
+        // Timer per animazione spinning
+        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { _ in
+            reel1Index = Int.random(in: 0..<symbols.count)
+            reel2Index = Int.random(in: 0..<symbols.count)
+            reel3Index = Int.random(in: 0..<symbols.count)
+        }
         
-        // Stop dopo 2.5 secondi
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+        // Stop dopo 2 secondi
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             stopSpin()
         }
     }
     
     private func stopSpin() {
+        spinTimer?.invalidate()
+        spinTimer = nil
         isSpinning = false
-        timerSubscription?.cancel()
         
         // Calcola vincita
-        let symbol1 = reels[0].currentIndex
-        let symbol2 = reels[1].currentIndex
-        let symbol3 = reels[2].currentIndex
-        
-        if symbol1 == symbol2 && symbol2 == symbol3 {
-            let symbol = symbols[symbol1]
+        if reel1Index == reel2Index && reel2Index == reel3Index {
+            let symbol = symbols[reel1Index]
             let multiplier = symbolMultipliers[symbol] ?? 0
             winAmount = multiplier * 10 // €10 per moltiplicatore
             
@@ -1525,54 +1600,21 @@ struct SlotMachineView: View {
         withAnimation(.easeOut(duration: 0.3)) {
             gameState = .initial
             winAmount = 0
-            reels = [
-                SlotReelState(symbols: symbols),
-                SlotReelState(symbols: symbols),
-                SlotReelState(symbols: symbols)
-            ]
+            reel1Index = Int.random(in: 0..<symbols.count)
+            reel2Index = Int.random(in: 0..<symbols.count)
+            reel3Index = Int.random(in: 0..<symbols.count)
         }
     }
 }
 
-// MARK: - SLOT REEL STATE
-struct SlotReelState {
+// MARK: - SLOT REEL SIMPLE VIEW
+struct SlotReelSimpleView: View {
+    @Binding var symbol: Int
     let symbols: [String]
-    var currentIndex: Int
-    var isSpinning: Bool = false
-    var offset: CGFloat = 0
-    
-    init(symbols: [String]) {
-        self.symbols = symbols
-        self.currentIndex = Int.random(in: 0..<symbols.count)
-    }
-    
-    mutating func startSpinning() {
-        isSpinning = true
-        offset = 0
-    }
-    
-    mutating func stopSpinning() {
-        isSpinning = false
-        offset = 0
-    }
-    
-    mutating func updateSpin() {
-        if isSpinning {
-            offset += 40
-            if offset > 100 {
-                offset -= 100
-                currentIndex = (currentIndex + 1) % symbols.count
-            }
-        }
-    }
-}
-
-// MARK: - SLOT REEL VIEW RIDESIGNED
-struct SlotReelViewRedesigned: View {
-    @Binding var reelState: SlotReelState
     let isSpinning: Bool
-    @Binding var spinTimer: Timer.TimerPublisher
-    @Binding var timerSubscription: AnyCancellable?
+    
+    @State private var offset: CGFloat = 0
+    @State private var timer: Timer? = nil
     
     var body: some View {
         ZStack {
@@ -1592,13 +1634,13 @@ struct SlotReelViewRedesigned: View {
             // Simboli animati
             VStack(spacing: 20) {
                 ForEach(-1..<2) { i in
-                    let index = (reelState.currentIndex + i + reelState.symbols.count) % reelState.symbols.count
-                    Text(reelState.symbols[index])
+                    let index = (symbol + i + symbols.count) % symbols.count
+                    Text(symbols[index])
                         .font(.system(size: 48))
                         .shadow(color: .white.opacity(0.2), radius: 2)
                 }
             }
-            .offset(y: reelState.offset)
+            .offset(y: offset)
             
             // Effetti di luce
             VStack {
@@ -1634,27 +1676,39 @@ struct SlotReelViewRedesigned: View {
                     ),
                     lineWidth: 1.5
                 )
-            
-            // Effetto scintillio quando fermo
-            if !isSpinning && reelState.isSpinning == false {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.yellow.opacity(0.3), lineWidth: 2)
-                    .blur(radius: 2)
-            }
         }
         .frame(height: 160)
-        .onReceive(spinTimer) { _ in
-            if isSpinning {
-                reelState.updateSpin()
-            }
-        }
         .onChange(of: isSpinning) { newValue in
             if newValue {
-                reelState.startSpinning()
+                startAnimation()
             } else {
-                reelState.stopSpinning()
+                stopAnimation()
             }
         }
+        .onAppear {
+            if isSpinning {
+                startAnimation()
+            }
+        }
+        .onDisappear {
+            stopAnimation()
+        }
+    }
+    
+    private func startAnimation() {
+        stopAnimation()
+        timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+            offset += 30
+            if offset > 100 {
+                offset = 0
+            }
+        }
+    }
+    
+    private func stopAnimation() {
+        timer?.invalidate()
+        timer = nil
+        offset = 0
     }
 }
 
