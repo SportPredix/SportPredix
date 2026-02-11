@@ -2,7 +2,7 @@
 //  GameView.swift
 //  SportPredix
 //
-//  Created by FINAL FIXED
+//  Created by FINAL WORKING
 //
 
 import SwiftUI
@@ -205,7 +205,7 @@ struct ScratchCardView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(
                     LinearGradient(
-                        colors: [.gray, .darkGray],
+                        colors: [Color.gray, Color(red: 0.2, green: 0.2, blue: 0.2)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -356,13 +356,12 @@ struct ScratchCardView: View {
             return
         }
         balance -= 50
-        selectPrize()           // Seleziona nuovo premio
+        selectPrize()
         scratchProgress = 0
         gameState = .playing
     }
     
     private func revealCard() {
-        // AGGIUNGE IL PREMIO UNA SOLA VOLTA
         if prize > 0 {
             balance += Double(prize)
         }
@@ -375,7 +374,7 @@ struct ScratchCardView: View {
             return
         }
         balance -= 50
-        selectPrize()           // SELEZIONA NUOVO PREMIO! (non riusa il vecchio)
+        selectPrize()
         scratchProgress = 0
         gameState = .playing
     }
@@ -385,7 +384,7 @@ struct ScratchCardView: View {
         var random = Int.random(in: 1...total)
         for p in prizes {
             if random <= p.probability {
-                prize = p.amount    // IMPOSTA IL NUOVO PREMIO
+                prize = p.amount
                 return
             }
             random -= p.probability
@@ -866,9 +865,9 @@ struct SlotMachineView: View {
             winAmount = multipliers3[reels[0]] * 10
             balance += Double(winAmount)
         } else if reels[0] == reels[1] || reels[1] == reels[2] || reels[0] == reels[2] {
-            // 2 simboli uguali - trova quale
+            // 2 simboli uguali
             if reels[0] == reels[1] || reels[0] == reels[2] {
-                winAmount = multipliers2[reels[0]] * 5  // premio piccolo
+                winAmount = multipliers2[reels[0]] * 5
             } else {
                 winAmount = multipliers2[reels[1]] * 5
             }
@@ -942,8 +941,8 @@ struct SlotReelSimple: View {
                 .stroke(Color.white.opacity(0.2), lineWidth: 1.5)
         }
         .frame(width: 90, height: 140)
-        .onChange(of: isSpinning) { spinning in
-            if spinning {
+        .onChange(of: isSpinning) { oldValue, newValue in
+            if newValue {
                 timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
                     offset += 25
                     if offset > 70 {
