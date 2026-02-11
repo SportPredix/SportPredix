@@ -2,13 +2,13 @@
 //  GameView.swift
 //  SportPredix
 //
-//  Created by FINAL FIX
+//  Created by FINAL FIXED
 //
 
 import SwiftUI
 import Combine
 
-// MARK: - GIOCO GRATTA E VINCI - COMPLETAMENTE RIFATTO
+// MARK: - GIOCO GRATTA E VINCI - DEFINITIVO CON PREMI CORRETTI
 struct ScratchCardView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var balance: Double
@@ -35,44 +35,14 @@ struct ScratchCardView: View {
     
     var body: some View {
         ZStack {
-            // SFONDO
             Color.black.ignoresSafeArea()
             
-            VStack(spacing: 0) {
-                // HEADER SEMPLICE
-                HStack {
-                    Button(action: { presentationMode.wrappedValue.dismiss() }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.accentCyan)
-                    }
-                    
-                    Spacer()
-                    
-                    Text("Gratta e Vinci")
-                        .font(.headline.bold())
-                        .foregroundColor(.white)
-                    
-                    Spacer()
-                    
-                    Text("€\(Int(balance))")
-                        .font(.headline.bold())
-                        .foregroundColor(.accentCyan)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .background(Color.black.opacity(0.8))
-                
-                Divider()
-                    .background(Color.accentCyan.opacity(0.3))
-                
-                if gameState == .initial {
-                    initialView
-                } else if gameState == .playing {
-                    playingView
-                } else {
-                    resultView
-                }
+            if gameState == .initial {
+                initialView
+            } else if gameState == .playing {
+                playingView
+            } else {
+                resultView
             }
         }
         .onAppear {
@@ -87,37 +57,61 @@ struct ScratchCardView: View {
     
     // MARK: - INITIAL VIEW
     private var initialView: some View {
-        ScrollView {
+        VStack {
+            // Header
+            HStack {
+                Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.title3)
+                        .foregroundColor(.accentCyan)
+                }
+                Spacer()
+                Text("Gratta e Vinci")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Spacer()
+                Text("€\(Int(balance))")
+                    .font(.headline)
+                    .foregroundColor(.accentCyan)
+            }
+            .padding(.horizontal)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+            
+            Divider().background(Color.accentCyan.opacity(0.3))
+            
+            Spacer()
+            
             VStack(spacing: 30) {
                 VStack(spacing: 20) {
                     Image(systemName: "ticket.fill")
-                        .font(.system(size: 60))
+                        .font(.system(size: 70))
                         .foregroundColor(.accentCyan)
                     
                     Text("Gratta e Vinci")
-                        .font(.title2.bold())
+                        .font(.title.bold())
                         .foregroundColor(.white)
                     
-                    Text("Costo: €50")
-                        .font(.headline)
-                        .foregroundColor(.accentCyan)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(Color.accentCyan.opacity(0.2))
-                        .cornerRadius(20)
+                    Text("€50")
+                        .font(.title2.bold())
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 30)
+                        .padding(.vertical, 10)
+                        .background(Color.accentCyan)
+                        .cornerRadius(25)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 30)
-                .background(Color.white.opacity(0.05))
-                .cornerRadius(20)
                 
-                VStack(spacing: 15) {
-                    infoRow(icon: "eurosign.circle", text: "Premio massimo: €1.000")
-                    infoRow(icon: "percent", text: "Probabilità vincita: 60%")
-                    infoRow(icon: "hand.tap", text: "Gratta per scoprire il premio")
+                VStack(alignment: .leading, spacing: 15) {
+                    Label("Premio massimo: €1.000", systemImage: "crown.fill")
+                        .foregroundColor(.yellow)
+                    Label("Probabilità vincita: 60%", systemImage: "percent")
+                        .foregroundColor(.green)
+                    Label("Gratta per scoprire il premio", systemImage: "hand.draw.fill")
+                        .foregroundColor(.accentCyan)
                 }
+                .font(.subheadline)
                 .padding()
-                .background(Color.white.opacity(0.05))
+                .background(Color.white.opacity(0.1))
                 .cornerRadius(16)
                 
                 Button(action: startGame) {
@@ -125,34 +119,44 @@ struct ScratchCardView: View {
                         .font(.headline.bold())
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 54)
+                        .frame(height: 56)
                         .background(Color.accentCyan)
                         .cornerRadius(16)
+                        .padding(.horizontal, 20)
                 }
-                .padding(.top, 20)
             }
-            .padding(20)
-        }
-    }
-    
-    private func infoRow(icon: String, text: String) -> some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundColor(.accentCyan)
-                .frame(width: 24)
-            
-            Text(text)
-                .foregroundColor(.white)
-                .font(.subheadline)
             
             Spacer()
         }
+        .background(Color.black)
     }
     
-    // MARK: - PLAYING VIEW - FIXED NO SWIPE
+    // MARK: - PLAYING VIEW
     private var playingView: some View {
-        VStack(spacing: 20) {
-            // Progress bar
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.title3)
+                        .foregroundColor(.accentCyan)
+                }
+                Spacer()
+                Text("Gratta e Vinci")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Spacer()
+                Text("€\(Int(balance))")
+                    .font(.headline)
+                    .foregroundColor(.accentCyan)
+            }
+            .padding(.horizontal)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+            
+            Divider().background(Color.accentCyan.opacity(0.3))
+            
+            // Progress
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Progresso")
@@ -164,65 +168,111 @@ struct ScratchCardView: View {
                 }
                 ProgressView(value: scratchProgress, total: 100)
                     .progressViewStyle(LinearProgressViewStyle(tint: .accentCyan))
+                    .scaleEffect(x: 1, y: 2)
             }
             .padding(.horizontal, 20)
-            .padding(.top, 10)
+            .padding(.top, 16)
             
-            // CARD GRATTABILE - FIXED
-            ScratchCardFinal(
-                prize: prize,
-                onScratch: { progress in
-                    scratchProgress = progress
-                    if progress >= 80 {
+            // CARD GRATTABILE
+            ZStack {
+                // Sfondo premio
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color(red: 0.1, green: 0.1, blue: 0.15))
+                    .overlay(
+                        VStack {
+                            Text("€\(prize)")
+                                .font(.system(size: 52, weight: .bold))
+                                .foregroundColor(.white)
+                            Text(prize > 0 ? "VINCITA" : "RITENTA")
+                                .font(.headline)
+                                .foregroundColor(prize > 0 ? .green : .gray)
+                        }
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24)
+                            .stroke(Color.accentCyan.opacity(0.3), lineWidth: 1)
+                    )
+                
+                // Layer grattabile
+                ScratchViewFinal(
+                    progress: $scratchProgress,
+                    onComplete: {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                             revealCard()
                         }
                     }
-                }
-            )
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(
+                    LinearGradient(
+                        colors: [.gray, .darkGray],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .mask(RoundedRectangle(cornerRadius: 24))
+            }
             .frame(height: 380)
             .padding(.horizontal, 20)
+            .padding(.top, 16)
             
             Text("Gratta con il dito sulla carta")
                 .font(.caption)
                 .foregroundColor(.gray)
-                .padding(.top, 10)
+                .padding(.top, 16)
             
             Spacer()
         }
+        .background(Color.black)
     }
     
     // MARK: - RESULT VIEW
     private var resultView: some View {
-        ScrollView {
-            VStack(spacing: 30) {
-                // Risultato
-                VStack(spacing: 20) {
-                    ZStack {
-                        Circle()
-                            .fill(prize > 0 ? Color.green.opacity(0.2) : Color.gray.opacity(0.2))
-                            .frame(width: 100, height: 100)
-                        
-                        Image(systemName: prize > 0 ? "crown.fill" : "xmark")
-                            .font(.system(size: 50))
-                            .foregroundColor(prize > 0 ? .green : .gray)
-                    }
-                    
-                    Text(prize > 0 ? "HAI VINTO!" : "RITENTA")
-                        .font(.title2.bold())
-                        .foregroundColor(prize > 0 ? .green : .gray)
-                    
-                    Text("€\(prize)")
-                        .font(.system(size: 50, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white)
+        VStack {
+            // Header
+            HStack {
+                Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.title3)
+                        .foregroundColor(.accentCyan)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 30)
-                .background(Color.white.opacity(0.05))
-                .cornerRadius(20)
+                Spacer()
+                Text("Risultato")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Spacer()
+                Text("€\(Int(balance))")
+                    .font(.headline)
+                    .foregroundColor(.accentCyan)
+            }
+            .padding(.horizontal)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+            
+            Divider().background(Color.accentCyan.opacity(0.3))
+            
+            Spacer()
+            
+            VStack(spacing: 30) {
+                ZStack {
+                    Circle()
+                        .fill(prize > 0 ? Color.green.opacity(0.2) : Color.gray.opacity(0.2))
+                        .frame(width: 120, height: 120)
+                    
+                    Image(systemName: prize > 0 ? "crown.fill" : "xmark")
+                        .font(.system(size: 60))
+                        .foregroundColor(prize > 0 ? .green : .gray)
+                }
                 
-                // Riepilogo
-                VStack(spacing: 15) {
+                Text(prize > 0 ? "HAI VINTO!" : "RITENTA")
+                    .font(.title.bold())
+                    .foregroundColor(prize > 0 ? .green : .gray)
+                
+                Text("€\(prize)")
+                    .font(.system(size: 64, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+                
+                VStack(spacing: 16) {
                     HStack {
                         Text("Costo biglietto")
                         Spacer()
@@ -262,19 +312,19 @@ struct ScratchCardView: View {
                     }
                 }
                 .padding()
-                .background(Color.white.opacity(0.05))
+                .background(Color.white.opacity(0.1))
                 .cornerRadius(16)
+                .padding(.horizontal, 20)
                 
-                // Bottoni
-                HStack(spacing: 15) {
+                HStack(spacing: 16) {
                     Button(action: playAgain) {
                         Text("RIGIOCA")
                             .font(.headline.bold())
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 50)
+                            .frame(height: 54)
                             .background(Color.accentCyan)
-                            .cornerRadius(12)
+                            .cornerRadius(16)
                     }
                     
                     Button(action: { presentationMode.wrappedValue.dismiss() }) {
@@ -282,41 +332,41 @@ struct ScratchCardView: View {
                             .font(.headline.bold())
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 50)
+                            .frame(height: 54)
                             .background(Color.white.opacity(0.1))
-                            .cornerRadius(12)
+                            .cornerRadius(16)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: 16)
                                     .stroke(Color.accentCyan, lineWidth: 1)
                             )
                     }
                 }
+                .padding(.horizontal, 20)
             }
-            .padding(20)
+            
+            Spacer()
         }
+        .background(Color.black)
     }
     
-    // MARK: - FUNCTIONS
+    // MARK: - FUNCTIONS - CORRETTE!
     private func startGame() {
         guard balance >= 50 else {
             showInsufficientBalance = true
             return
         }
-        
         balance -= 50
-        gameState = .playing
+        selectPrize()           // Seleziona nuovo premio
         scratchProgress = 0
-        selectPrize()
+        gameState = .playing
     }
     
     private func revealCard() {
-        withAnimation {
-            gameState = .finished
-        }
-        
+        // AGGIUNGE IL PREMIO UNA SOLA VOLTA
         if prize > 0 {
             balance += Double(prize)
         }
+        gameState = .finished
     }
     
     private func playAgain() {
@@ -324,54 +374,47 @@ struct ScratchCardView: View {
             presentationMode.wrappedValue.dismiss()
             return
         }
-        
         balance -= 50
-        gameState = .playing
+        selectPrize()           // SELEZIONA NUOVO PREMIO! (non riusa il vecchio)
         scratchProgress = 0
-        selectPrize()
+        gameState = .playing
     }
     
     private func selectPrize() {
-        let totalProbability = prizes.reduce(0) { $0 + $1.probability }
-        var random = Int.random(in: 1...totalProbability)
-        
-        for prizeItem in prizes {
-            if random <= prizeItem.probability {
-                prize = prizeItem.amount
+        let total = prizes.reduce(0) { $0 + $1.probability }
+        var random = Int.random(in: 1...total)
+        for p in prizes {
+            if random <= p.probability {
+                prize = p.amount    // IMPOSTA IL NUOVO PREMIO
                 return
             }
-            random -= prizeItem.probability
+            random -= p.probability
         }
     }
 }
 
-// MARK: - SCRATCH CARD FINAL - FIXED NO SWIPE
-struct ScratchCardFinal: UIViewRepresentable {
-    let prize: Int
-    var onScratch: (Double) -> Void
+// MARK: - SCRATCH VIEW FINAL
+struct ScratchViewFinal: UIViewRepresentable {
+    @Binding var progress: Double
+    var onComplete: () -> Void
     
-    func makeUIView(context: Context) -> ScratchUIViewFinal2 {
-        let view = ScratchUIViewFinal2()
-        view.prize = prize
-        view.onScratch = onScratch
-        view.backgroundColor = .clear
-        view.isUserInteractionEnabled = true
+    func makeUIView(context: Context) -> ScratchUI {
+        let view = ScratchUI()
+        view.progressBinding = $progress
+        view.onComplete = onComplete
         return view
     }
     
-    func updateUIView(_ uiView: ScratchUIViewFinal2, context: Context) {
-        uiView.prize = prize
-    }
+    func updateUIView(_ uiView: ScratchUI, context: Context) {}
 }
 
-class ScratchUIViewFinal2: UIView {
-    var prize: Int = 0
-    var onScratch: ((Double) -> Void)?
+class ScratchUI: UIView {
+    var progressBinding: Binding<Double>?
+    var onComplete: (() -> Void)?
     
     private var scratchedArea: CGFloat = 0
     private var totalArea: CGFloat = 0
-    private var isFirstTouch = true
-    private let brushSize: CGFloat = 40
+    private let brushSize: CGFloat = 45
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -389,115 +432,36 @@ class ScratchUIViewFinal2: UIView {
         totalArea = bounds.width * bounds.height
     }
     
-    // BLOCCO COMPLETO DEI GESTI
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        // NON chiamare super.touchesBegan per bloccare la propagazione
         handleTouches(touches)
     }
     
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        // NON chiamare super.touchesMoved per bloccare la propagazione
         handleTouches(touches)
-    }
-    
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        // NON chiamare super.touchesEnded per bloccare la propagazione
     }
     
     private func handleTouches(_ touches: Set<UITouch>) {
         guard let touch = touches.first else { return }
         let point = touch.location(in: self)
-        let previousPoint = touch.previousLocation(in: self)
         
-        // Calcola area grattata
-        let distance = hypot(point.x - previousPoint.x, point.y - previousPoint.y)
-        
-        if distance > 0 {
-            scratchedArea += CGFloat.pi * brushSize * brushSize * 0.3
-            scratchedArea += distance * brushSize * 0.8
-        } else {
-            scratchedArea += CGFloat.pi * brushSize * brushSize * 0.5
-        }
-        
+        scratchedArea += CGFloat.pi * brushSize * brushSize * 0.6
         scratchedArea = min(scratchedArea, totalArea * 0.9)
         
         let percentage = (scratchedArea / totalArea) * 100
-        onScratch?(percentage)
+        progressBinding?.wrappedValue = percentage
         
-        setNeedsDisplay()
-    }
-    
-    override func draw(_ rect: CGRect) {
-        guard let context = UIGraphicsGetCurrentContext() else { return }
-        
-        // Disegna il premio sullo sfondo
-        drawPrize(in: rect)
-        
-        // Disegna il layer grattabile
-        context.setFillColor(UIColor(white: 0.25, alpha: 0.98).cgColor)
-        context.fill(rect)
-        
-        // Disegna pattern
-        context.setFillColor(UIColor(white: 0.35, alpha: 1).cgColor)
-        let step: CGFloat = 8
-        for x in stride(from: 0, through: rect.width, by: step) {
-            for y in stride(from: 0, through: rect.height, by: step) {
-                if Int(x/step + y/step) % 2 == 0 {
-                    context.fill(CGRect(x: x, y: y, width: 2, height: 2))
-                }
-            }
+        if percentage >= 80 {
+            onComplete?()
         }
         
-        // Rimuovi aree grattate
-        context.setBlendMode(.clear)
-        
-        // Ottieni i punti del tocco corrente (simulato)
-        // In una implementazione reale, dovresti memorizzare i punti
-        // Questa è una versione semplificata
-    }
-    
-    private func drawPrize(in rect: CGRect) {
-        guard let context = UIGraphicsGetCurrentContext() else { return }
-        
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        
-        // Sfondo del premio
-        context.setFillColor(UIColor(red: 0.1, green: 0.1, blue: 0.15, alpha: 1).cgColor)
-        context.fill(rect)
-        
-        // Testo premio
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 48, weight: .bold),
-            .foregroundColor: UIColor.white
-        ]
-        
-        let prizeString = "€\(prize)"
-        let size = prizeString.size(withAttributes: attributes)
-        let point = CGPoint(x: center.x - size.width/2, y: center.y - size.height/2)
-        
-        prizeString.draw(at: point, withAttributes: attributes)
-        
-        if prize > 0 {
-            let subtitle = "VINCITA"
-            let subAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 16, weight: .semibold),
-                .foregroundColor: UIColor.green
-            ]
-            let subSize = subtitle.size(withAttributes: subAttributes)
-            subtitle.draw(at: CGPoint(x: center.x - subSize.width/2, y: center.y + 30), withAttributes: subAttributes)
-        } else {
-            let subtitle = "RITENTA"
-            let subAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 16, weight: .semibold),
-                .foregroundColor: UIColor.gray
-            ]
-            let subSize = subtitle.size(withAttributes: subAttributes)
-            subtitle.draw(at: CGPoint(x: center.x - subSize.width/2, y: center.y + 30), withAttributes: subAttributes)
-        }
+        let path = UIBezierPath(ovalIn: CGRect(x: point.x - brushSize/2, y: point.y - brushSize/2, width: brushSize, height: brushSize))
+        let shapeLayer = CAShapeLayer()
+        shapeLayer.path = path.cgPath
+        layer.mask = shapeLayer
     }
 }
 
-// MARK: - SLOT MACHINE - COMPLETAMENTE RIFATTA
+// MARK: - SLOT MACHINE - CON PREMI PER 2 SIMBOLI
 struct SlotMachineView: View {
     @Environment(\.presentationMode) var presentationMode
     @Binding var balance: Double
@@ -507,7 +471,7 @@ struct SlotMachineView: View {
     @State private var winAmount: Int = 0
     @State private var isSpinning = false
     @State private var showInsufficientBalance = false
-    @State private var spinCount = 0
+    @State private var spinTimer: Timer?
     
     enum GameState {
         case initial
@@ -516,53 +480,24 @@ struct SlotMachineView: View {
     }
     
     let symbols = ["🍒", "🍋", "🍊", "🔔", "💎", "7️⃣"]
-    let multipliers = [5, 8, 10, 15, 30, 50]
+    let multipliers3 = [5, 8, 10, 15, 30, 50]   // 3 uguali
+    let multipliers2 = [1, 2, 3, 4, 8, 12]      // 2 uguali (premi piccoli)
     
     var body: some View {
         ZStack {
-            // SFONDO
             Color.black.ignoresSafeArea()
             
-            VStack(spacing: 0) {
-                // HEADER
-                HStack {
-                    Button(action: { presentationMode.wrappedValue.dismiss() }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.accentCyan)
-                    }
-                    
-                    Spacer()
-                    
-                    Text("Slot Machine")
-                        .font(.headline.bold())
-                        .foregroundColor(.white)
-                    
-                    Spacer()
-                    
-                    HStack(spacing: 4) {
-                        Image(systemName: "slot.machine")
-                            .foregroundColor(.pink)
-                        Text("€\(Int(balance))")
-                            .font(.headline.bold())
-                            .foregroundColor(.accentCyan)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .background(Color.black.opacity(0.8))
-                
-                Divider()
-                    .background(Color.pink.opacity(0.3))
-                
-                if gameState == .initial {
-                    initialView
-                } else if gameState == .spinning {
-                    spinningView
-                } else {
-                    resultView
-                }
+            if gameState == .initial {
+                initialView
+            } else if gameState == .spinning {
+                spinningView
+            } else {
+                resultView
             }
+        }
+        .onDisappear {
+            spinTimer?.invalidate()
+            spinTimer = nil
         }
         .alert("Saldo insufficiente", isPresented: $showInsufficientBalance) {
             Button("OK", role: .cancel) { }
@@ -573,52 +508,91 @@ struct SlotMachineView: View {
     
     // MARK: - INITIAL VIEW
     private var initialView: some View {
-        ScrollView {
+        VStack {
+            // Header
+            HStack {
+                Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.title3)
+                        .foregroundColor(.accentCyan)
+                }
+                Spacer()
+                Text("Slot Machine")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Spacer()
+                HStack(spacing: 4) {
+                    Image(systemName: "slot.machine")
+                        .foregroundColor(.pink)
+                    Text("€\(Int(balance))")
+                        .font(.headline)
+                        .foregroundColor(.accentCyan)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+            
+            Divider().background(Color.pink.opacity(0.3))
+            
+            Spacer()
+            
             VStack(spacing: 30) {
                 VStack(spacing: 20) {
                     Image(systemName: "slot.machine")
-                        .font(.system(size: 60))
+                        .font(.system(size: 70))
                         .foregroundColor(.pink)
                     
                     Text("Slot Machine")
-                        .font(.title2.bold())
+                        .font(.title.bold())
                         .foregroundColor(.white)
                     
-                    Text("Costo: €10")
-                        .font(.headline)
-                        .foregroundColor(.pink)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(Color.pink.opacity(0.2))
-                        .cornerRadius(20)
+                    Text("€10")
+                        .font(.title2.bold())
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 30)
+                        .padding(.vertical, 10)
+                        .background(Color.pink)
+                        .cornerRadius(25)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 30)
-                .background(Color.white.opacity(0.05))
-                .cornerRadius(20)
                 
-                // TABELLA PREMI
-                VStack(alignment: .leading, spacing: 15) {
-                    Text("TABELLA PREMI")
+                // TABELLA PREMI COMPLETA
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("🎰 3 SIMBOLI UGUALI")
                         .font(.caption.bold())
-                        .foregroundColor(.gray)
+                        .foregroundColor(.yellow)
                     
-                    LazyVGrid(columns: [
-                        GridItem(.flexible()),
-                        GridItem(.flexible()),
-                        GridItem(.flexible())
-                    ], spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                         ForEach(0..<symbols.count, id: \.self) { i in
                             HStack {
                                 Text(symbols[i])
-                                    .font(.title3)
-                                Text("x\(multipliers[i])")
+                                Text("x\(multipliers3[i])")
                                     .font(.caption)
-                                    .foregroundColor(.pink)
+                                    .foregroundColor(.yellow)
                             }
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(Color.white.opacity(0.05))
+                            .padding(.vertical, 6)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                    }
+                    
+                    Text("🎰 2 SIMBOLI UGUALI")
+                        .font(.caption.bold())
+                        .foregroundColor(.orange)
+                        .padding(.top, 8)
+                    
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                        ForEach(0..<symbols.count, id: \.self) { i in
+                            HStack {
+                                Text(symbols[i])
+                                Text("x\(multipliers2[i])")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(Color.white.opacity(0.1))
                             .cornerRadius(8)
                         }
                     }
@@ -626,29 +600,56 @@ struct SlotMachineView: View {
                 .padding()
                 .background(Color.white.opacity(0.05))
                 .cornerRadius(16)
+                .padding(.horizontal)
                 
                 Button(action: startSpin) {
                     Text("GIOCA")
                         .font(.headline.bold())
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 54)
+                        .frame(height: 56)
                         .background(Color.pink)
                         .cornerRadius(16)
+                        .padding(.horizontal, 20)
                 }
-                .padding(.top, 20)
             }
-            .padding(20)
+            
+            Spacer()
         }
+        .background(Color.black)
     }
     
     // MARK: - SPINNING VIEW
     private var spinningView: some View {
-        VStack(spacing: 30) {
-            // RULLI - PROPORZIONI PERFETTE
-            HStack(spacing: 15) {
+        VStack {
+            // Header
+            HStack {
+                Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.title3)
+                        .foregroundColor(.accentCyan)
+                }
+                Spacer()
+                Text("Slot Machine")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Spacer()
+                Text("€\(Int(balance))")
+                    .font(.headline)
+                    .foregroundColor(.accentCyan)
+            }
+            .padding(.horizontal)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+            
+            Divider().background(Color.pink.opacity(0.3))
+            
+            Spacer()
+            
+            // RULLI
+            HStack(spacing: 20) {
                 ForEach(0..<3) { i in
-                    SlotReelFinal(
+                    SlotReelSimple(
                         symbol: $reels[i],
                         symbols: symbols,
                         isSpinning: isSpinning
@@ -656,40 +657,62 @@ struct SlotMachineView: View {
                     .frame(width: 90, height: 140)
                 }
             }
-            .padding(.horizontal, 15)
-            .padding(.vertical, 25)
+            .padding(.vertical, 30)
             .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color(red: 0.12, green: 0.12, blue: 0.15))
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color(red: 0.1, green: 0.1, blue: 0.13))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
+                        RoundedRectangle(cornerRadius: 24)
                             .stroke(Color.pink.opacity(0.3), lineWidth: 1)
                     )
             )
-            .padding(.horizontal, 10)
+            .padding(.horizontal)
             
-            VStack(spacing: 15) {
+            VStack(spacing: 16) {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: .pink))
-                    .scaleEffect(1.2)
-                
+                    .scaleEffect(1.5)
                 Text("GIRANDO...")
                     .font(.headline)
                     .foregroundColor(.pink)
             }
-            .padding(.vertical, 20)
+            .padding(.top, 40)
             
             Spacer()
         }
-        .padding(.top, 30)
+        .background(Color.black)
     }
     
     // MARK: - RESULT VIEW
     private var resultView: some View {
-        ScrollView {
+        VStack {
+            // Header
+            HStack {
+                Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.title3)
+                        .foregroundColor(.accentCyan)
+                }
+                Spacer()
+                Text("Risultato")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Spacer()
+                Text("€\(Int(balance))")
+                    .font(.headline)
+                    .foregroundColor(.accentCyan)
+            }
+            .padding(.horizontal)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+            
+            Divider().background(Color.pink.opacity(0.3))
+            
+            Spacer()
+            
             VStack(spacing: 30) {
                 // RULLI FERMI
-                HStack(spacing: 15) {
+                HStack(spacing: 20) {
                     ForEach(0..<3) { i in
                         VStack {
                             Text(symbols[reels[i]])
@@ -707,7 +730,6 @@ struct SlotMachineView: View {
                         )
                     }
                 }
-                .padding(.vertical, 20)
                 
                 // RISULTATO
                 VStack(spacing: 15) {
@@ -773,17 +795,18 @@ struct SlotMachineView: View {
                 .padding()
                 .background(Color.white.opacity(0.05))
                 .cornerRadius(16)
+                .padding(.horizontal, 20)
                 
                 // BOTTONI
-                HStack(spacing: 15) {
+                HStack(spacing: 16) {
                     Button(action: playAgain) {
                         Text("RIGIOCA")
                             .font(.headline.bold())
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 50)
+                            .frame(height: 54)
                             .background(Color.pink)
-                            .cornerRadius(12)
+                            .cornerRadius(16)
                     }
                     
                     Button(action: { presentationMode.wrappedValue.dismiss() }) {
@@ -791,18 +814,21 @@ struct SlotMachineView: View {
                             .font(.headline.bold())
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 50)
+                            .frame(height: 54)
                             .background(Color.white.opacity(0.1))
-                            .cornerRadius(12)
+                            .cornerRadius(16)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: 16)
                                     .stroke(Color.pink, lineWidth: 1)
                             )
                     }
                 }
+                .padding(.horizontal, 20)
             }
-            .padding(20)
+            
+            Spacer()
         }
+        .background(Color.black)
     }
     
     // MARK: - FUNCTIONS
@@ -813,21 +839,17 @@ struct SlotMachineView: View {
         }
         
         balance -= 10
+        winAmount = 0
         gameState = .spinning
         isSpinning = true
-        spinCount += 1
         
-        // ANIMAZIONE REALISTICA
         var spinCounter = 0
-        Timer.scheduledTimer(withTimeInterval: 0.07, repeats: true) { timer in
-            // Cambia simboli casualmente
+        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.07, repeats: true) { timer in
             reels[0] = Int.random(in: 0..<symbols.count)
             reels[1] = Int.random(in: 0..<symbols.count)
             reels[2] = Int.random(in: 0..<symbols.count)
             
             spinCounter += 1
-            
-            // Stop dopo 2 secondi
             if spinCounter > 28 {
                 timer.invalidate()
                 stopSpin()
@@ -838,22 +860,24 @@ struct SlotMachineView: View {
     private func stopSpin() {
         isSpinning = false
         
-        // SIMBOLI FINALI CASUALI
-        reels[0] = Int.random(in: 0..<symbols.count)
-        reels[1] = Int.random(in: 0..<symbols.count)
-        reels[2] = Int.random(in: 0..<symbols.count)
-        
-        // CALCOLO VINCITA
+        // Calcola vincita
         if reels[0] == reels[1] && reels[1] == reels[2] {
-            winAmount = multipliers[reels[0]] * 10
+            // 3 simboli uguali
+            winAmount = multipliers3[reels[0]] * 10
+            balance += Double(winAmount)
+        } else if reels[0] == reels[1] || reels[1] == reels[2] || reels[0] == reels[2] {
+            // 2 simboli uguali - trova quale
+            if reels[0] == reels[1] || reels[0] == reels[2] {
+                winAmount = multipliers2[reels[0]] * 5  // premio piccolo
+            } else {
+                winAmount = multipliers2[reels[1]] * 5
+            }
             balance += Double(winAmount)
         } else {
             winAmount = 0
         }
         
-        withAnimation {
-            gameState = .finished
-        }
+        gameState = .finished
     }
     
     private func playAgain() {
@@ -863,19 +887,17 @@ struct SlotMachineView: View {
         }
         
         balance -= 10
+        winAmount = 0
         gameState = .spinning
         isSpinning = true
-        winAmount = 0
-        spinCount += 1
         
         var spinCounter = 0
-        Timer.scheduledTimer(withTimeInterval: 0.07, repeats: true) { timer in
+        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.07, repeats: true) { timer in
             reels[0] = Int.random(in: 0..<symbols.count)
             reels[1] = Int.random(in: 0..<symbols.count)
             reels[2] = Int.random(in: 0..<symbols.count)
             
             spinCounter += 1
-            
             if spinCounter > 28 {
                 timer.invalidate()
                 stopSpin()
@@ -884,8 +906,8 @@ struct SlotMachineView: View {
     }
 }
 
-// MARK: - SLOT REEL FINAL - PERFETTE PROPORZIONI
-struct SlotReelFinal: View {
+// MARK: - SLOT REEL SIMPLE
+struct SlotReelSimple: View {
     @Binding var symbol: Int
     let symbols: [String]
     let isSpinning: Bool
@@ -895,69 +917,45 @@ struct SlotReelFinal: View {
     
     var body: some View {
         ZStack {
-            // SFONDO
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color(red: 0.18, green: 0.18, blue: 0.22))
             
-            // SIMBOLI
             VStack(spacing: 8) {
                 ForEach(-1..<2) { i in
                     let index = (symbol + i + symbols.count) % symbols.count
                     Text(symbols[index])
                         .font(.system(size: 44))
-                        .shadow(color: .white.opacity(0.2), radius: 2)
                 }
             }
             .offset(y: offset)
             
-            // EFFETTI LUCE
             VStack {
-                LinearGradient(
-                    colors: [Color(red: 0.18, green: 0.18, blue: 0.22), .clear],
-                    startPoint: .top,
-                    endPoint: .center
-                )
-                .frame(height: 30)
-                
+                LinearGradient(colors: [Color(red: 0.18, green: 0.18, blue: 0.22), .clear], startPoint: .top, endPoint: .center)
+                    .frame(height: 30)
                 Spacer()
-                
-                LinearGradient(
-                    colors: [.clear, Color(red: 0.18, green: 0.18, blue: 0.22)],
-                    startPoint: .center,
-                    endPoint: .bottom
-                )
-                .frame(height: 30)
+                LinearGradient(colors: [.clear, Color(red: 0.18, green: 0.18, blue: 0.22)], startPoint: .center, endPoint: .bottom)
+                    .frame(height: 30)
             }
             .clipShape(RoundedRectangle(cornerRadius: 12))
             
-            // BORDO
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.white.opacity(0.2), lineWidth: 1.5)
         }
         .frame(width: 90, height: 140)
         .onChange(of: isSpinning) { spinning in
             if spinning {
-                startAnimation()
+                timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+                    offset += 25
+                    if offset > 70 {
+                        offset = 0
+                    }
+                }
             } else {
-                stopAnimation()
-            }
-        }
-    }
-    
-    private func startAnimation() {
-        stopAnimation()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
-            offset += 25
-            if offset > 70 {
+                timer?.invalidate()
+                timer = nil
                 offset = 0
             }
         }
-    }
-    
-    private func stopAnimation() {
-        timer?.invalidate()
-        timer = nil
-        offset = 0
     }
 }
 
