@@ -5,7 +5,6 @@ import FirebaseFirestore
 
 enum PromoRedemptionStorageError: Error {
     case limitReached
-    case alreadyRedeemed
     case invalidConfiguration
     case generic(Error)
 }
@@ -121,20 +120,9 @@ class FirebaseManager: ObservableObject {
         let userRedemptionRef = db.collection("users").document(userID).collection("promoRedemptions").document(normalizedCode)
         let userRef = db.collection("users").document(userID)
         let limitReachedCode = 1001
-        let alreadyRedeemedCode = 1002
         
         db.runTransaction({ transaction, errorPointer in
             do {
-                let userRedemptionSnapshot = try transaction.getDocument(userRedemptionRef)
-                if userRedemptionSnapshot.exists {
-                    errorPointer?.pointee = NSError(
-                        domain: self.promoCodeErrorDomain,
-                        code: alreadyRedeemedCode,
-                        userInfo: [NSLocalizedDescriptionKey: "already_redeemed"]
-                    )
-                    return nil
-                }
-                
                 let promoCodeSnapshot = try transaction.getDocument(promoCodeRef)
                 let currentUsedCount = Self.intValue(from: promoCodeSnapshot.data()?["usedCount"]) ?? 0
                 
@@ -162,13 +150,24 @@ class FirebaseManager: ObservableObject {
                 let currentBalance = Self.doubleValue(from: userSnapshot.data()?["balance"]) ?? 1000
                 let newBalance = currentBalance + bonus
                 
+                let userRedemptionSnapshot = try transaction.getDocument(userRedemptionRef)
+                let previousUserRedemptions = Self.intValue(from: userRedemptionSnapshot.data()?["redemptionCount"]) ?? 0
+                let newUserRedemptions = previousUserRedemptions + 1
+                
                 transaction.setData(promoData, forDocument: promoCodeRef, merge: true)
                 transaction.setData([
                     "code": normalizedCode,
-                    "bonus": bonus,
+                    "lastBonus": bonus,
                     "maxUsesAtRedemption": maxUses,
-                    "redeemedAt": FieldValue.serverTimestamp()
-                ], forDocument: userRedemptionRef, merge: false)
+                    "redemptionCount": newUserRedemptions,
+                    "totalRedeemedBonus": FieldValue.increment(bonus),
+                    "lastRedeemedAt": FieldValue.serverTimestamp()
+                ], forDocument: userRedemptionRef, merge: true)
+                if !userRedemptionSnapshot.exists {
+                    transaction.setData([
+                        "firstRedeemedAt": FieldValue.serverTimestamp()
+                    ], forDocument: userRedemptionRef, merge: true)
+                }
                 transaction.setData([
                     "balance": newBalance,
                     "lastUpdated": FieldValue.serverTimestamp()
@@ -183,11 +182,6 @@ class FirebaseManager: ObservableObject {
             if let error = error as NSError? {
                 if error.domain == self.promoCodeErrorDomain, error.code == limitReachedCode {
                     completion(.failure(.limitReached))
-                    return
-                }
-                
-                if error.domain == self.promoCodeErrorDomain, error.code == alreadyRedeemedCode {
-                    completion(.failure(.alreadyRedeemed))
                     return
                 }
                 

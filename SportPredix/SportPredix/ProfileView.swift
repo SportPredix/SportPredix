@@ -195,7 +195,7 @@ struct ProfileView: View {
                     .font(.caption)
                     .foregroundColor(.gray)
 
-                TextField("Es. SPORTPREDIX2026", text: $promoCodeInput)
+                TextField("Inserisci qui", text: $promoCodeInput)
                     .textInputAutocapitalization(.characters)
                     .disableAutocorrection(true)
                     .padding(.horizontal, 12)
