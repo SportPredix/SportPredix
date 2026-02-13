@@ -4,6 +4,9 @@ struct ProfileView: View {
     @EnvironmentObject var authManager: AuthManager
     @EnvironmentObject var vm: BettingViewModel
     @State private var showLogoutAlert = false
+    @State private var promoCodeInput = ""
+    @State private var promoFeedback: String?
+    @State private var promoFeedbackColor: Color = .gray
     
     var body: some View {
         ZStack {
@@ -16,6 +19,7 @@ struct ProfileView: View {
                     statsRow
                     accountCard
                     settingsCard
+                    redeemCodeCard
                     logoutButton
                     footer
                 }
@@ -170,6 +174,54 @@ struct ProfileView: View {
             .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
         }
     }
+
+    private var redeemCodeCard: some View {
+        sectionCard(title: "Riscatta Codice") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Inserisci la parola corretta per sbloccare il bonus.")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+
+                TextField("Es. SPORTPREDIX2026", text: $promoCodeInput)
+                    .textInputAutocapitalization(.characters)
+                    .disableAutocorrection(true)
+                    .padding(.horizontal, 12)
+                    .frame(height: 44)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.white.opacity(0.05))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            )
+                    )
+
+                Button(action: redeemCode) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.seal.fill")
+                        Text("Riscatta")
+                            .font(.subheadline.bold())
+                    }
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.accentCyan)
+                    )
+                }
+                .disabled(promoCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(promoCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
+
+                if let promoFeedback {
+                    Text(promoFeedback)
+                        .font(.caption)
+                        .foregroundColor(promoFeedbackColor)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
     
     private var logoutButton: some View {
         Button(action: { showLogoutAlert = true }) {
@@ -209,6 +261,41 @@ struct ProfileView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
+    }
+
+    private func redeemCode() {
+        promoFeedback = "Controllo codice in corso..."
+        promoFeedbackColor = .gray
+
+        vm.redeemPromoCode(promoCodeInput) { result in
+            switch result {
+            case .emptyCode:
+                promoFeedback = "Inserisci un codice prima di riscattare."
+                promoFeedbackColor = .orange
+            case .authRequired:
+                promoFeedback = "Devi essere autenticato per riscattare un codice."
+                promoFeedbackColor = .red
+            case .invalidCode:
+                promoFeedback = "Codice non valido."
+                promoFeedbackColor = .red
+            case .limitReached(let maxUses):
+                promoFeedback = "Codice esaurito: limite massimo \(maxUses) utilizzi raggiunto."
+                promoFeedbackColor = .orange
+            case .alreadyRedeemed:
+                promoFeedback = "Hai gia usato questo codice."
+                promoFeedbackColor = .orange
+            case .storeUnavailable:
+                promoFeedback = "Archivio codici non disponibile o errore Firebase."
+                promoFeedbackColor = .red
+            case .success(let promoCode):
+                let bonusText = promoCode.bonus.formatted(
+                    .currency(code: "EUR").locale(Locale(identifier: "it_IT"))
+                )
+                promoFeedback = "Codice accettato: bonus \(bonusText)."
+                promoFeedbackColor = .green
+                promoCodeInput = ""
+            }
+        }
     }
     
     private func statCard(title: String, value: String, color: Color) -> some View {

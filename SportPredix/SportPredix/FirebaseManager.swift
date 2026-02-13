@@ -3,6 +3,13 @@ import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
 
+enum PromoRedemptionStorageError: Error {
+    case limitReached
+    case alreadyRedeemed
+    case invalidConfiguration
+    case generic(Error)
+}
+
 class FirebaseManager: ObservableObject {
     static let shared = FirebaseManager()
     
@@ -11,6 +18,7 @@ class FirebaseManager: ObservableObject {
     @Published var errorMessage: String? = nil
     
     private init() {}
+    private let promoCodeErrorDomain = "PromoCodeRedemption"
     
     func configureFirebase() {
         FirebaseApp.configure()
@@ -90,6 +98,110 @@ class FirebaseManager: ObservableObject {
             } else {
                 completion(.success(()))
             }
+        }
+    }
+
+    // MARK: - Registra utilizzo codice promo (con limite globale e uso singolo per utente)
+    func registerPromoCodeUsage(
+        userID: String,
+        code: String,
+        bonus: Double,
+        maxUses: Int,
+        completion: @escaping (Result<Void, PromoRedemptionStorageError>) -> Void
+    ) {
+        let normalizedCode = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        
+        guard !normalizedCode.isEmpty, maxUses > 0 else {
+            completion(.failure(.invalidConfiguration))
+            return
+        }
+        
+        let db = Firestore.firestore()
+        let promoCodeRef = db.collection("promoCodes").document(normalizedCode)
+        let userRedemptionRef = db.collection("users").document(userID).collection("promoRedemptions").document(normalizedCode)
+        let limitReachedCode = 1001
+        let alreadyRedeemedCode = 1002
+        
+        db.runTransaction({ transaction, errorPointer in
+            do {
+                let userRedemptionSnapshot = try transaction.getDocument(userRedemptionRef)
+                if userRedemptionSnapshot.exists {
+                    errorPointer?.pointee = NSError(
+                        domain: self.promoCodeErrorDomain,
+                        code: alreadyRedeemedCode,
+                        userInfo: [NSLocalizedDescriptionKey: "already_redeemed"]
+                    )
+                    return nil
+                }
+                
+                let promoCodeSnapshot = try transaction.getDocument(promoCodeRef)
+                let currentUsedCount = Self.intValue(from: promoCodeSnapshot.data()?["usedCount"]) ?? 0
+                
+                if currentUsedCount >= maxUses {
+                    errorPointer?.pointee = NSError(
+                        domain: self.promoCodeErrorDomain,
+                        code: limitReachedCode,
+                        userInfo: [NSLocalizedDescriptionKey: "limit_reached"]
+                    )
+                    return nil
+                }
+                
+                var promoData: [String: Any] = [
+                    "code": normalizedCode,
+                    "usedCount": currentUsedCount + 1,
+                    "maxUses": maxUses,
+                    "lastBonus": bonus,
+                    "lastUpdated": FieldValue.serverTimestamp()
+                ]
+                if !promoCodeSnapshot.exists {
+                    promoData["createdAt"] = FieldValue.serverTimestamp()
+                }
+                
+                transaction.setData(promoData, forDocument: promoCodeRef, merge: true)
+                transaction.setData([
+                    "code": normalizedCode,
+                    "bonus": bonus,
+                    "maxUsesAtRedemption": maxUses,
+                    "redeemedAt": FieldValue.serverTimestamp()
+                ], forDocument: userRedemptionRef, merge: false)
+            } catch let error as NSError {
+                errorPointer?.pointee = error
+                return nil
+            }
+            
+            return nil
+        }, completion: { _, error in
+            if let error = error as NSError? {
+                if error.domain == self.promoCodeErrorDomain, error.code == limitReachedCode {
+                    completion(.failure(.limitReached))
+                    return
+                }
+                
+                if error.domain == self.promoCodeErrorDomain, error.code == alreadyRedeemedCode {
+                    completion(.failure(.alreadyRedeemed))
+                    return
+                }
+                
+                completion(.failure(.generic(error)))
+                return
+            }
+            
+            completion(.success(()))
+        })
+    }
+
+    private static func intValue(from raw: Any?) -> Int? {
+        switch raw {
+        case let value as Int:
+            return value
+        case let value as NSNumber:
+            return value.intValue
+        case let value as Double:
+            return Int(value)
+        case let value as String:
+            return Int(value)
+        default:
+            return nil
         }
     }
 }

@@ -354,6 +354,77 @@ struct FloatingHeader: View {
 // MARK: - VIEW MODEL (BettingViewModel)
 // Questo è un estratto del ViewModel, aggiorna con le modifiche necessarie
 
+enum PromoCodeRedemptionResult {
+    case emptyCode
+    case authRequired
+    case invalidCode
+    case limitReached(maxUses: Int)
+    case alreadyRedeemed
+    case storeUnavailable
+    case success(PromoCode)
+}
+
+struct PromoCode: Decodable {
+    let code: String
+    let bonus: Double
+    let maxUses: Int
+    let description: String?
+    let isActive: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case code
+        case bonus
+        case maxUses
+        case max_uses
+        case description
+        case isActive
+        case is_active
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        code = try container.decode(String.self, forKey: .code)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        
+        if let directBonus = try? container.decode(Double.self, forKey: .bonus) {
+            bonus = directBonus
+        } else if let intBonus = try? container.decode(Int.self, forKey: .bonus) {
+            bonus = Double(intBonus)
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .bonus, in: container, debugDescription: "bonus mancante o non valido")
+        }
+        
+        if let directMaxUses = try? container.decode(Int.self, forKey: .maxUses) {
+            maxUses = directMaxUses
+        } else if let snakeMaxUses = try? container.decode(Int.self, forKey: .max_uses) {
+            maxUses = snakeMaxUses
+        } else if let doubleMaxUses = try? container.decode(Double.self, forKey: .maxUses) {
+            maxUses = Int(doubleMaxUses)
+        } else if let snakeDoubleMaxUses = try? container.decode(Double.self, forKey: .max_uses) {
+            maxUses = Int(snakeDoubleMaxUses)
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .maxUses, in: container, debugDescription: "maxUses mancante o non valido")
+        }
+        
+        if let directIsActive = try? container.decode(Bool.self, forKey: .isActive) {
+            isActive = directIsActive
+        } else if let snakeIsActive = try? container.decode(Bool.self, forKey: .is_active) {
+            isActive = snakeIsActive
+        } else {
+            isActive = true
+        }
+    }
+
+    var normalizedCode: String {
+        code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    }
+}
+
+private struct PromoCodeCatalog: Decodable {
+    let codes: [PromoCode]
+}
+
 final class BettingViewModel: ObservableObject {
     
     @Published var selectedTab = 0
@@ -390,6 +461,7 @@ final class BettingViewModel: ObservableObject {
     
     @Published var currentPicks: [BetPick] = []
     @Published var slips: [BetSlip] = []
+    @Published private(set) var promoCodes: [PromoCode] = []
     
     @Published var dailyMatches: [String: [Match]] = [:]
     @Published var isLoading = false
@@ -398,9 +470,12 @@ final class BettingViewModel: ObservableObject {
     private let slipsKey = "savedSlips"
     private let matchesKey = "savedMatches"
     private let lastFetchKey = "lastBetstackFetch"
+    // Sostituisci con la raw URL del JSON nella tua repository esterna.
+    private let promoCodesURLString = "https://raw.githubusercontent.com/SportPredix/Code/refs/heads/main/code.json"
     private var cancellables = Set<AnyCancellable>()
     private var balanceSyncTask: DispatchWorkItem?
     private var isLoadingRemoteBalance = false
+    private var isLoadingPromoCodes = false
     
     init() {
         let savedBalance = UserDefaults.standard.double(forKey: "balance")
@@ -422,6 +497,7 @@ final class BettingViewModel: ObservableObject {
         
         loadMatchesForAllDays()
         setupAuthObserver()
+        fetchPromoCodesIfNeeded()
     }
 
     private func setupAuthObserver() {
@@ -974,6 +1050,68 @@ final class BettingViewModel: ObservableObject {
     var totalLosses: Int {
         slips.filter { $0.isWon == false }.count
     }
+
+    func redeemPromoCode(_ rawCode: String, completion: @escaping (PromoCodeRedemptionResult) -> Void) {
+        let normalizedCode = normalizePromoCode(rawCode)
+
+        guard !normalizedCode.isEmpty else {
+            completion(.emptyCode)
+            return
+        }
+
+        guard let userID = AuthManager.shared.currentUserID else {
+            completion(.authRequired)
+            return
+        }
+
+        fetchPromoCodesIfNeeded { [weak self] in
+            guard let self = self else {
+                completion(.storeUnavailable)
+                return
+            }
+
+            guard !self.promoCodes.isEmpty else {
+                completion(.storeUnavailable)
+                return
+            }
+
+            guard let promoCode = self.promoCodes.first(where: { $0.normalizedCode == normalizedCode }) else {
+                completion(.invalidCode)
+                return
+            }
+
+            FirebaseManager.shared.registerPromoCodeUsage(
+                userID: userID,
+                code: promoCode.normalizedCode,
+                bonus: promoCode.bonus,
+                maxUses: promoCode.maxUses
+            ) { [weak self] result in
+                DispatchQueue.main.async {
+                    guard let self = self else {
+                        completion(.storeUnavailable)
+                        return
+                    }
+                    
+                    switch result {
+                    case .success:
+                        self.balance += promoCode.bonus
+                        completion(.success(promoCode))
+                    case .failure(let error):
+                        switch error {
+                        case .alreadyRedeemed:
+                            completion(.alreadyRedeemed)
+                        case .limitReached:
+                            completion(.limitReached(maxUses: promoCode.maxUses))
+                        case .invalidConfiguration:
+                            completion(.invalidCode)
+                        case .generic:
+                            completion(.storeUnavailable)
+                        }
+                    }
+                }
+            }
+        }
+    }
     
     func resetAccount() {
         balance = 1000
@@ -994,6 +1132,74 @@ final class BettingViewModel: ObservableObject {
         withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
             showSportPicker = false
         }
+    }
+
+    private func fetchPromoCodesIfNeeded(completion: (() -> Void)? = nil) {
+        guard promoCodes.isEmpty else {
+            completion?()
+            return
+        }
+
+        fetchPromoCodes(completion: completion)
+    }
+
+    private func fetchPromoCodes(completion: (() -> Void)? = nil) {
+        guard !isLoadingPromoCodes else {
+            if let completion {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                    self?.fetchPromoCodesIfNeeded(completion: completion)
+                }
+            }
+            return
+        }
+
+        guard let url = URL(string: promoCodesURLString) else {
+            completion?()
+            return
+        }
+
+        isLoadingPromoCodes = true
+
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+            DispatchQueue.main.async {
+                guard let self = self else {
+                    completion?()
+                    return
+                }
+
+                defer {
+                    self.isLoadingPromoCodes = false
+                    completion?()
+                }
+
+                guard let data = data,
+                      let decodedCodes = self.decodePromoCodes(from: data) else {
+                    return
+                }
+
+                self.promoCodes = decodedCodes
+            }
+        }.resume()
+    }
+
+    private func decodePromoCodes(from data: Data) -> [PromoCode]? {
+        if let catalog = try? JSONDecoder().decode(PromoCodeCatalog.self, from: data) {
+            return catalog.codes.filter { isValidPromoCode($0) }
+        }
+
+        if let codes = try? JSONDecoder().decode([PromoCode].self, from: data) {
+            return codes.filter { isValidPromoCode($0) }
+        }
+
+        return nil
+    }
+
+    private func isValidPromoCode(_ promoCode: PromoCode) -> Bool {
+        !promoCode.normalizedCode.isEmpty && promoCode.maxUses > 0 && promoCode.isActive
+    }
+
+    private func normalizePromoCode(_ code: String) -> String {
+        code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
     }
 }
 
