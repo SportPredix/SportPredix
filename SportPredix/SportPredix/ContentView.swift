@@ -19,56 +19,70 @@ struct FloatingGlassToolbar: View {
     @Namespace private var animationNamespace
     
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
+        ZStack(alignment: .bottom) {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.black.opacity(0.9),
+                    Color.black.opacity(0.6),
+                    Color.black.opacity(0.0)
+                ]),
+                startPoint: .bottom,
+                endPoint: .top
+            )
+            .frame(height: 220)
+            .ignoresSafeArea(edges: .bottom)
+            .allowsHitTesting(false)
             
-            // Barra principale fluttuante
-            HStack(spacing: 0) {
-                ForEach(0..<4) { index in
-                    FloatingToolbarButton(
-                        index: index,
-                        selectedTab: $selectedTab,
-                        animationNamespace: animationNamespace
-                    )
-                    .frame(maxWidth: .infinity)
+            VStack(spacing: 0) {
+                Spacer()
+                
+                // Barra principale fluttuante
+                HStack(spacing: 0) {
+                    ForEach(0..<4) { index in
+                        FloatingToolbarButton(
+                            index: index,
+                            selectedTab: $selectedTab,
+                            animationNamespace: animationNamespace
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(
+                    // Effetto vetro sfocato con riflessi
+                    FloatingGlassEffect()
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .shadow(
+                    color: .black.opacity(0.3),
+                    radius: 30,
+                    x: 0,
+                    y: 10
+                )
+                .overlay(
+                    // Bordo luminoso superiore
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    .white.opacity(0.2),
+                                    .accentCyan.opacity(0.1),
+                                    .clear
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 1
+                        )
+                        .blur(radius: 0.5)
+                )
+                .padding(.horizontal, 16)
+                .padding(.bottom, 20)
+                .offset(y: 10) // ABBASSATA
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(
-                // Effetto vetro sfocato con riflessi
-                FloatingGlassEffect()
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(
-                color: .black.opacity(0.3),
-                radius: 30,
-                x: 0,
-                y: 10
-            )
-            .overlay(
-                // Bordo luminoso superiore
-                RoundedRectangle(cornerRadius: 24)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                .white.opacity(0.2),
-                                .accentCyan.opacity(0.1),
-                                .clear
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
-                    .blur(radius: 0.5)
-            )
-            .padding(.horizontal, 16)
-            .padding(.bottom, 20)
-            .offset(y: 10) // ABBASSATA
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .allowsHitTesting(true)
         .zIndex(1000) // ALTO Z-INDEX PER STARE SOPRA TUTTO
     }
 }
