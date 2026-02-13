@@ -17,7 +17,6 @@ struct ProfileView: View {
             
             ScrollView {
                 VStack(spacing: 20) {
-                    header
                     userCard
                     statsRow
                     accountCard
@@ -29,6 +28,9 @@ struct ProfileView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
                 .padding(.bottom, 30)
+            }
+            .safeAreaInset(edge: .bottom) {
+                Color.clear.frame(height: 130)
             }
             
             if showRedeemPopup {
@@ -73,19 +75,6 @@ struct ProfileView: View {
             )
         }
         .ignoresSafeArea()
-    }
-    
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Il tuo profilo")
-                .font(.title3.bold())
-                .foregroundColor(.white)
-            
-            Text("Gestisci account e preferenze")
-                .font(.caption)
-                .foregroundColor(.gray)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     private var userCard: some View {

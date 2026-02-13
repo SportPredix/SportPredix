@@ -1251,7 +1251,6 @@ struct ContentView: View {
                         } else if vm.selectedTab == 3 {
                             ProfileView()
                                 .environmentObject(vm)
-                                .padding(.bottom, 100)
                         } else {
                             Color.black
                                 .padding(.bottom, 100)
