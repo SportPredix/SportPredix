@@ -4,9 +4,12 @@ struct ProfileView: View {
     @EnvironmentObject var authManager: AuthManager
     @EnvironmentObject var vm: BettingViewModel
     @State private var showLogoutAlert = false
+    @State private var showRedeemPopup = false
     @State private var promoCodeInput = ""
     @State private var promoFeedback: String?
     @State private var promoFeedbackColor: Color = .gray
+    @State private var redeemedCodeLabel = ""
+    @State private var redeemedBonusLabel = ""
     
     var body: some View {
         ZStack {
@@ -27,6 +30,15 @@ struct ProfileView: View {
                 .padding(.top, 20)
                 .padding(.bottom, 30)
             }
+            
+            if showRedeemPopup {
+                Color.black.opacity(0.55)
+                    .ignoresSafeArea()
+                
+                redeemPopup
+                    .padding(.horizontal, 28)
+                    .transition(.scale.combined(with: .opacity))
+            }
         }
         .alert("Conferma Logout", isPresented: $showLogoutAlert) {
             Button("Annulla", role: .cancel) { }
@@ -36,6 +48,7 @@ struct ProfileView: View {
         } message: {
             Text("Sei sicuro di voler uscire?")
         }
+        .animation(.easeInOut(duration: 0.2), value: showRedeemPopup)
     }
     
     private var background: some View {
@@ -263,6 +276,49 @@ struct ProfileView: View {
         .padding(.vertical, 10)
     }
 
+    private var redeemPopup: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 46))
+                .foregroundColor(.green)
+            
+            Text("Codice Riscattato")
+                .font(.title3.bold())
+                .foregroundColor(.white)
+            
+            Text("Codice: \(redeemedCodeLabel)")
+                .font(.subheadline)
+                .foregroundColor(.gray)
+            
+            Text("Importo accreditato: \(redeemedBonusLabel)")
+                .font(.headline)
+                .foregroundColor(.accentCyan)
+            
+            Button {
+                showRedeemPopup = false
+            } label: {
+                Text("OK")
+                    .font(.subheadline.bold())
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 42)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.accentCyan)
+                    )
+            }
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(red: 0.08, green: 0.09, blue: 0.12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.accentCyan.opacity(0.25), lineWidth: 1)
+                )
+        )
+    }
+
     private func redeemCode() {
         promoFeedback = "Controllo codice in corso..."
         promoFeedbackColor = .gray
@@ -293,6 +349,9 @@ struct ProfileView: View {
                 )
                 promoFeedback = "Codice accettato: bonus \(bonusText)."
                 promoFeedbackColor = .green
+                redeemedCodeLabel = promoCode.normalizedCode
+                redeemedBonusLabel = bonusText
+                showRedeemPopup = true
                 promoCodeInput = ""
             }
         }

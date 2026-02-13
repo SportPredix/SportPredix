@@ -107,7 +107,7 @@ class FirebaseManager: ObservableObject {
         code: String,
         bonus: Double,
         maxUses: Int,
-        completion: @escaping (Result<Void, PromoRedemptionStorageError>) -> Void
+        completion: @escaping (Result<Double, PromoRedemptionStorageError>) -> Void
     ) {
         let normalizedCode = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         
@@ -119,6 +119,7 @@ class FirebaseManager: ObservableObject {
         let db = Firestore.firestore()
         let promoCodeRef = db.collection("promoCodes").document(normalizedCode)
         let userRedemptionRef = db.collection("users").document(userID).collection("promoRedemptions").document(normalizedCode)
+        let userRef = db.collection("users").document(userID)
         let limitReachedCode = 1001
         let alreadyRedeemedCode = 1002
         
@@ -157,6 +158,10 @@ class FirebaseManager: ObservableObject {
                     promoData["createdAt"] = FieldValue.serverTimestamp()
                 }
                 
+                let userSnapshot = try transaction.getDocument(userRef)
+                let currentBalance = Self.doubleValue(from: userSnapshot.data()?["balance"]) ?? 1000
+                let newBalance = currentBalance + bonus
+                
                 transaction.setData(promoData, forDocument: promoCodeRef, merge: true)
                 transaction.setData([
                     "code": normalizedCode,
@@ -164,13 +169,17 @@ class FirebaseManager: ObservableObject {
                     "maxUsesAtRedemption": maxUses,
                     "redeemedAt": FieldValue.serverTimestamp()
                 ], forDocument: userRedemptionRef, merge: false)
+                transaction.setData([
+                    "balance": newBalance,
+                    "lastUpdated": FieldValue.serverTimestamp()
+                ], forDocument: userRef, merge: true)
+                
+                return newBalance
             } catch let error as NSError {
                 errorPointer?.pointee = error
                 return nil
             }
-            
-            return nil
-        }, completion: { _, error in
+        }, completion: { value, error in
             if let error = error as NSError? {
                 if error.domain == self.promoCodeErrorDomain, error.code == limitReachedCode {
                     completion(.failure(.limitReached))
@@ -186,7 +195,17 @@ class FirebaseManager: ObservableObject {
                 return
             }
             
-            completion(.success(()))
+            guard let updatedBalance = Self.doubleValue(from: value) else {
+                let error = NSError(
+                    domain: self.promoCodeErrorDomain,
+                    code: 1003,
+                    userInfo: [NSLocalizedDescriptionKey: "invalid_balance_after_transaction"]
+                )
+                completion(.failure(.generic(error)))
+                return
+            }
+            
+            completion(.success(updatedBalance))
         })
     }
 
@@ -200,6 +219,23 @@ class FirebaseManager: ObservableObject {
             return Int(value)
         case let value as String:
             return Int(value)
+        default:
+            return nil
+        }
+    }
+
+    private static func doubleValue(from raw: Any?) -> Double? {
+        switch raw {
+        case let value as Double:
+            return value
+        case let value as Float:
+            return Double(value)
+        case let value as Int:
+            return Double(value)
+        case let value as NSNumber:
+            return value.doubleValue
+        case let value as String:
+            return Double(value)
         default:
             return nil
         }

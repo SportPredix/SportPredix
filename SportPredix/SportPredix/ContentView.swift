@@ -1093,8 +1093,8 @@ final class BettingViewModel: ObservableObject {
                     }
                     
                     switch result {
-                    case .success:
-                        self.balance += promoCode.bonus
+                    case .success(let updatedBalance):
+                        self.balance = updatedBalance
                         completion(.success(promoCode))
                     case .failure(let error):
                         switch error {
