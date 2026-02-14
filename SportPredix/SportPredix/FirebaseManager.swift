@@ -18,6 +18,7 @@ class FirebaseManager: ObservableObject {
     
     private init() {}
     private let promoCodeErrorDomain = "PromoCodeRedemption"
+    private let betSlipErrorDomain = "BetSlipStorage"
     
     func configureFirebase() {
         FirebaseApp.configure()
@@ -81,6 +82,83 @@ class FirebaseManager: ObservableObject {
             } else {
                 completion(.success(()))
             }
+        }
+    }
+
+    // MARK: - Sincronizza storico scommesse utente
+    func syncBetSlips(userID: String, slips: [BetSlip], completion: @escaping (Result<Void, Error>) -> Void) {
+        let db = Firestore.firestore()
+        let betsRef = db.collection("users").document(userID).collection("bets")
+
+        betsRef.getDocuments { [weak self] snapshot, error in
+            guard let self = self else { return }
+
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            let existingDocIDs = Set(snapshot?.documents.map { $0.documentID } ?? [])
+            let targetDocIDs = Set(slips.map { $0.id.uuidString })
+            let batch = db.batch()
+
+            for slip in slips {
+                do {
+                    var slipData = try self.encodeBetSlip(slip)
+                    slipData["updatedAt"] = FieldValue.serverTimestamp()
+                    let slipRef = betsRef.document(slip.id.uuidString)
+                    batch.setData(slipData, forDocument: slipRef, merge: false)
+                } catch {
+                    completion(.failure(error))
+                    return
+                }
+            }
+
+            for staleDocID in existingDocIDs.subtracting(targetDocIDs) {
+                batch.deleteDocument(betsRef.document(staleDocID))
+            }
+
+            batch.commit { error in
+                if let error = error {
+                    completion(.failure(error))
+                } else {
+                    completion(.success(()))
+                }
+            }
+        }
+    }
+
+    // MARK: - Carica storico scommesse utente
+    func loadBetSlips(userID: String, completion: @escaping (Result<[BetSlip], Error>) -> Void) {
+        let db = Firestore.firestore()
+        let betsRef = db.collection("users").document(userID).collection("bets")
+
+        betsRef.getDocuments { [weak self] snapshot, error in
+            guard let self = self else { return }
+
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            let slips: [BetSlip] = snapshot?.documents.compactMap { document in
+                var data = document.data()
+
+                if data["id"] == nil {
+                    data["id"] = document.documentID
+                }
+
+                // Compatibilita con eventuali versioni che salvano date come Timestamp.
+                if let timestamp = data["date"] as? Timestamp {
+                    data["date"] = timestamp.dateValue().timeIntervalSince1970 * 1000
+                } else if data["date"] == nil, let createdAt = data["createdAt"] as? Timestamp {
+                    data["date"] = createdAt.dateValue().timeIntervalSince1970 * 1000
+                }
+
+                return try? self.decodeBetSlip(from: data)
+            } ?? []
+
+            completion(.success(slips.sorted { $0.date > $1.date }))
         }
     }
     
@@ -233,5 +311,29 @@ class FirebaseManager: ObservableObject {
         default:
             return nil
         }
+    }
+
+    private func encodeBetSlip(_ slip: BetSlip) throws -> [String: Any] {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .millisecondsSince1970
+        let data = try encoder.encode(slip)
+        let object = try JSONSerialization.jsonObject(with: data, options: [])
+
+        guard let dictionary = object as? [String: Any] else {
+            throw NSError(
+                domain: betSlipErrorDomain,
+                code: 2001,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid bet slip payload"]
+            )
+        }
+
+        return dictionary
+    }
+
+    private func decodeBetSlip(from dictionary: [String: Any]) throws -> BetSlip {
+        let data = try JSONSerialization.data(withJSONObject: dictionary, options: [])
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .millisecondsSince1970
+        return try decoder.decode(BetSlip.self, from: data)
     }
 }
