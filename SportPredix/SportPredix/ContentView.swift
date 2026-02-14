@@ -1035,7 +1035,6 @@ struct ContentView: View {
                     loadingView
                 } else {
                     matchListView
-                        .padding(.bottom, 100)
                 }
             }
             .id(refreshID)
@@ -1164,6 +1163,7 @@ struct ContentView: View {
                 }
             }
             .padding()
+            .padding(.bottom, 100)
         }
         .id("\(vm.selectedDayIndex)-\(vm.selectedSport)")
         .transition(.opacity)
