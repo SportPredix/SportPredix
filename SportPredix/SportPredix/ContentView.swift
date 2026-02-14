@@ -12,270 +12,80 @@ extension Color {
     static let accentCyan = Color(red: 68/255, green: 224/255, blue: 203/255)
 }
 
-// MARK: - FLOATING GLASS TOOLBAR (NUOVA - SOPRA LE PAGINE)
+// MARK: - TAB BAR
 
-struct FloatingGlassToolbar: View {
+struct TabItem {
+    let icon: String
+    let title: String
+}
+
+struct TabBar: View {
+    let tabs: [TabItem]
     @Binding var selectedTab: Int
-    @Namespace private var animationNamespace
     
     var body: some View {
         ZStack(alignment: .bottom) {
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color.black.opacity(0.9),
-                    Color.black.opacity(0.6),
+                    Color.black.opacity(0.85),
                     Color.black.opacity(0.0)
                 ]),
                 startPoint: .bottom,
                 endPoint: .top
             )
-            .frame(height: 220)
+            .frame(height: 170)
             .ignoresSafeArea(edges: .bottom)
             .allowsHitTesting(false)
             
-            VStack(spacing: 0) {
-                Spacer()
-                
-                // Barra principale fluttuante
-                HStack(spacing: 0) {
-                    ForEach(0..<4) { index in
-                        FloatingToolbarButton(
-                            index: index,
-                            selectedTab: $selectedTab,
-                            animationNamespace: animationNamespace
-                        )
+            HStack(spacing: 0) {
+                ForEach(Array(tabs.enumerated()), id: \.offset) { index, item in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedTab = index
+                        }
+                    } label: {
+                        VStack(spacing: 5) {
+                            Image(systemName: item.icon)
+                                .font(.system(size: 18, weight: .semibold))
+                            
+                            Text(item.title)
+                                .font(.caption2)
+                        }
+                        .foregroundColor(selectedTab == index ? .accentCyan : .white.opacity(0.65))
                         .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
                     }
+                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(
-                    // Effetto vetro sfocato con riflessi
-                    FloatingGlassEffect()
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .shadow(
-                    color: .black.opacity(0.3),
-                    radius: 30,
-                    x: 0,
-                    y: 10
-                )
-                .overlay(
-                    // Bordo luminoso superiore
-                    RoundedRectangle(cornerRadius: 24)
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    .white.opacity(0.2),
-                                    .accentCyan.opacity(0.1),
-                                    .clear
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 1
-                        )
-                        .blur(radius: 0.5)
-                )
-                .padding(.horizontal, 16)
-                .padding(.bottom, 20)
-                .offset(y: 10) // ABBASSATA
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                    )
+            )
+            .padding(.horizontal, 16)
+            .padding(.bottom, 20)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .zIndex(1000) // ALTO Z-INDEX PER STARE SOPRA TUTTO
+        .zIndex(1000)
     }
 }
 
-struct FloatingGlassEffect: View {
-    @State private var shimmerOffset: CGFloat = -300
-    
-    var body: some View {
-        ZStack {
-            // Base vetro sfocato
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .opacity(0.9)
-            
-            // Base colore
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.12, green: 0.13, blue: 0.15).opacity(0.8),
-                            Color(red: 0.08, green: 0.09, blue: 0.11).opacity(0.8)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-            
-            // Effetto shimmer
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            .clear,
-                            .white.opacity(0.05),
-                            .clear
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .offset(x: shimmerOffset)
-                .blur(radius: 1)
-                .mask(
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(
-                            LinearGradient(
-                                colors: [.clear, .white, .clear],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                )
-            
-            // Puntini luminosi
-            GeometryReader { geometry in
-                ForEach(0..<15) { i in
-                    Circle()
-                        .fill(Color.white.opacity(0.05))
-                        .frame(width: CGFloat.random(in: 2...6))
-                        .position(
-                            x: CGFloat.random(in: 0...geometry.size.width),
-                            y: CGFloat.random(in: 0...geometry.size.height)
-                        )
-                        .blur(radius: 1)
-                }
-            }
-        }
-        .onAppear {
-            withAnimation(
-                .easeInOut(duration: 3)
-                .repeatForever(autoreverses: false)
-            ) {
-                shimmerOffset = 300
-            }
-        }
-    }
+extension Notification.Name {
+    static let hideTabBar = Notification.Name("hideTabBar")
+    static let showTabBar = Notification.Name("showTabBar")
 }
 
-struct FloatingToolbarButton: View {
-    let index: Int
-    @Binding var selectedTab: Int
-    let animationNamespace: Namespace.ID
+struct TabBarVisibilityKey: PreferenceKey {
+    static var defaultValue: Bool = true
     
-    private var icon: String {
-        switch index {
-        case 0: return "calendar"
-        case 1: return "dice.fill"
-        case 2: return "list.bullet"
-        case 3: return "person.crop.circle"
-        default: return "circle"
-        }
-    }
-    
-    var body: some View {
-        Button {
-            withAnimation(
-                .spring(response: 0.35, dampingFraction: 0.7)
-            ) {
-                selectedTab = index
-            }
-        } label: {
-            VStack(spacing: 4) {
-                // Icona
-                ZStack {
-                    // Anello luminoso quando selezionato
-                    if selectedTab == index {
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    gradient: Gradient(colors: [
-                                        .accentCyan.opacity(0.3),
-                                        .clear
-                                    ]),
-                                    center: .center,
-                                    startRadius: 0,
-                                    endRadius: 30
-                                )
-                            )
-                            .frame(width: 60, height: 60)
-                            .matchedGeometryEffect(id: "glow", in: animationNamespace)
-                    }
-                    
-                    // Cerchio di sfondo
-                    Circle()
-                        .fill(
-                            selectedTab == index ?
-                            LinearGradient(
-                                colors: [.accentCyan.opacity(0.4), .blue.opacity(0.2)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ) :
-                            LinearGradient(
-                                colors: [.white.opacity(0.05), .white.opacity(0.02)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 48, height: 48)
-                        .overlay(
-                            Circle()
-                                .stroke(
-                                    selectedTab == index ?
-                                    LinearGradient(
-                                        colors: [.accentCyan.opacity(0.5), .white.opacity(0.2)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ) :
-                                    LinearGradient(
-                                        colors: [.white.opacity(0.1), .white.opacity(0.05)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: selectedTab == index ? 1.5 : 0.5
-                                )
-                                .blur(radius: selectedTab == index ? 1 : 0.5)
-                        )
-                    
-                    // Icona con effetto
-                    Image(systemName: icon)
-                        .font(.system(size: 20, weight: .medium))
-                        .symbolEffect(
-                            .bounce,
-                            options: .speed(1.5),
-                            value: selectedTab == index
-                        )
-                        .foregroundColor(
-                            selectedTab == index ? 
-                            .white : 
-                            .white.opacity(0.7)
-                        )
-                        .shadow(
-                            color: selectedTab == index ? 
-                            .accentCyan.opacity(0.5) : 
-                            .clear,
-                            radius: 3
-                        )
-                }
-            }
-        }
-        .buttonStyle(FloatingButtonStyle(isSelected: selectedTab == index))
-    }
-}
-
-struct FloatingButtonStyle: ButtonStyle {
-    let isSelected: Bool
-    
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
-            .animation(
-                .spring(response: 0.3, dampingFraction: 0.6),
-                value: configuration.isPressed
-            )
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = nextValue()
     }
 }
 
@@ -1220,21 +1030,27 @@ final class BettingViewModel: ObservableObject {
 struct ContentView: View {
     
     @StateObject private var vm = BettingViewModel()
-    @Namespace private var animationNamespace
-    
-    // Stato per forzare il refresh
     @State private var refreshID = UUID()
+    @State private var shouldShowTabBar = true
+    @State private var tabBarVisible = true
+    @State private var lastHideTime = Date()
+    @State private var hideTabBarObserver: NSObjectProtocol?
+    @State private var showTabBarObserver: NSObjectProtocol?
+    
+    private let tabs: [TabItem] = [
+        TabItem(icon: "calendar", title: "Sport"),
+        TabItem(icon: "dice.fill", title: "Casino"),
+        TabItem(icon: "list.bullet", title: "Storico"),
+        TabItem(icon: "person.crop.circle", title: "Profilo")
+    ]
     
     var body: some View {
         NavigationView {
-            ZStack {
-                // Sfondo principale
+            ZStack(alignment: .bottom) {
                 Color.black.ignoresSafeArea()
                 
                 ZStack {
-                    // CONTENUTO PRINCIPALE (sotto la toolbar)
                     VStack(spacing: 0) {
-                        // Header fluttuante (tranne per Casino)
                         if vm.selectedTab != 1 {
                             FloatingHeader(
                                 title: vm.selectedTab == 0 ? "Sport" :
@@ -1271,14 +1087,23 @@ struct ContentView: View {
                         }
                     }
                     .id(refreshID)
-                    
-                    // TOOLBAR FLUTTUANTE SOPRA IL CONTENUTO
-                    FloatingGlassToolbar(selectedTab: $vm.selectedTab)
-                    
-                    // Bottoni fluttuanti per scommesse
+
                     floatingButtonView
                 }
+                
+                if shouldShowTabBar {
+                    TabBar(
+                        tabs: tabs,
+                        selectedTab: $vm.selectedTab
+                    )
+                    .opacity(shouldShowTabBar && tabBarVisible ? 1 : 0)
+                    .offset(y: tabBarVisible ? 0 : 120)
+                    .animation(.spring(response: 0.15, dampingFraction: 0.7), value: tabBarVisible)
+                }
             }
+            .onPreferenceChange(TabBarVisibilityKey.self) { shouldShowTabBar = $0 }
+            .onAppear { setupNotificationObservers() }
+            .onDisappear { removeNotificationObservers() }
             .sheet(isPresented: $vm.showSheet) {
                 BetSheet(
                     picks: $vm.currentPicks,
@@ -1289,6 +1114,42 @@ struct ContentView: View {
             .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
         }
         .navigationBarHidden(true)
+    }
+    
+    private func setupNotificationObservers() {
+        removeNotificationObservers()
+        
+        hideTabBarObserver = NotificationCenter.default.addObserver(
+            forName: .hideTabBar,
+            object: nil,
+            queue: .main
+        ) { _ in
+            lastHideTime = Date()
+            tabBarVisible = false
+        }
+        
+        showTabBarObserver = NotificationCenter.default.addObserver(
+            forName: .showTabBar,
+            object: nil,
+            queue: .main
+        ) { _ in
+            let timeSinceHide = Date().timeIntervalSince(lastHideTime)
+            if timeSinceHide > 0.2 {
+                tabBarVisible = true
+            }
+        }
+    }
+    
+    private func removeNotificationObservers() {
+        if let hideTabBarObserver {
+            NotificationCenter.default.removeObserver(hideTabBarObserver)
+            self.hideTabBarObserver = nil
+        }
+        
+        if let showTabBarObserver {
+            NotificationCenter.default.removeObserver(showTabBarObserver)
+            self.showTabBarObserver = nil
+        }
     }
     
     // MARK: - CALENDAR BAR
