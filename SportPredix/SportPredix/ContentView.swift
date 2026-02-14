@@ -979,28 +979,28 @@ struct ContentView: View {
                     sportTab
                         .tag(0)
                         .tabItem {
-                            Image(systemName: "square.stack.fill")
+                            Image(systemName: "trophy.fill")
                             Text("Sport")
                         }
                     
                     casinoTab
                         .tag(1)
                         .tabItem {
-                            Image(systemName: "arrow.down.circle")
+                            Image(systemName: "dice.fill")
                             Text("Casino")
                         }
                     
                     storicoTab
                         .tag(2)
                         .tabItem {
-                            Image(systemName: "gearshape")
+                            Image(systemName: "clock.fill")
                             Text("Storico")
                         }
                     
                     profiloTab
                         .tag(3)
                         .tabItem {
-                            Image(systemName: "magnifyingglass")
+                            Image(systemName: "person.crop.circle.fill")
                             Text("Profilo")
                         }
                 }
