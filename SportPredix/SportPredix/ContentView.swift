@@ -322,9 +322,13 @@ final class BettingViewModel: ObservableObject {
     }
     
     private func loadMatchesForAllDays() {
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
         let today = Date()
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+        guard
+            let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today),
+            let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)
+        else {
+            return
+        }
         
         let dates = [yesterday, today, tomorrow]
         let dateKeys = dates.map { keyForDate($0) }
@@ -337,9 +341,13 @@ final class BettingViewModel: ObservableObject {
     }
     
     private func reloadMatchesForAllDays() {
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
         let today = Date()
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+        guard
+            let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today),
+            let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)
+        else {
+            return
+        }
         
         let dates = [yesterday, today, tomorrow]
         let dateKeys = dates.map { keyForDate($0) }
@@ -368,10 +376,8 @@ final class BettingViewModel: ObservableObject {
         guard selectedSport == "Calcio" else { return }
         
         let todayKey = keyForDate(Date())
-        
-        let shouldFetch = dailyMatches[todayKey] == nil ||
-                         lastUpdateTime == nil ||
-                         Date().timeIntervalSince(lastUpdateTime!) > 3600
+        let lastFetchAge = lastUpdateTime.map { Date().timeIntervalSince($0) } ?? .infinity
+        let shouldFetch = dailyMatches[todayKey] == nil || lastFetchAge > 3600
         
         if shouldFetch {
             fetchMatchesFromBetstack()
@@ -415,7 +421,7 @@ final class BettingViewModel: ObservableObject {
     }
     
     func dateForIndex(_ index: Int) -> Date {
-        Calendar.current.date(byAdding: .day, value: index - 1, to: Date())!
+        Calendar.current.date(byAdding: .day, value: index - 1, to: Date()) ?? Date()
     }
     
     func keyForDate(_ date: Date) -> String {
@@ -462,12 +468,19 @@ final class BettingViewModel: ObservableObject {
         
         for (competition, teams) in competitions {
             for _ in 0..<2 {
-                let home = teams.randomElement()!
-                var away = teams.randomElement()!
-                while away == home { away = teams.randomElement()! }
+                guard let home = teams.randomElement(),
+                      var away = teams.randomElement() else {
+                    continue
+                }
+                while away == home {
+                    guard let randomAway = teams.randomElement() else { break }
+                    away = randomAway
+                }
                 
                 let hour = Int.random(in: 15...21)
-                let minute = ["00", "15", "30", "45"].randomElement()!
+                guard let minute = ["00", "15", "30", "45"].randomElement() else {
+                    continue
+                }
                 let time = "\(hour):\(minute)"
                 
                 let (homeOdd, drawOdd, awayOdd) = generateRealisticOdds(home: home, away: away)
@@ -508,12 +521,19 @@ final class BettingViewModel: ObservableObject {
         
         for (tournament, players) in tournaments {
             for _ in 0..<3 {
-                let player1 = players.randomElement()!
-                var player2 = players.randomElement()!
-                while player2 == player1 { player2 = players.randomElement()! }
+                guard let player1 = players.randomElement(),
+                      var player2 = players.randomElement() else {
+                    continue
+                }
+                while player2 == player1 {
+                    guard let randomPlayer = players.randomElement() else { break }
+                    player2 = randomPlayer
+                }
                 
                 let hour = Int.random(in: 10...22)
-                let minute = ["00", "15", "30", "45"].randomElement()!
+                guard let minute = ["00", "15", "30", "45"].randomElement() else {
+                    continue
+                }
                 let time = "\(hour):\(minute)"
                 
                 let (homeOdd, _, awayOdd) = generateRealisticTennisOdds(player1: player1, player2: player2)
@@ -697,7 +717,7 @@ final class BettingViewModel: ObservableObject {
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
     
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
-        let matchDate = Calendar.current.date(byAdding: .day, value: -(selectedDayIndex - 1), to: Date())!
+        let matchDate = Calendar.current.date(byAdding: .day, value: -(selectedDayIndex - 1), to: Date()) ?? Date()
         if isYesterday(matchDate) {
             return
         }
@@ -1256,7 +1276,7 @@ struct ContentView: View {
                             }
                             .padding(.horizontal, 4)
                             
-                            ForEach(groupedMatches[time]!) { match in
+                            ForEach(groupedMatches[time] ?? []) { match in
                                 NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
                                     matchCardView(match: match, disabled: isYesterday)
                                 }

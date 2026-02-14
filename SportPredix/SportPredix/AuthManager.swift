@@ -12,20 +12,28 @@ class AuthManager: ObservableObject {
     @Published var isLoading = false
     
     static let shared = AuthManager()
+    private var hasInitializedAuthState = false
     
     private init() {
-        ensureFirebaseConfigured()
-        checkAuthStatus()
+        // Firebase bootstrap avviene nello SportPredixApp prima di usare Auth.
     }
 
-    private func ensureFirebaseConfigured() {
-        if FirebaseApp.app() == nil {
-            FirebaseApp.configure()
-        }
+    func bootstrapAuthStateIfNeeded() {
+        guard !hasInitializedAuthState else { return }
+        hasInitializedAuthState = true
+        checkAuthStatus()
     }
     
     // MARK: - Controlla se l'utente è già loggato
     func checkAuthStatus() {
+        guard FirebaseApp.app() != nil else {
+            self.isLoggedIn = false
+            self.currentUserID = nil
+            self.currentUserEmail = nil
+            self.currentUserName = nil
+            return
+        }
+
         if let user = Auth.auth().currentUser {
             self.currentUserID = user.uid
             self.currentUserEmail = user.email
@@ -38,6 +46,12 @@ class AuthManager: ObservableObject {
     
     // MARK: - Registrazione
     func register(email: String, password: String, name: String, completion: @escaping (Bool) -> Void) {
+        guard FirebaseApp.app() != nil else {
+            errorMessage = "Firebase non configurato correttamente"
+            completion(false)
+            return
+        }
+
         isLoading = true
         errorMessage = nil
         
@@ -87,6 +101,12 @@ class AuthManager: ObservableObject {
     
     // MARK: - Login
     func login(email: String, password: String, completion: @escaping (Bool) -> Void) {
+        guard FirebaseApp.app() != nil else {
+            errorMessage = "Firebase non configurato correttamente"
+            completion(false)
+            return
+        }
+
         isLoading = true
         errorMessage = nil
         
@@ -116,6 +136,7 @@ class AuthManager: ObservableObject {
     
     // MARK: - Carica profilo utente
     func loadUserProfile() {
+        guard FirebaseApp.app() != nil else { return }
         guard let userID = currentUserID else { return }
         
         let db = Firestore.firestore()
@@ -134,6 +155,15 @@ class AuthManager: ObservableObject {
     
     // MARK: - Logout
     func logout() {
+        guard FirebaseApp.app() != nil else {
+            self.isLoggedIn = false
+            self.currentUserID = nil
+            self.currentUserEmail = nil
+            self.currentUserName = nil
+            self.errorMessage = nil
+            return
+        }
+
         do {
             try Auth.auth().signOut()
             self.isLoggedIn = false
