@@ -98,6 +98,14 @@ struct FloatingHeader: View {
     }
 }
 
+private struct MatchListOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 // MARK: - VIEW MODEL (BettingViewModel)
 // Questo è un estratto del ViewModel, aggiorna con le modifiche necessarie
 
@@ -954,6 +962,8 @@ struct ContentView: View {
     
     @StateObject private var vm = BettingViewModel()
     @State private var refreshID = UUID()
+    @State private var isTabBarRetracted = false
+    @State private var lastMatchListOffset: CGFloat = 0
     
     var body: some View {
         NavigationView {
@@ -1007,6 +1017,15 @@ struct ContentView: View {
                 .tint(.accentCyan)
                 
                 floatingButtonView
+            }
+            .onChange(of: vm.selectedTab) { newValue in
+                guard newValue != 0 else { return }
+                if isTabBarRetracted {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isTabBarRetracted = false
+                    }
+                }
+                lastMatchListOffset = 0
             }
             .sheet(isPresented: $vm.showSheet) {
                 BetSheet(
@@ -1136,8 +1155,18 @@ struct ContentView: View {
     private var matchListView: some View {
         let groupedMatches = vm.matchesForSelectedDay()
         let isYesterday = vm.selectedDayIndex == 0
+        let bottomSpacing: CGFloat = vm.currentPicks.isEmpty ? 100 : (isTabBarRetracted ? 150 : 220)
         
         return ScrollView {
+            GeometryReader { geometry in
+                Color.clear
+                    .preference(
+                        key: MatchListOffsetPreferenceKey.self,
+                        value: geometry.frame(in: .named("matchListScroll")).minY
+                    )
+            }
+            .frame(height: 0)
+            
             VStack(spacing: 16) {
                 if groupedMatches.isEmpty && !vm.isLoading {
                     emptyMatchesView
@@ -1163,7 +1192,32 @@ struct ContentView: View {
                 }
             }
             .padding()
-            .padding(.bottom, 100)
+            .padding(.bottom, bottomSpacing)
+        }
+        .coordinateSpace(name: "matchListScroll")
+        .onPreferenceChange(MatchListOffsetPreferenceKey.self) { offset in
+            let delta = offset - lastMatchListOffset
+            lastMatchListOffset = offset
+            
+            // In alto resta sempre nella versione estesa.
+            if offset > -12 {
+                guard isTabBarRetracted else { return }
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                    isTabBarRetracted = false
+                }
+                return
+            }
+            
+            // Segue la direzione dello scroll come la tab bar minimizzata.
+            if delta < -1.5, !isTabBarRetracted {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                    isTabBarRetracted = true
+                }
+            } else if delta > 1.5, isTabBarRetracted {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                    isTabBarRetracted = false
+                }
+            }
         }
         .id("\(vm.selectedDayIndex)-\(vm.selectedSport)")
         .transition(.opacity)
@@ -1345,6 +1399,14 @@ struct ContentView: View {
     private var floatingButtonView: some View {
         Group {
             if !vm.currentPicks.isEmpty && vm.selectedTab != 3 {
+                let useCompactButton = vm.selectedTab == 0 && isTabBarRetracted
+                let buttonSize: CGFloat = useCompactButton ? 36 : 56
+                let buttonIconSize: CGFloat = useCompactButton ? 16 : 24
+                let bottomPadding: CGFloat = useCompactButton ? 18 : 78
+                let trailingPadding: CGFloat = useCompactButton ? 16 : 20
+                let badgeOffsetX: CGFloat = useCompactButton ? 5 : 8
+                let badgeOffsetY: CGFloat = useCompactButton ? -5 : -8
+                
                 VStack {
                     Spacer()
                     HStack {
@@ -1352,23 +1414,25 @@ struct ContentView: View {
                         ZStack(alignment: .topTrailing) {
                             Button { vm.showSheet = true } label: {
                                 Image(systemName: "rectangle.stack.fill")
+                                    .font(.system(size: buttonIconSize, weight: .semibold))
                                     .foregroundColor(.black)
-                                    .padding(16)
+                                    .frame(width: buttonSize, height: buttonSize)
                                     .background(Color.accentCyan)
                                     .clipShape(Circle())
-                                    .shadow(radius: 10)
+                                    .shadow(radius: useCompactButton ? 5 : 10)
                             }
                             
                             Text("\(vm.currentPicks.count)")
-                                .font(.caption2.bold())
-                                .padding(4)
+                                .font(.system(size: useCompactButton ? 10 : 12, weight: .bold))
+                                .frame(minWidth: useCompactButton ? 18 : 20, minHeight: useCompactButton ? 18 : 20)
                                 .background(Color.red)
                                 .clipShape(Circle())
                                 .foregroundColor(.white)
-                                .offset(x: 8, y: -8)
+                                .offset(x: badgeOffsetX, y: badgeOffsetY)
                         }
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 110)
+                        .padding(.trailing, trailingPadding)
+                        .padding(.bottom, bottomPadding)
+                        .animation(.spring(response: 0.28, dampingFraction: 0.86), value: useCompactButton)
                     }
                 }
             }
