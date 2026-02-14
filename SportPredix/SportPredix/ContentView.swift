@@ -210,7 +210,11 @@ final class BettingViewModel: ObservableObject {
     @Published var slips: [BetSlip] = []
     @Published private(set) var promoCodes: [PromoCode] = []
     
-    @Published var dailyMatches: [String: [Match]] = [:]
+    @Published var dailyMatches: [String: [Match]] = [:] {
+        didSet {
+            evaluateAllSlips()
+        }
+    }
     @Published var isLoading = false
     @Published var lastUpdateTime: Date?
     
@@ -270,6 +274,7 @@ final class BettingViewModel: ObservableObject {
                 switch result {
                 case .success(let cloudSlips):
                     self.slips = cloudSlips
+                    self.evaluateAllSlips()
                 case .failure:
                     self.slips = []
                 }
@@ -738,6 +743,7 @@ final class BettingViewModel: ObservableObject {
         currentPicks.removeAll()
         slips.insert(slip, at: 0)
         saveSlips()
+        evaluateAllSlips()
     }
     
     private func saveSlips() {
@@ -745,57 +751,119 @@ final class BettingViewModel: ObservableObject {
         FirebaseManager.shared.syncBetSlips(userID: userID, slips: slips) { _ in }
     }
     
-    func evaluateSlip(_ slip: BetSlip) -> BetSlip {
-        var updatedSlip = slip
-        
-        if slip.isEvaluated { return slip }
-        
-        let allCorrect = slip.picks.allSatisfy { pick in
-            switch pick.outcome {
-            case .home, .draw, .away:
-                return pick.match.result == pick.outcome
-            case .homeDraw:
-                return pick.match.result == .home || pick.match.result == .draw
-            case .homeAway:
-                return pick.match.result == .home || pick.match.result == .away
-            case .drawAway:
-                return pick.match.result == .draw || pick.match.result == .away
-            case .over05:
-                return (pick.match.goals ?? 0) > 0
-            case .under05:
-                return (pick.match.goals ?? 0) == 0
-            case .over15:
-                return (pick.match.goals ?? 0) > 1
-            case .under15:
-                return (pick.match.goals ?? 0) <= 1
-            case .over25:
-                return (pick.match.goals ?? 0) > 2
-            case .under25:
-                return (pick.match.goals ?? 0) <= 2
-            case .over35:
-                return (pick.match.goals ?? 0) > 3
-            case .under35:
-                return (pick.match.goals ?? 0) <= 3
-            case .over45:
-                return (pick.match.goals ?? 0) > 4
-            case .under45:
-                return (pick.match.goals ?? 0) <= 4
+    private func matchesByID() -> [UUID: Match] {
+        var lookup: [UUID: Match] = [:]
+        for matches in dailyMatches.values {
+            for match in matches {
+                lookup[match.id] = match
             }
         }
-        
-        updatedSlip.isWon = allCorrect
-        updatedSlip.isEvaluated = true
-        
-        if allCorrect {
-            balance += slip.potentialWin
+        return lookup
+    }
+
+    private func resolvedMatch(for pick: BetPick, using lookup: [UUID: Match]) -> Match {
+        lookup[pick.match.id] ?? pick.match
+    }
+
+    private func isFinalStatus(_ status: String) -> Bool {
+        let normalized = status.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return normalized == "FINISHED" || normalized == "FT" || normalized == "COMPLETED"
+    }
+
+    private func pickIsWinning(_ pick: BetPick, match: Match) -> Bool? {
+        switch pick.outcome {
+        case .home, .draw, .away:
+            guard isFinalStatus(match.status), let result = match.result else { return nil }
+            return result == pick.outcome
+        case .homeDraw:
+            guard isFinalStatus(match.status), let result = match.result else { return nil }
+            return result == .home || result == .draw
+        case .homeAway:
+            guard isFinalStatus(match.status), let result = match.result else { return nil }
+            return result == .home || result == .away
+        case .drawAway:
+            guard isFinalStatus(match.status), let result = match.result else { return nil }
+            return result == .draw || result == .away
+        case .over05:
+            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
+            return goals > 0
+        case .under05:
+            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
+            return goals == 0
+        case .over15:
+            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
+            return goals > 1
+        case .under15:
+            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
+            return goals <= 1
+        case .over25:
+            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
+            return goals > 2
+        case .under25:
+            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
+            return goals <= 2
+        case .over35:
+            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
+            return goals > 3
+        case .under35:
+            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
+            return goals <= 3
+        case .over45:
+            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
+            return goals > 4
+        case .under45:
+            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
+            return goals <= 4
         }
-        
-        return updatedSlip
+    }
+
+    func evaluateSlip(_ slip: BetSlip, using lookup: [UUID: Match]) -> BetSlip {
+        if slip.isEvaluated { return slip }
+
+        var hasPendingPicks = false
+
+        for pick in slip.picks {
+            let latestMatch = resolvedMatch(for: pick, using: lookup)
+            guard let isWinningPick = pickIsWinning(pick, match: latestMatch) else {
+                hasPendingPicks = true
+                continue
+            }
+
+            if !isWinningPick {
+                var lostSlip = slip
+                lostSlip.isWon = false
+                lostSlip.isEvaluated = true
+                return lostSlip
+            }
+        }
+
+        if hasPendingPicks {
+            return slip
+        }
+
+        var wonSlip = slip
+        wonSlip.isWon = true
+        wonSlip.isEvaluated = true
+        balance += slip.potentialWin
+        return wonSlip
     }
     
     func evaluateAllSlips() {
-        slips = slips.map { evaluateSlip($0) }
-        saveSlips()
+        guard !slips.isEmpty else { return }
+
+        let balanceBeforeEvaluation = balance
+        let slipsBeforeEvaluation = slips
+        let lookup = matchesByID()
+
+        slips = slips.map { evaluateSlip($0, using: lookup) }
+
+        let slipsChanged = zip(slipsBeforeEvaluation, slips).contains { oldSlip, newSlip in
+            oldSlip.isEvaluated != newSlip.isEvaluated || oldSlip.isWon != newSlip.isWon
+        }
+
+        if slipsChanged || balanceBeforeEvaluation != balance {
+            saveSlips()
+        }
     }
     
     var totalBetsCount: Int {
