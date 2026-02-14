@@ -22,54 +22,69 @@ struct TabItem {
 struct TabBar: View {
     let tabs: [TabItem]
     @Binding var selectedTab: Int
+    @Namespace private var selectionAnimation
     
     var body: some View {
         ZStack(alignment: .bottom) {
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color.black.opacity(0.85),
+                    Color.black.opacity(0.55),
                     Color.black.opacity(0.0)
                 ]),
                 startPoint: .bottom,
                 endPoint: .top
             )
-            .frame(height: 170)
+            .frame(height: 118)
             .ignoresSafeArea(edges: .bottom)
             .allowsHitTesting(false)
             
-            HStack(spacing: 0) {
+            HStack(spacing: 10) {
                 ForEach(Array(tabs.enumerated()), id: \.offset) { index, item in
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) {
                             selectedTab = index
                         }
                     } label: {
-                        VStack(spacing: 5) {
-                            Image(systemName: item.icon)
-                                .font(.system(size: 18, weight: .semibold))
+                        ZStack {
+                            if selectedTab == index {
+                                Capsule()
+                                    .fill(Color.white)
+                                    .shadow(color: .white.opacity(0.15), radius: 1.5, x: 0, y: 1)
+                                    .matchedGeometryEffect(id: "selectedTabPill", in: selectionAnimation)
+                            } else {
+                                Capsule()
+                                    .fill(Color.clear)
+                            }
                             
-                            Text(item.title)
-                                .font(.caption2)
+                            Image(systemName: item.icon)
+                                .font(.system(size: 19, weight: .semibold))
+                                .foregroundColor(selectedTab == index ? .black : .white.opacity(0.28))
                         }
-                        .foregroundColor(selectedTab == index ? .accentCyan : .white.opacity(0.65))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .frame(height: 56)
+                        .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(item.title)
                 }
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: 36, style: .continuous)
                     .fill(.ultraThinMaterial)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 36, style: .continuous)
+                            .fill(Color(red: 0.10, green: 0.10, blue: 0.11).opacity(0.86))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 36, style: .continuous)
+                            .stroke(Color.white.opacity(0.14), lineWidth: 0.9)
                     )
             )
+            .shadow(color: .black.opacity(0.48), radius: 22, x: 0, y: 12)
             .padding(.horizontal, 16)
-            .padding(.bottom, 20)
+            .padding(.bottom, 14)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .zIndex(1000)
@@ -1038,10 +1053,10 @@ struct ContentView: View {
     @State private var showTabBarObserver: NSObjectProtocol?
     
     private let tabs: [TabItem] = [
-        TabItem(icon: "calendar", title: "Sport"),
-        TabItem(icon: "dice.fill", title: "Casino"),
-        TabItem(icon: "list.bullet", title: "Storico"),
-        TabItem(icon: "person.crop.circle", title: "Profilo")
+        TabItem(icon: "square.stack.fill", title: "Sport"),
+        TabItem(icon: "arrow.down.circle", title: "Casino"),
+        TabItem(icon: "gearshape", title: "Storico"),
+        TabItem(icon: "magnifyingglass", title: "Profilo")
     ]
     
     var body: some View {
