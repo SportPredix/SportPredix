@@ -214,6 +214,7 @@ final class BettingViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var lastUpdateTime: Date?
     
+    private let slipsKey = "savedSlips"
     private let matchesKey = "savedMatches"
     private let lastFetchKey = "lastBetstackFetch"
     // Sostituisci con la raw URL del JSON nella tua repository esterna.
@@ -234,6 +235,7 @@ final class BettingViewModel: ObservableObject {
         
         self.selectedSport = UserDefaults.standard.string(forKey: "selectedSport") ?? "Calcio"
         
+        self.slips = loadSlips()
         self.dailyMatches = loadMatches()
         
         if let savedDate = UserDefaults.standard.object(forKey: lastFetchKey) as? Date {
@@ -250,31 +252,10 @@ final class BettingViewModel: ObservableObject {
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] userID in
-                guard let self = self else { return }
-                guard let userID = userID else {
-                    self.slips = []
-                    return
-                }
-
+                guard let self = self, let userID = userID else { return }
                 self.loadBalanceFromCloud(userID: userID)
-                self.loadSlipsFromCloud(userID: userID)
             }
             .store(in: &cancellables)
-    }
-
-    private func loadSlipsFromCloud(userID: String) {
-        FirebaseManager.shared.loadBetSlips(userID: userID) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-
-                switch result {
-                case .success(let cloudSlips):
-                    self.slips = cloudSlips
-                case .failure:
-                    self.slips = []
-                }
-            }
-        }
     }
 
     private func loadBalanceFromCloud(userID: String) {
@@ -741,8 +722,15 @@ final class BettingViewModel: ObservableObject {
     }
     
     private func saveSlips() {
-        guard let userID = AuthManager.shared.currentUserID else { return }
-        FirebaseManager.shared.syncBetSlips(userID: userID, slips: slips) { _ in }
+        if let data = try? JSONEncoder().encode(slips) {
+            UserDefaults.standard.set(data, forKey: slipsKey)
+        }
+    }
+    
+    private func loadSlips() -> [BetSlip] {
+        guard let data = UserDefaults.standard.data(forKey: slipsKey),
+              let decoded = try? JSONDecoder().decode([BetSlip].self, from: data) else { return [] }
+        return decoded
     }
     
     func evaluateSlip(_ slip: BetSlip) -> BetSlip {
