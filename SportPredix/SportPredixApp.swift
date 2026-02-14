@@ -6,7 +6,9 @@ struct SportPredixApp: App {
     @StateObject private var authManager = AuthManager.shared
     
     init() {
-        FirebaseApp.configure()
+        if FirebaseApp.app() == nil {
+            FirebaseApp.configure()
+        }
     }
     
     var body: some Scene {

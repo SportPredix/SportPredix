@@ -1,4 +1,5 @@
 import Foundation
+import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -13,7 +14,14 @@ class AuthManager: ObservableObject {
     static let shared = AuthManager()
     
     private init() {
+        ensureFirebaseConfigured()
         checkAuthStatus()
+    }
+
+    private func ensureFirebaseConfigured() {
+        if FirebaseApp.app() == nil {
+            FirebaseApp.configure()
+        }
     }
     
     // MARK: - Controlla se l'utente è già loggato
