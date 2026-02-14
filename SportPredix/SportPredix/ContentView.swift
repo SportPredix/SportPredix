@@ -12,98 +12,6 @@ extension Color {
     static let accentCyan = Color(red: 68/255, green: 224/255, blue: 203/255)
 }
 
-// MARK: - TAB BAR
-
-struct TabItem {
-    let icon: String
-    let title: String
-}
-
-struct TabBar: View {
-    let tabs: [TabItem]
-    @Binding var selectedTab: Int
-    @Namespace private var selectionAnimation
-    
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.black.opacity(0.55),
-                    Color.black.opacity(0.0)
-                ]),
-                startPoint: .bottom,
-                endPoint: .top
-            )
-            .frame(height: 118)
-            .ignoresSafeArea(edges: .bottom)
-            .allowsHitTesting(false)
-            
-            HStack(spacing: 10) {
-                ForEach(Array(tabs.enumerated()), id: \.offset) { index, item in
-                    Button {
-                        withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) {
-                            selectedTab = index
-                        }
-                    } label: {
-                        ZStack {
-                            if selectedTab == index {
-                                Capsule()
-                                    .fill(Color.white)
-                                    .shadow(color: .white.opacity(0.15), radius: 1.5, x: 0, y: 1)
-                                    .matchedGeometryEffect(id: "selectedTabPill", in: selectionAnimation)
-                            } else {
-                                Capsule()
-                                    .fill(Color.clear)
-                            }
-                            
-                            Image(systemName: item.icon)
-                                .font(.system(size: 19, weight: .semibold))
-                                .foregroundColor(selectedTab == index ? .black : .white.opacity(0.28))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(item.title)
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 36, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 36, style: .continuous)
-                            .fill(Color(red: 0.10, green: 0.10, blue: 0.11).opacity(0.86))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 36, style: .continuous)
-                            .stroke(Color.white.opacity(0.14), lineWidth: 0.9)
-                    )
-            )
-            .shadow(color: .black.opacity(0.48), radius: 22, x: 0, y: 12)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 14)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .zIndex(1000)
-    }
-}
-
-extension Notification.Name {
-    static let hideTabBar = Notification.Name("hideTabBar")
-    static let showTabBar = Notification.Name("showTabBar")
-}
-
-struct TabBarVisibilityKey: PreferenceKey {
-    static var defaultValue: Bool = true
-    
-    static func reduce(value: inout Bool, nextValue: () -> Bool) {
-        value = nextValue()
-    }
-}
-
 // MARK: - HEADER FLUTTUANTE
 
 struct FloatingHeader: View {
@@ -1046,79 +954,60 @@ struct ContentView: View {
     
     @StateObject private var vm = BettingViewModel()
     @State private var refreshID = UUID()
-    @State private var shouldShowTabBar = true
-    @State private var tabBarVisible = true
-    @State private var lastHideTime = Date()
-    @State private var hideTabBarObserver: NSObjectProtocol?
-    @State private var showTabBarObserver: NSObjectProtocol?
-    
-    private let tabs: [TabItem] = [
-        TabItem(icon: "square.stack.fill", title: "Sport"),
-        TabItem(icon: "arrow.down.circle", title: "Casino"),
-        TabItem(icon: "gearshape", title: "Storico"),
-        TabItem(icon: "magnifyingglass", title: "Profilo")
-    ]
     
     var body: some View {
         NavigationView {
-            ZStack(alignment: .bottom) {
-                Color.black.ignoresSafeArea()
-                
-                ZStack {
-                    VStack(spacing: 0) {
-                        if vm.selectedTab != 1 {
-                            FloatingHeader(
-                                title: vm.selectedTab == 0 ? "Sport" :
-                                       vm.selectedTab == 2 ? "Storico" : "Profilo",
-                                balance: vm.balance,
-                                showSportPicker: $vm.showSportPicker
-                            )
-                        }
-                        
-                        // Contenuto per ogni tab - CON PADDING PER LA TOOLBAR
-                        if vm.selectedTab == 0 {
-                            calendarBarView
-                            
-                            if vm.isLoading {
-                                loadingView
-                            } else {
-                                matchListView
-                                    .padding(.bottom, 100) // AGGIUNTO PADDING BOTTOM
-                            }
-                        } else if vm.selectedTab == 1 {
-                            // Casino - layout speciale FIXATO
-                            CasinoFullView()
-                                .environmentObject(vm)
-                                .edgesIgnoringSafeArea(.bottom) // FIX
-                        } else if vm.selectedTab == 2 {
-                            placedBetsView
-                                .padding(.bottom, 100)
-                        } else if vm.selectedTab == 3 {
-                            ProfileView()
-                                .environmentObject(vm)
-                        } else {
-                            Color.black
-                                .padding(.bottom, 100)
-                        }
-                    }
-                    .id(refreshID)
-
-                    floatingButtonView
-                }
-                
-                if shouldShowTabBar {
-                    TabBar(
-                        tabs: tabs,
-                        selectedTab: $vm.selectedTab
-                    )
-                    .opacity(shouldShowTabBar && tabBarVisible ? 1 : 0)
-                    .offset(y: tabBarVisible ? 0 : 120)
-                    .animation(.spring(response: 0.15, dampingFraction: 0.7), value: tabBarVisible)
-                }
+            #if compiler(>=6.0)
+            if #available(iOS 26.0, tvOS 26.0, *) {
+                tabContainer
+                #if !os(tvOS)
+                .tabBarMinimizeBehavior(.onScrollDown)
+                #endif
+            } else {
+                tabContainer
             }
-            .onPreferenceChange(TabBarVisibilityKey.self) { shouldShowTabBar = $0 }
-            .onAppear { setupNotificationObservers() }
-            .onDisappear { removeNotificationObservers() }
+            #else
+            tabContainer
+            #endif
+        }
+        .navigationBarHidden(true)
+    }
+    
+    private var tabContainer: some View {
+            ZStack {
+                TabView(selection: $vm.selectedTab) {
+                    sportTab
+                        .tag(0)
+                        .tabItem {
+                            Image(systemName: "square.stack.fill")
+                            Text("Sport")
+                        }
+                    
+                    casinoTab
+                        .tag(1)
+                        .tabItem {
+                            Image(systemName: "arrow.down.circle")
+                            Text("Casino")
+                        }
+                    
+                    storicoTab
+                        .tag(2)
+                        .tabItem {
+                            Image(systemName: "gearshape")
+                            Text("Storico")
+                        }
+                    
+                    profiloTab
+                        .tag(3)
+                        .tabItem {
+                            Image(systemName: "magnifyingglass")
+                            Text("Profilo")
+                        }
+                }
+                .tint(.accentCyan)
+                
+                floatingButtonView
+            }
             .sheet(isPresented: $vm.showSheet) {
                 BetSheet(
                     picks: $vm.currentPicks,
@@ -1127,43 +1016,70 @@ struct ContentView: View {
                 ) { stake in vm.confirmSlip(stake: stake) }
             }
             .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
-        }
-        .navigationBarHidden(true)
     }
     
-    private func setupNotificationObservers() {
-        removeNotificationObservers()
-        
-        hideTabBarObserver = NotificationCenter.default.addObserver(
-            forName: .hideTabBar,
-            object: nil,
-            queue: .main
-        ) { _ in
-            lastHideTime = Date()
-            tabBarVisible = false
-        }
-        
-        showTabBarObserver = NotificationCenter.default.addObserver(
-            forName: .showTabBar,
-            object: nil,
-            queue: .main
-        ) { _ in
-            let timeSinceHide = Date().timeIntervalSince(lastHideTime)
-            if timeSinceHide > 0.2 {
-                tabBarVisible = true
+    private var sportTab: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                FloatingHeader(
+                    title: "Sport",
+                    balance: vm.balance,
+                    showSportPicker: $vm.showSportPicker
+                )
+                
+                calendarBarView
+                
+                if vm.isLoading {
+                    loadingView
+                } else {
+                    matchListView
+                        .padding(.bottom, 100)
+                }
             }
+            .id(refreshID)
         }
     }
     
-    private func removeNotificationObservers() {
-        if let hideTabBarObserver {
-            NotificationCenter.default.removeObserver(hideTabBarObserver)
-            self.hideTabBarObserver = nil
+    private var casinoTab: some View {
+        CasinoFullView()
+            .environmentObject(vm)
+            .edgesIgnoringSafeArea(.bottom)
+    }
+    
+    private var storicoTab: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                FloatingHeader(
+                    title: "Storico",
+                    balance: vm.balance,
+                    showSportPicker: $vm.showSportPicker
+                )
+                
+                placedBetsView
+            }
+            .id(refreshID)
         }
-        
-        if let showTabBarObserver {
-            NotificationCenter.default.removeObserver(showTabBarObserver)
-            self.showTabBarObserver = nil
+    }
+    
+    private var profiloTab: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                FloatingHeader(
+                    title: "Profilo",
+                    balance: vm.balance,
+                    showSportPicker: $vm.showSportPicker
+                )
+                
+                ProfileView()
+                    .environmentObject(vm)
+            }
+            .id(refreshID)
         }
     }
     
