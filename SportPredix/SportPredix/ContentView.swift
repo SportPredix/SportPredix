@@ -990,15 +990,22 @@ struct ContentView: View {
                             Text("Casino")
                         }
                     
-                    storicoTab
+                    legaTab
                         .tag(2)
+                        .tabItem {
+                            Image(systemName: "list.number")
+                            Text("Lega")
+                        }
+                    
+                    storicoTab
+                        .tag(3)
                         .tabItem {
                             Image(systemName: "clock.fill")
                             Text("Storico")
                         }
                     
                     profiloTab
-                        .tag(3)
+                        .tag(4)
                         .tabItem {
                             Image(systemName: "person.crop.circle.fill")
                             Text("Profilo")
@@ -1045,6 +1052,23 @@ struct ContentView: View {
         CasinoFullView()
             .environmentObject(vm)
             .edgesIgnoringSafeArea(.bottom)
+    }
+    
+    private var legaTab: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                FloatingHeader(
+                    title: "Lega",
+                    balance: vm.balance,
+                    showSportPicker: $vm.showSportPicker
+                )
+                
+                LeagueLeaderboardView()
+            }
+            .id(refreshID)
+        }
     }
     
     private var storicoTab: some View {
@@ -1344,7 +1368,7 @@ struct ContentView: View {
     // MARK: - FLOATING BUTTON PER SCHEDINE
     private var floatingButtonView: some View {
         Group {
-            if !vm.currentPicks.isEmpty && vm.selectedTab != 3 {
+            if !vm.currentPicks.isEmpty && vm.selectedTab != 4 {
                 VStack {
                     Spacer()
                     HStack {

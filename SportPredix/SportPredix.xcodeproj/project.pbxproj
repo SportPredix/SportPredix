@@ -26,6 +26,7 @@
 		1396CB332F3BC35000B49CB2 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB262F3BC34F00B49CB2 /* AuthManager.swift */; };
 		1396CB342F3BC35000B49CB2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB272F3BC34F00B49CB2 /* ContentView.swift */; };
 		1396CB362F3BC37300B49CB2 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1396CB352F3BC37300B49CB2 /* GoogleService-Info.plist */; };
+		14F9A6AC3B7C1102005D4E01 /* LeagueLeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14F9A6AB3B7C1102005D4E01 /* LeagueLeaderboardView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -46,6 +47,7 @@
 		1396CB262F3BC34F00B49CB2 /* AuthManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		1396CB272F3BC34F00B49CB2 /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		1396CB352F3BC37300B49CB2 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		14F9A6AB3B7C1102005D4E01 /* LeagueLeaderboardView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LeagueLeaderboardView.swift; sourceTree = "<group>"; };
 		13CDB0852F3648D90019F0BE /* SportPredix.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SportPredix.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -88,6 +90,7 @@
 				1396CB272F3BC34F00B49CB2 /* ContentView.swift */,
 				1396CB1D2F3BC34600B49CB2 /* FirebaseManager.swift */,
 				1396CB1B2F3BC34600B49CB2 /* GameView.swift */,
+				14F9A6AB3B7C1102005D4E01 /* LeagueLeaderboardView.swift */,
 				1396CB252F3BC34F00B49CB2 /* MatchDetailsView.swift */,
 				1396CB1F2F3BC34600B49CB2 /* Models.swift */,
 				1396CB232F3BC34900B49CB2 /* OddsService.swift */,
@@ -202,6 +205,7 @@
 				1396CB292F3BC35000B49CB2 /* SlipDetailView.swift in Sources */,
 				1396CB302F3BC35000B49CB2 /* OddsService.swift in Sources */,
 				1396CB342F3BC35000B49CB2 /* ContentView.swift in Sources */,
+				14F9A6AC3B7C1102005D4E01 /* LeagueLeaderboardView.swift in Sources */,
 				1396CB2C2F3BC35000B49CB2 /* Models.swift in Sources */,
 				1396CB322F3BC35000B49CB2 /* MatchDetailsView.swift in Sources */,
 			);
