@@ -210,11 +210,7 @@ final class BettingViewModel: ObservableObject {
     @Published var slips: [BetSlip] = []
     @Published private(set) var promoCodes: [PromoCode] = []
     
-    @Published var dailyMatches: [String: [Match]] = [:] {
-        didSet {
-            evaluateAllSlips()
-        }
-    }
+    @Published var dailyMatches: [String: [Match]] = [:]
     @Published var isLoading = false
     @Published var lastUpdateTime: Date?
     
@@ -274,7 +270,6 @@ final class BettingViewModel: ObservableObject {
                 switch result {
                 case .success(let cloudSlips):
                     self.slips = cloudSlips
-                    self.evaluateAllSlips()
                 case .failure:
                     self.slips = []
                 }
@@ -322,13 +317,9 @@ final class BettingViewModel: ObservableObject {
     }
     
     private func loadMatchesForAllDays() {
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
         let today = Date()
-        guard
-            let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today),
-            let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)
-        else {
-            return
-        }
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
         
         let dates = [yesterday, today, tomorrow]
         let dateKeys = dates.map { keyForDate($0) }
@@ -341,13 +332,9 @@ final class BettingViewModel: ObservableObject {
     }
     
     private func reloadMatchesForAllDays() {
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
         let today = Date()
-        guard
-            let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today),
-            let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)
-        else {
-            return
-        }
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
         
         let dates = [yesterday, today, tomorrow]
         let dateKeys = dates.map { keyForDate($0) }
@@ -376,8 +363,10 @@ final class BettingViewModel: ObservableObject {
         guard selectedSport == "Calcio" else { return }
         
         let todayKey = keyForDate(Date())
-        let lastFetchAge = lastUpdateTime.map { Date().timeIntervalSince($0) } ?? .infinity
-        let shouldFetch = dailyMatches[todayKey] == nil || lastFetchAge > 3600
+        
+        let shouldFetch = dailyMatches[todayKey] == nil ||
+                         lastUpdateTime == nil ||
+                         Date().timeIntervalSince(lastUpdateTime!) > 3600
         
         if shouldFetch {
             fetchMatchesFromBetstack()
@@ -421,7 +410,7 @@ final class BettingViewModel: ObservableObject {
     }
     
     func dateForIndex(_ index: Int) -> Date {
-        Calendar.current.date(byAdding: .day, value: index - 1, to: Date()) ?? Date()
+        Calendar.current.date(byAdding: .day, value: index - 1, to: Date())!
     }
     
     func keyForDate(_ date: Date) -> String {
@@ -468,19 +457,12 @@ final class BettingViewModel: ObservableObject {
         
         for (competition, teams) in competitions {
             for _ in 0..<2 {
-                guard let home = teams.randomElement(),
-                      var away = teams.randomElement() else {
-                    continue
-                }
-                while away == home {
-                    guard let randomAway = teams.randomElement() else { break }
-                    away = randomAway
-                }
+                let home = teams.randomElement()!
+                var away = teams.randomElement()!
+                while away == home { away = teams.randomElement()! }
                 
                 let hour = Int.random(in: 15...21)
-                guard let minute = ["00", "15", "30", "45"].randomElement() else {
-                    continue
-                }
+                let minute = ["00", "15", "30", "45"].randomElement()!
                 let time = "\(hour):\(minute)"
                 
                 let (homeOdd, drawOdd, awayOdd) = generateRealisticOdds(home: home, away: away)
@@ -521,19 +503,12 @@ final class BettingViewModel: ObservableObject {
         
         for (tournament, players) in tournaments {
             for _ in 0..<3 {
-                guard let player1 = players.randomElement(),
-                      var player2 = players.randomElement() else {
-                    continue
-                }
-                while player2 == player1 {
-                    guard let randomPlayer = players.randomElement() else { break }
-                    player2 = randomPlayer
-                }
+                let player1 = players.randomElement()!
+                var player2 = players.randomElement()!
+                while player2 == player1 { player2 = players.randomElement()! }
                 
                 let hour = Int.random(in: 10...22)
-                guard let minute = ["00", "15", "30", "45"].randomElement() else {
-                    continue
-                }
+                let minute = ["00", "15", "30", "45"].randomElement()!
                 let time = "\(hour):\(minute)"
                 
                 let (homeOdd, _, awayOdd) = generateRealisticTennisOdds(player1: player1, player2: player2)
@@ -717,7 +692,7 @@ final class BettingViewModel: ObservableObject {
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
     
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
-        let matchDate = Calendar.current.date(byAdding: .day, value: -(selectedDayIndex - 1), to: Date()) ?? Date()
+        let matchDate = Calendar.current.date(byAdding: .day, value: -(selectedDayIndex - 1), to: Date())!
         if isYesterday(matchDate) {
             return
         }
@@ -763,7 +738,6 @@ final class BettingViewModel: ObservableObject {
         currentPicks.removeAll()
         slips.insert(slip, at: 0)
         saveSlips()
-        evaluateAllSlips()
     }
     
     private func saveSlips() {
@@ -771,119 +745,57 @@ final class BettingViewModel: ObservableObject {
         FirebaseManager.shared.syncBetSlips(userID: userID, slips: slips) { _ in }
     }
     
-    private func matchesByID() -> [UUID: Match] {
-        var lookup: [UUID: Match] = [:]
-        for matches in dailyMatches.values {
-            for match in matches {
-                lookup[match.id] = match
-            }
-        }
-        return lookup
-    }
-
-    private func resolvedMatch(for pick: BetPick, using lookup: [UUID: Match]) -> Match {
-        lookup[pick.match.id] ?? pick.match
-    }
-
-    private func isFinalStatus(_ status: String) -> Bool {
-        let normalized = status.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        return normalized == "FINISHED" || normalized == "FT" || normalized == "COMPLETED"
-    }
-
-    private func pickIsWinning(_ pick: BetPick, match: Match) -> Bool? {
-        switch pick.outcome {
-        case .home, .draw, .away:
-            guard isFinalStatus(match.status), let result = match.result else { return nil }
-            return result == pick.outcome
-        case .homeDraw:
-            guard isFinalStatus(match.status), let result = match.result else { return nil }
-            return result == .home || result == .draw
-        case .homeAway:
-            guard isFinalStatus(match.status), let result = match.result else { return nil }
-            return result == .home || result == .away
-        case .drawAway:
-            guard isFinalStatus(match.status), let result = match.result else { return nil }
-            return result == .draw || result == .away
-        case .over05:
-            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
-            return goals > 0
-        case .under05:
-            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
-            return goals == 0
-        case .over15:
-            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
-            return goals > 1
-        case .under15:
-            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
-            return goals <= 1
-        case .over25:
-            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
-            return goals > 2
-        case .under25:
-            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
-            return goals <= 2
-        case .over35:
-            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
-            return goals > 3
-        case .under35:
-            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
-            return goals <= 3
-        case .over45:
-            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
-            return goals > 4
-        case .under45:
-            guard isFinalStatus(match.status), let goals = match.goals else { return nil }
-            return goals <= 4
-        }
-    }
-
-    func evaluateSlip(_ slip: BetSlip, using lookup: [UUID: Match]) -> BetSlip {
+    func evaluateSlip(_ slip: BetSlip) -> BetSlip {
+        var updatedSlip = slip
+        
         if slip.isEvaluated { return slip }
-
-        var hasPendingPicks = false
-
-        for pick in slip.picks {
-            let latestMatch = resolvedMatch(for: pick, using: lookup)
-            guard let isWinningPick = pickIsWinning(pick, match: latestMatch) else {
-                hasPendingPicks = true
-                continue
-            }
-
-            if !isWinningPick {
-                var lostSlip = slip
-                lostSlip.isWon = false
-                lostSlip.isEvaluated = true
-                return lostSlip
+        
+        let allCorrect = slip.picks.allSatisfy { pick in
+            switch pick.outcome {
+            case .home, .draw, .away:
+                return pick.match.result == pick.outcome
+            case .homeDraw:
+                return pick.match.result == .home || pick.match.result == .draw
+            case .homeAway:
+                return pick.match.result == .home || pick.match.result == .away
+            case .drawAway:
+                return pick.match.result == .draw || pick.match.result == .away
+            case .over05:
+                return (pick.match.goals ?? 0) > 0
+            case .under05:
+                return (pick.match.goals ?? 0) == 0
+            case .over15:
+                return (pick.match.goals ?? 0) > 1
+            case .under15:
+                return (pick.match.goals ?? 0) <= 1
+            case .over25:
+                return (pick.match.goals ?? 0) > 2
+            case .under25:
+                return (pick.match.goals ?? 0) <= 2
+            case .over35:
+                return (pick.match.goals ?? 0) > 3
+            case .under35:
+                return (pick.match.goals ?? 0) <= 3
+            case .over45:
+                return (pick.match.goals ?? 0) > 4
+            case .under45:
+                return (pick.match.goals ?? 0) <= 4
             }
         }
-
-        if hasPendingPicks {
-            return slip
+        
+        updatedSlip.isWon = allCorrect
+        updatedSlip.isEvaluated = true
+        
+        if allCorrect {
+            balance += slip.potentialWin
         }
-
-        var wonSlip = slip
-        wonSlip.isWon = true
-        wonSlip.isEvaluated = true
-        balance += slip.potentialWin
-        return wonSlip
+        
+        return updatedSlip
     }
     
     func evaluateAllSlips() {
-        guard !slips.isEmpty else { return }
-
-        let balanceBeforeEvaluation = balance
-        let slipsBeforeEvaluation = slips
-        let lookup = matchesByID()
-
-        slips = slips.map { evaluateSlip($0, using: lookup) }
-
-        let slipsChanged = zip(slipsBeforeEvaluation, slips).contains { oldSlip, newSlip in
-            oldSlip.isEvaluated != newSlip.isEvaluated || oldSlip.isWon != newSlip.isWon
-        }
-
-        if slipsChanged || balanceBeforeEvaluation != balance {
-            saveSlips()
-        }
+        slips = slips.map { evaluateSlip($0) }
+        saveSlips()
     }
     
     var totalBetsCount: Int {
@@ -1276,7 +1188,7 @@ struct ContentView: View {
                             }
                             .padding(.horizontal, 4)
                             
-                            ForEach(groupedMatches[time] ?? []) { match in
+                            ForEach(groupedMatches[time]!) { match in
                                 NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
                                     matchCardView(match: match, disabled: isYesterday)
                                 }

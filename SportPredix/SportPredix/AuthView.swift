@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AuthView: View {
-    @EnvironmentObject var authManager: AuthManager
+    @StateObject private var authManager = AuthManager.shared
     @State private var isLoginMode = true
     @State private var email = ""
     @State private var password = ""
