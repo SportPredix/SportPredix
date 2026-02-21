@@ -18,6 +18,9 @@ struct FloatingHeader: View {
     let title: String
     let balance: Double
     @Binding var showSportPicker: Bool
+    var showsBalance: Bool = true
+    var trailingSystemImage: String = "gearshape.fill"
+    var trailingAction: (() -> Void)? = nil
     
     var body: some View {
         VStack(spacing: 0) {
@@ -43,6 +46,7 @@ struct FloatingHeader: View {
                 
                 Spacer()
                 
+                if showsBalance {
                 // Saldo con effetto vetro
                 HStack(spacing: 6) {
                     Image(systemName: "eurosign.circle.fill")
@@ -69,6 +73,23 @@ struct FloatingHeader: View {
                                 .blur(radius: 0.5)
                         )
                 )
+                } else if let trailingAction {
+                    Button(action: trailingAction) {
+                        Image(systemName: trailingSystemImage)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.accentCyan)
+                            .padding(10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .stroke(Color.accentCyan.opacity(0.3), lineWidth: 1)
+                                    )
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
@@ -958,6 +979,7 @@ struct ContentView: View {
     
     @StateObject private var vm = BettingViewModel()
     @State private var refreshID = UUID()
+    @State private var showProfileSettings = false
     
     var body: some View {
         NavigationView {
@@ -1027,6 +1049,10 @@ struct ContentView: View {
                 ) { stake in vm.confirmSlip(stake: stake) }
             }
             .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
+            .sheet(isPresented: $showProfileSettings) {
+                ProfileSettingsRootView()
+                    .environmentObject(vm)
+            }
     }
     
     private var sportTab: some View {
@@ -1037,7 +1063,8 @@ struct ContentView: View {
                 FloatingHeader(
                     title: "Sport",
                     balance: vm.balance,
-                    showSportPicker: $vm.showSportPicker
+                    showSportPicker: $vm.showSportPicker,
+                    showsBalance: true
                 )
                 
                 calendarBarView
@@ -1066,7 +1093,8 @@ struct ContentView: View {
                 FloatingHeader(
                     title: "Lega",
                     balance: vm.balance,
-                    showSportPicker: $vm.showSportPicker
+                    showSportPicker: $vm.showSportPicker,
+                    showsBalance: true
                 )
                 
                 LeagueLeaderboardView()
@@ -1083,7 +1111,8 @@ struct ContentView: View {
                 FloatingHeader(
                     title: "Storico",
                     balance: vm.balance,
-                    showSportPicker: $vm.showSportPicker
+                    showSportPicker: $vm.showSportPicker,
+                    showsBalance: true
                 )
                 
                 placedBetsView
@@ -1100,7 +1129,10 @@ struct ContentView: View {
                 FloatingHeader(
                     title: "Profilo",
                     balance: vm.balance,
-                    showSportPicker: $vm.showSportPicker
+                    showSportPicker: $vm.showSportPicker,
+                    showsBalance: false,
+                    trailingSystemImage: "gearshape.fill",
+                    trailingAction: { showProfileSettings = true }
                 )
                 
                 ProfileView()
