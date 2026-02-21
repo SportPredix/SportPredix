@@ -70,6 +70,7 @@ class AuthManager: ObservableObject {
         errorMessage = nil
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedName = trimmedName.isEmpty ? "Utente" : trimmedName
+        let codeLength = accountCodeLength
 
         Auth.auth().createUser(withEmail: email, password: password) { [weak self] result, error in
             if let error = error {
@@ -95,7 +96,7 @@ class AuthManager: ObservableObject {
                 "userID": user.uid,
                 "name": resolvedName,
                 "email": email,
-                "accountCode": String(user.uid.prefix(accountCodeLength)).uppercased(),
+                "accountCode": String(user.uid.prefix(codeLength)).uppercased(),
                 "friends": [],
                 "balance": 1000.0,
                 "createdAt": FieldValue.serverTimestamp(),
