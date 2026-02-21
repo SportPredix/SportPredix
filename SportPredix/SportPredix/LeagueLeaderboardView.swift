@@ -1,10 +1,12 @@
 import SwiftUI
 import FirebaseFirestore
+import UIKit
 
 private struct LeagueEntry: Identifiable {
     let id: String
     let name: String
     let balance: Double
+    let profileImageData: Data?
 }
 
 struct LeagueLeaderboardView: View {
@@ -156,6 +158,8 @@ struct LeagueLeaderboardView: View {
                 .font(.headline.monospacedDigit())
                 .foregroundColor(isCurrentUser ? .accentCyan : rankColor(rank))
                 .frame(width: 42, alignment: .leading)
+
+            profileAvatar(for: entry)
             
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
@@ -199,6 +203,34 @@ struct LeagueLeaderboardView: View {
                 )
         )
     }
+
+    @ViewBuilder
+    private func profileAvatar(for entry: LeagueEntry) -> some View {
+        if let data = entry.profileImageData, let image = UIImage(data: data) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 36, height: 36)
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+        } else {
+            Circle()
+                .fill(Color.accentCyan.opacity(0.25))
+                .frame(width: 36, height: 36)
+                .overlay(
+                    Text(String(entry.name.prefix(1)).uppercased())
+                        .font(.caption.bold())
+                        .foregroundColor(.accentCyan)
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                )
+        }
+    }
     
     private func rankColor(_ rank: Int) -> Color {
         switch rank {
@@ -234,7 +266,13 @@ struct LeagueLeaderboardView: View {
                             .trimmingCharacters(in: .whitespacesAndNewlines)
                         let resolvedName = (trimmedName?.isEmpty == false) ? (trimmedName ?? "Utente") : "Utente"
                         let balance = toDouble(data["balance"]) ?? 0
-                        return LeagueEntry(id: doc.documentID, name: resolvedName, balance: balance)
+                        let profileImageData = imageData(from: data["profileImageBase64"])
+                        return LeagueEntry(
+                            id: doc.documentID,
+                            name: resolvedName,
+                            balance: balance,
+                            profileImageData: profileImageData
+                        )
                     } ?? []
                     
                     self.entries = parsedEntries
@@ -267,5 +305,10 @@ struct LeagueLeaderboardView: View {
         default:
             return nil
         }
+    }
+
+    private func imageData(from raw: Any?) -> Data? {
+        guard let base64 = raw as? String else { return nil }
+        return Data(base64Encoded: base64)
     }
 }
