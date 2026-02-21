@@ -585,6 +585,98 @@ struct ProfileSettingsRootView: View {
 }
 
 struct ProfileSettingsView: View {
+    var body: some View {
+        ZStack {
+            settingsBackground
+
+            ScrollView {
+                VStack(spacing: 16) {
+                    settingsItemCard(icon: "bell.fill", title: "Notifiche") {
+                        ProfileNotificationsView()
+                    }
+
+                    settingsItemCard(icon: "person.crop.circle.badge.pencil", title: "Modifica informazioni personali") {
+                        ProfilePersonalInfoView()
+                    }
+
+                    settingsItemCard(icon: "checkmark.seal.fill", title: "Riscatta Codici") {
+                        ProfileRedeemCodesView()
+                    }
+
+                    settingsItemCard(icon: "paintpalette.fill", title: "Temi") {
+                        ProfileThemesView()
+                    }
+
+                    settingsItemCard(icon: "info.circle.fill", title: "Informazioni") {
+                        ProfileInformationView()
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 32)
+            }
+        }
+        .navigationTitle("Impostazioni")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var settingsBackground: some View {
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.black,
+                    Color(red: 0.06, green: 0.07, blue: 0.1)
+                ]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            RadialGradient(
+                gradient: Gradient(colors: [
+                    Color.accentCyan.opacity(0.25),
+                    Color.clear
+                ]),
+                center: .topTrailing,
+                startRadius: 20,
+                endRadius: 320
+            )
+        }
+        .ignoresSafeArea()
+    }
+
+    private func settingsItemCard<Destination: View>(
+        icon: String,
+        title: String,
+        @ViewBuilder destination: () -> Destination
+    ) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .foregroundColor(.accentCyan)
+
+                Text(title)
+                    .foregroundColor(.white)
+                    .font(.subheadline.bold())
+
+                Spacer()
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.accentCyan.opacity(0.18), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct ProfileNotificationsView: View {
     @EnvironmentObject var vm: BettingViewModel
 
     var body: some View {
@@ -595,51 +687,11 @@ struct ProfileSettingsView: View {
                 VStack(spacing: 16) {
                     sectionCard(title: "Notifiche") {
                         Toggle(isOn: $vm.notificationsEnabled) {
-                            settingsRow(
-                                icon: "bell.fill",
-                                title: "Notifiche"
-                            )
+                            Label("Notifiche", systemImage: "bell.fill")
+                                .foregroundColor(.white)
+                                .font(.subheadline.bold())
                         }
                         .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
-                    }
-
-                    sectionCard(title: "Profilo") {
-                        NavigationLink {
-                            ProfilePersonalInfoView()
-                        } label: {
-                            settingsRow(
-                                icon: "person.crop.circle.badge.pencil",
-                                title: "Modifica informazioni personali",
-                                showsChevron: true
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    sectionCard(title: "Riscatta Codici") {
-                        NavigationLink {
-                            ProfileRedeemCodesView()
-                        } label: {
-                            settingsRow(
-                                icon: "checkmark.seal.fill",
-                                title: "Riscatta Codici",
-                                showsChevron: true
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    sectionCard(title: "Temi") {
-                        NavigationLink {
-                            ProfileThemesView()
-                        } label: {
-                            settingsRow(
-                                icon: "paintpalette.fill",
-                                title: "Temi",
-                                showsChevron: true
-                            )
-                        }
-                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -647,7 +699,7 @@ struct ProfileSettingsView: View {
                 .padding(.bottom, 32)
             }
         }
-        .navigationTitle("Impostazioni")
+        .navigationTitle("Notifiche")
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -693,24 +745,85 @@ struct ProfileSettingsView: View {
                 )
         )
     }
+}
 
-    private func settingsRow(icon: String, title: String, showsChevron: Bool = false) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .foregroundColor(.accentCyan)
+struct ProfileInformationView: View {
+    var body: some View {
+        ZStack {
+            settingsBackground
 
-            Text(title)
-                .foregroundColor(.white)
-                .font(.subheadline.bold())
+            ScrollView {
+                VStack(spacing: 16) {
+                    sectionCard(title: "Crediti") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Formatiks")
+                                .font(.headline)
+                                .foregroundColor(.accentCyan)
 
-            Spacer()
+                            Text("enribocco")
+                                .foregroundColor(.white)
+                                .font(.subheadline)
 
-            if showsChevron {
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundColor(.gray)
+                            Text("cranci")
+                                .foregroundColor(.white)
+                                .font(.subheadline)
+
+                            Text("SuperFico2100")
+                                .foregroundColor(.white)
+                                .font(.subheadline)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 32)
             }
         }
+        .navigationTitle("Informazioni")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var settingsBackground: some View {
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.black,
+                    Color(red: 0.06, green: 0.07, blue: 0.1)
+                ]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            RadialGradient(
+                gradient: Gradient(colors: [
+                    Color.accentCyan.opacity(0.25),
+                    Color.clear
+                ]),
+                center: .topTrailing,
+                startRadius: 20,
+                endRadius: 320
+            )
+        }
+        .ignoresSafeArea()
+    }
+
+    private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.white)
+
+            content()
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.accentCyan.opacity(0.18), lineWidth: 1)
+                )
+        )
     }
 }
 
