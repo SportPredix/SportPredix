@@ -3,6 +3,32 @@ import FirebaseAuth
 import FirebaseFirestore
 import UIKit
 
+enum AddFriendError: LocalizedError {
+    case userNotAuthenticated
+    case invalidAccountCode
+    case userNotFound
+    case cannotAddYourself
+    case alreadyFriend
+    case generic(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .userNotAuthenticated:
+            return "Devi essere autenticato per aggiungere amici."
+        case .invalidAccountCode:
+            return "Codice account non valido."
+        case .userNotFound:
+            return "Nessun utente trovato con questo codice account."
+        case .cannotAddYourself:
+            return "Non puoi aggiungere te stesso."
+        case .alreadyFriend:
+            return "Questo utente e gia tra i tuoi amici."
+        case .generic(let message):
+            return message
+        }
+    }
+}
+
 class AuthManager: ObservableObject {
     @Published var isLoggedIn = false
     @Published var currentUserID: String?
@@ -14,9 +40,15 @@ class AuthManager: ObservableObject {
 
     static let shared = AuthManager()
     private let maxProfileImageBytes = 180_000
+    private let accountCodeLength = 8
 
     private init() {
         checkAuthStatus()
+    }
+
+    var currentUserAccountCode: String {
+        guard let currentUserID else { return "N/A" }
+        return String(currentUserID.prefix(accountCodeLength)).uppercased()
     }
 
     // MARK: - Check auth status
@@ -63,6 +95,8 @@ class AuthManager: ObservableObject {
                 "userID": user.uid,
                 "name": resolvedName,
                 "email": email,
+                "accountCode": String(user.uid.prefix(accountCodeLength)).uppercased(),
+                "friends": [],
                 "balance": 1000.0,
                 "createdAt": FieldValue.serverTimestamp(),
                 "lastUpdated": FieldValue.serverTimestamp()
@@ -147,6 +181,14 @@ class AuthManager: ObservableObject {
                     self.currentUserName = trimmed.isEmpty ? "Utente" : trimmed
                 } else if self.currentUserName?.isEmpty ?? true {
                     self.currentUserName = "Utente"
+                }
+
+                let resolvedCode = self.resolvedAccountCode(from: userID, storedCode: data["accountCode"] as? String)
+                if data["accountCode"] == nil {
+                    Firestore.firestore().collection("users").document(userID).setData([
+                        "accountCode": resolvedCode,
+                        "lastUpdated": FieldValue.serverTimestamp()
+                    ], merge: true)
                 }
 
                 if let base64 = data["profileImageBase64"] as? String,
@@ -262,6 +304,92 @@ class AuthManager: ObservableObject {
         }
     }
 
+    // MARK: - Add friend by account code
+    func addFriend(byAccountCode rawCode: String, completion: @escaping (Result<String, AddFriendError>) -> Void) {
+        guard let currentUserID = currentUserID else {
+            errorMessage = AddFriendError.userNotAuthenticated.localizedDescription
+            completion(.failure(.userNotAuthenticated))
+            return
+        }
+
+        let normalizedCode = rawCode
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+
+        guard normalizedCode.count == accountCodeLength else {
+            errorMessage = AddFriendError.invalidAccountCode.localizedDescription
+            completion(.failure(.invalidAccountCode))
+            return
+        }
+
+        findUserByAccountCode(normalizedCode) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+
+                switch result {
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                    completion(.failure(error))
+                case .success(let match):
+                    let friendID = match.id
+                    let friendName = match.name
+
+                    if friendID == currentUserID {
+                        self.errorMessage = AddFriendError.cannotAddYourself.localizedDescription
+                        completion(.failure(.cannotAddYourself))
+                        return
+                    }
+
+                    let db = Firestore.firestore()
+                    let currentUserRef = db.collection("users").document(currentUserID)
+                    let friendUserRef = db.collection("users").document(friendID)
+
+                    currentUserRef.getDocument { snapshot, error in
+                        DispatchQueue.main.async {
+                            if let error = error {
+                                let resolved = AddFriendError.generic(error.localizedDescription)
+                                self.errorMessage = resolved.localizedDescription
+                                completion(.failure(resolved))
+                                return
+                            }
+
+                            let currentFriends = (snapshot?.data()?["friends"] as? [String]) ?? []
+                            if currentFriends.contains(friendID) {
+                                self.errorMessage = AddFriendError.alreadyFriend.localizedDescription
+                                completion(.failure(.alreadyFriend))
+                                return
+                            }
+
+                            let batch = db.batch()
+                            batch.setData([
+                                "friends": FieldValue.arrayUnion([friendID]),
+                                "lastUpdated": FieldValue.serverTimestamp()
+                            ], forDocument: currentUserRef, merge: true)
+                            batch.setData([
+                                "friends": FieldValue.arrayUnion([currentUserID]),
+                                "lastUpdated": FieldValue.serverTimestamp()
+                            ], forDocument: friendUserRef, merge: true)
+
+                            batch.commit { error in
+                                DispatchQueue.main.async {
+                                    if let error = error {
+                                        let resolved = AddFriendError.generic(error.localizedDescription)
+                                        self.errorMessage = resolved.localizedDescription
+                                        completion(.failure(resolved))
+                                        return
+                                    }
+
+                                    self.errorMessage = nil
+                                    completion(.success(friendName))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Logout
     func logout() {
         do {
@@ -279,6 +407,66 @@ class AuthManager: ObservableObject {
         currentUserName = nil
         currentUserProfileImageData = nil
         errorMessage = nil
+    }
+
+    private func findUserByAccountCode(_ code: String, completion: @escaping (Result<(id: String, name: String), AddFriendError>) -> Void) {
+        let usersRef = Firestore.firestore().collection("users")
+
+        usersRef
+            .whereField("accountCode", isEqualTo: code)
+            .limit(to: 1)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    completion(.failure(.generic(error.localizedDescription)))
+                    return
+                }
+
+                if let firstDoc = snapshot?.documents.first {
+                    let name = self.resolvedName(from: firstDoc.data())
+                    completion(.success((id: firstDoc.documentID, name: name)))
+                    return
+                }
+
+                usersRef
+                    .limit(to: 500)
+                    .getDocuments { snapshot, error in
+                        if let error = error {
+                            completion(.failure(.generic(error.localizedDescription)))
+                            return
+                        }
+
+                        guard let match = (snapshot?.documents ?? []).first(where: { doc in
+                            String(doc.documentID.prefix(self.accountCodeLength)).uppercased() == code
+                        }) else {
+                            completion(.failure(.userNotFound))
+                            return
+                        }
+
+                        let name = self.resolvedName(from: match.data())
+                        usersRef.document(match.documentID).setData([
+                            "accountCode": code,
+                            "lastUpdated": FieldValue.serverTimestamp()
+                        ], merge: true)
+
+                        completion(.success((id: match.documentID, name: name)))
+                    }
+            }
+    }
+
+    private func resolvedName(from data: [String: Any]) -> String {
+        let trimmedName = (data["name"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return (trimmedName?.isEmpty == false) ? (trimmedName ?? "Utente") : "Utente"
+    }
+
+    private func resolvedAccountCode(from userID: String, storedCode: String?) -> String {
+        if let storedCode {
+            let trimmed = storedCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            if trimmed.count == accountCodeLength {
+                return trimmed
+            }
+        }
+        return String(userID.prefix(accountCodeLength)).uppercased()
     }
 
     private func prepareProfileImageData(from data: Data) -> Data? {

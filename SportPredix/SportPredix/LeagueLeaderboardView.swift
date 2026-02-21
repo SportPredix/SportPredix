@@ -1,4 +1,4 @@
-import SwiftUI
+﻿import SwiftUI
 import FirebaseFirestore
 import UIKit
 
@@ -9,89 +9,135 @@ private struct LeagueEntry: Identifiable {
     let profileImageData: Data?
 }
 
+private enum LeaderboardScope: String, CaseIterable, Identifiable {
+    case global = "Globale"
+    case friends = "Amici"
+
+    var id: String { rawValue }
+
+    var emptyTitle: String {
+        switch self {
+        case .global:
+            return "Nessun utente in classifica"
+        case .friends:
+            return "Nessun amico in classifica"
+        }
+    }
+
+    var emptySubtitle: String {
+        switch self {
+        case .global:
+            return "La classifica si popola quando ci sono utenti con saldo salvato su Firebase."
+        case .friends:
+            return "Aggiungi amici dalla pagina profilo per vedere la classifica dedicata."
+        }
+    }
+}
+
 struct LeagueLeaderboardView: View {
     @EnvironmentObject private var authManager: AuthManager
     @State private var entries: [LeagueEntry] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
-    
-    var body: some View {
-        Group {
-            if isLoading {
-                VStack(spacing: 10) {
-                    ProgressView()
-                        .tint(.accentCyan)
-                    Text("Caricamento classifica...")
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let errorMessage {
-                VStack(spacing: 12) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 34))
-                        .foregroundColor(.orange)
-                    Text(errorMessage)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
-                    Button("Riprova") {
-                        fetchLeaderboard()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.accentCyan)
-                }
-                .padding(.horizontal, 24)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if entries.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "person.3.fill")
-                        .font(.system(size: 34))
-                        .foregroundColor(.accentCyan)
-                    Text("Nessun utente in classifica")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                    Text("La classifica si popola quando ci sono utenti con saldo salvato su Firebase.")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 10) {
-                        if let rank = currentUserRank, let entry = currentUserEntry {
-                            userRankCard(rank: rank, totalUsers: entries.count, balance: entry.balance)
-                        } else if authManager.currentUserID != nil {
-                            userNotRankedCard
-                        }
+    @State private var selectedScope: LeaderboardScope = .global
 
-                        ForEach(entries.indices, id: \.self) { index in
-                            let entry = entries[index]
-                            leagueRow(
-                                rank: index + 1,
-                                entry: entry,
-                                isCurrentUser: entry.id == authManager.currentUserID
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 14)
-                    .padding(.bottom, 120)
-                }
-                .refreshable {
-                    await refreshLeaderboard()
-                }
-            }
+    var body: some View {
+        VStack(spacing: 10) {
+            scopePicker
+            contentView
         }
         .onAppear {
             if entries.isEmpty {
-                fetchLeaderboard()
+                fetchLeaderboard(for: selectedScope)
+            }
+        }
+        .onChange(of: selectedScope) { _, newScope in
+            fetchLeaderboard(for: newScope)
+        }
+    }
+
+    private var scopePicker: some View {
+        Picker("Classifica", selection: $selectedScope) {
+            ForEach(LeaderboardScope.allCases) { scope in
+                Text(scope.rawValue).tag(scope)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+    }
+
+    @ViewBuilder
+    private var contentView: some View {
+        if isLoading {
+            VStack(spacing: 10) {
+                ProgressView()
+                    .tint(.accentCyan)
+                Text("Caricamento classifica...")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let errorMessage {
+            VStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 34))
+                    .foregroundColor(.orange)
+                Text(errorMessage)
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                Button("Riprova") {
+                    fetchLeaderboard(for: selectedScope)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.accentCyan)
+            }
+            .padding(.horizontal, 24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if entries.isEmpty {
+            VStack(spacing: 10) {
+                Image(systemName: selectedScope == .global ? "person.3.fill" : "person.2.fill")
+                    .font(.system(size: 34))
+                    .foregroundColor(.accentCyan)
+                Text(selectedScope.emptyTitle)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Text(selectedScope.emptySubtitle)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 10) {
+                    if let rank = currentUserRank, let entry = currentUserEntry {
+                        userRankCard(rank: rank, totalUsers: entries.count, balance: entry.balance)
+                    } else if authManager.currentUserID != nil {
+                        userNotRankedCard
+                    }
+
+                    ForEach(entries.indices, id: \.self) { index in
+                        let entry = entries[index]
+                        leagueRow(
+                            rank: index + 1,
+                            entry: entry,
+                            isCurrentUser: entry.id == authManager.currentUserID
+                        )
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 120)
+            }
+            .refreshable {
+                await refreshLeaderboard()
             }
         }
     }
-    
+
     private var currentUserRank: Int? {
         guard let currentUserID = authManager.currentUserID else { return nil }
         guard let index = entries.firstIndex(where: { $0.id == currentUserID }) else { return nil }
@@ -115,7 +161,7 @@ struct LeagueLeaderboardView: View {
                     .foregroundColor(.accentCyan)
             }
 
-            Text("Saldo: \(balance.formatted(.currency(code: "EUR").locale(Locale(identifier: "it_IT")))) - \(totalUsers) utenti")
+            Text("Saldo: \(compactBalance(balance)) - \(totalUsers) utenti")
                 .font(.caption)
                 .foregroundColor(.gray)
         }
@@ -135,7 +181,7 @@ struct LeagueLeaderboardView: View {
         HStack(spacing: 8) {
             Image(systemName: "info.circle")
                 .foregroundColor(.orange)
-            Text("Il tuo profilo non e ancora presente in classifica.")
+            Text("Il tuo profilo non e ancora presente in questa classifica.")
                 .font(.caption)
                 .foregroundColor(.gray)
         }
@@ -160,7 +206,7 @@ struct LeagueLeaderboardView: View {
                 .frame(width: 42, alignment: .leading)
 
             profileAvatar(for: entry)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(entry.name)
@@ -182,10 +228,10 @@ struct LeagueLeaderboardView: View {
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundColor(.gray)
             }
-            
+
             Spacer()
-            
-            Text(entry.balance.formatted(.currency(code: "EUR").locale(Locale(identifier: "it_IT"))))
+
+            Text(compactBalance(entry.balance))
                 .font(.subheadline.bold())
                 .foregroundColor(.accentCyan)
         }
@@ -231,7 +277,7 @@ struct LeagueLeaderboardView: View {
                 )
         }
     }
-    
+
     private func rankColor(_ rank: Int) -> Color {
         switch rank {
         case 1: return .yellow
@@ -240,13 +286,22 @@ struct LeagueLeaderboardView: View {
         default: return .accentCyan
         }
     }
-    
-    private func fetchLeaderboard(showFullScreenLoader: Bool = true, completion: (() -> Void)? = nil) {
+
+    private func fetchLeaderboard(for scope: LeaderboardScope, showFullScreenLoader: Bool = true, completion: (() -> Void)? = nil) {
         if showFullScreenLoader {
             isLoading = true
         }
         errorMessage = nil
-        
+
+        switch scope {
+        case .global:
+            fetchGlobalLeaderboard(completion: completion)
+        case .friends:
+            fetchFriendsLeaderboard(completion: completion)
+        }
+    }
+
+    private func fetchGlobalLeaderboard(completion: (() -> Void)?) {
         Firestore.firestore()
             .collection("users")
             .order(by: "balance", descending: true)
@@ -259,22 +314,10 @@ struct LeagueLeaderboardView: View {
                         completion?()
                         return
                     }
-                    
-                    let parsedEntries: [LeagueEntry] = snapshot?.documents.compactMap { doc in
-                        let data = doc.data()
-                        let trimmedName = (data["name"] as? String)?
-                            .trimmingCharacters(in: .whitespacesAndNewlines)
-                        let resolvedName = (trimmedName?.isEmpty == false) ? (trimmedName ?? "Utente") : "Utente"
-                        let balance = toDouble(data["balance"]) ?? 0
-                        let profileImageData = imageData(from: data["profileImageBase64"])
-                        return LeagueEntry(
-                            id: doc.documentID,
-                            name: resolvedName,
-                            balance: balance,
-                            profileImageData: profileImageData
-                        )
-                    } ?? []
-                    
+
+                    let parsedEntries = (snapshot?.documents ?? []).compactMap(self.makeEntry(from:))
+                        .sorted(by: { $0.balance > $1.balance })
+
                     self.entries = parsedEntries
                     self.isLoading = false
                     completion?()
@@ -282,14 +325,116 @@ struct LeagueLeaderboardView: View {
             }
     }
 
+    private func fetchFriendsLeaderboard(completion: (() -> Void)?) {
+        guard let currentUserID = authManager.currentUserID else {
+            entries = []
+            isLoading = false
+            completion?()
+            return
+        }
+
+        let usersRef = Firestore.firestore().collection("users")
+        usersRef.document(currentUserID).getDocument { snapshot, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self.errorMessage = "Errore nel caricamento amici: \(error.localizedDescription)"
+                    self.isLoading = false
+                    completion?()
+                    return
+                }
+
+                let data = snapshot?.data() ?? [:]
+                let friendIDs = self.friendIDs(from: data)
+                let idsToLoad = Array(Set(friendIDs + [currentUserID]))
+
+                if idsToLoad.isEmpty {
+                    self.entries = []
+                    self.isLoading = false
+                    completion?()
+                    return
+                }
+
+                self.fetchUsers(byIDs: idsToLoad) { result in
+                    DispatchQueue.main.async {
+                        switch result {
+                        case .success(let loadedEntries):
+                            self.entries = loadedEntries.sorted(by: { $0.balance > $1.balance })
+                        case .failure(let error):
+                            self.errorMessage = "Errore nel caricamento classifica amici: \(error.localizedDescription)"
+                        }
+
+                        self.isLoading = false
+                        completion?()
+                    }
+                }
+            }
+        }
+    }
+
+    private func fetchUsers(byIDs ids: [String], completion: @escaping (Result<[LeagueEntry], Error>) -> Void) {
+        let chunks = ids.chunked(into: 10)
+        fetchUsersChunked(chunks, index: 0, accumulated: [], completion: completion)
+    }
+
+    private func fetchUsersChunked(
+        _ chunks: [[String]],
+        index: Int,
+        accumulated: [LeagueEntry],
+        completion: @escaping (Result<[LeagueEntry], Error>) -> Void
+    ) {
+        guard index < chunks.count else {
+            completion(.success(accumulated))
+            return
+        }
+
+        let currentChunk = chunks[index]
+        guard !currentChunk.isEmpty else {
+            fetchUsersChunked(chunks, index: index + 1, accumulated: accumulated, completion: completion)
+            return
+        }
+
+        Firestore.firestore()
+            .collection("users")
+            .whereField(FieldPath.documentID(), in: currentChunk)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    completion(.failure(error))
+                    return
+                }
+
+                let newEntries = (snapshot?.documents ?? []).compactMap(self.makeEntry(from:))
+                fetchUsersChunked(
+                    chunks,
+                    index: index + 1,
+                    accumulated: accumulated + newEntries,
+                    completion: completion
+                )
+            }
+    }
+
+    private func makeEntry(from doc: QueryDocumentSnapshot) -> LeagueEntry? {
+        let data = doc.data()
+        let trimmedName = (data["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedName = (trimmedName?.isEmpty == false) ? (trimmedName ?? "Utente") : "Utente"
+        let balance = toDouble(data["balance"]) ?? 0
+        let profileImageData = imageData(from: data["profileImageBase64"])
+
+        return LeagueEntry(
+            id: doc.documentID,
+            name: resolvedName,
+            balance: balance,
+            profileImageData: profileImageData
+        )
+    }
+
     private func refreshLeaderboard() async {
         await withCheckedContinuation { continuation in
-            fetchLeaderboard(showFullScreenLoader: false) {
+            fetchLeaderboard(for: selectedScope, showFullScreenLoader: false) {
                 continuation.resume()
             }
         }
     }
-    
+
     private func toDouble(_ raw: Any?) -> Double? {
         switch raw {
         case let value as Double:
@@ -310,5 +455,66 @@ struct LeagueLeaderboardView: View {
     private func imageData(from raw: Any?) -> Data? {
         guard let base64 = raw as? String else { return nil }
         return Data(base64Encoded: base64)
+    }
+
+    private func friendIDs(from data: [String: Any]) -> [String] {
+        let candidateKeys = ["friends", "friendIDs", "friendsIDs", "friendIds", "amici"]
+
+        for key in candidateKeys {
+            if let ids = data[key] as? [String] {
+                return ids
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+            }
+
+            if let ids = data[key] as? [Any] {
+                return ids
+                    .compactMap { ($0 as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+            }
+        }
+
+        return []
+    }
+
+    private func compactBalance(_ value: Double) -> String {
+        let absoluteValue = abs(value)
+        let prefix = value < 0 ? "-" : ""
+
+        if absoluteValue >= 1_000_000_000 {
+            return "\(prefix)\(shortValue(absoluteValue / 1_000_000_000))B"
+        }
+        if absoluteValue >= 1_000_000 {
+            return "\(prefix)\(shortValue(absoluteValue / 1_000_000))M"
+        }
+        if absoluteValue >= 1_000 {
+            return "\(prefix)\(shortValue(absoluteValue / 1_000))K"
+        }
+
+        return "\(prefix)\(Int(absoluteValue.rounded()))"
+    }
+
+    private func shortValue(_ value: Double) -> String {
+        let rounded = (value * 10).rounded() / 10
+        if rounded.truncatingRemainder(dividingBy: 1) == 0 {
+            return "\(Int(rounded))"
+        }
+        return String(format: "%.1f", rounded)
+    }
+}
+
+private extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        guard size > 0 else { return [self] }
+        var chunks: [[Element]] = []
+        var index = startIndex
+
+        while index < endIndex {
+            let end = self.index(index, offsetBy: size, limitedBy: endIndex) ?? endIndex
+            chunks.append(Array(self[index..<end]))
+            index = end
+        }
+
+        return chunks
     }
 }

@@ -23,6 +23,11 @@ struct ProfileView: View {
     @State private var photoFeedbackColor: Color = .gray
     @State private var isSavingPhoto = false
 
+    @State private var friendCodeInput = ""
+    @State private var friendFeedback: String?
+    @State private var friendFeedbackColor: Color = .gray
+    @State private var isAddingFriend = false
+
     var body: some View {
         ZStack {
             background
@@ -33,6 +38,7 @@ struct ProfileView: View {
                     profileEditorCard
                     statsRow
                     accountCard
+                    addFriendCard
                     settingsCard
                     redeemCodeCard
                     logoutButton
@@ -265,10 +271,69 @@ struct ProfileView: View {
 
             accountRow(
                 icon: "person.crop.square.fill",
-                label: "ID Utente",
-                value: authManager.currentUserID?.prefix(8).uppercased() ?? "N/A",
+                label: "Codice Account",
+                value: authManager.currentUserAccountCode,
                 valueColor: .accentCyan
             )
+        }
+    }
+
+    private var addFriendCard: some View {
+        sectionCard(title: "Aggiungi Amico") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Inserisci il codice account del tuo amico (8 caratteri).")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+
+                TextField("Codice account", text: $friendCodeInput)
+                    .textInputAutocapitalization(.characters)
+                    .disableAutocorrection(true)
+                    .padding(.horizontal, 12)
+                    .frame(height: 44)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.white.opacity(0.05))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            )
+                    )
+                    .foregroundColor(.white)
+                    .onChange(of: friendCodeInput) { _, newValue in
+                        let cleaned = newValue
+                            .uppercased()
+                            .filter { $0.isLetter || $0.isNumber }
+                        if cleaned.count > 8 {
+                            friendCodeInput = String(cleaned.prefix(8))
+                        } else if cleaned != newValue {
+                            friendCodeInput = cleaned
+                        }
+                    }
+
+                Button(action: addFriendByCode) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "person.badge.plus.fill")
+                        Text("Aggiungi amico")
+                            .font(.subheadline.bold())
+                    }
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.accentCyan)
+                    )
+                }
+                .disabled(friendCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isAddingFriend)
+                .opacity(friendCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isAddingFriend ? 0.5 : 1.0)
+
+                if let friendFeedback {
+                    Text(friendFeedback)
+                        .font(.caption)
+                        .foregroundColor(friendFeedbackColor)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
         }
     }
 
@@ -530,6 +595,36 @@ struct ProfileView: View {
             } else {
                 photoFeedback = authManager.errorMessage ?? "Errore durante la rimozione della foto."
                 photoFeedbackColor = .red
+            }
+        }
+    }
+
+    private func addFriendByCode() {
+        let normalizedCode = friendCodeInput
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+
+        guard !normalizedCode.isEmpty else {
+            friendFeedback = "Inserisci un codice account."
+            friendFeedbackColor = .orange
+            return
+        }
+
+        isAddingFriend = true
+        friendFeedback = "Aggiunta amico in corso..."
+        friendFeedbackColor = .gray
+
+        authManager.addFriend(byAccountCode: normalizedCode) { result in
+            isAddingFriend = false
+
+            switch result {
+            case .success(let friendName):
+                friendFeedback = "\(friendName) aggiunto ai tuoi amici."
+                friendFeedbackColor = .green
+                friendCodeInput = ""
+            case .failure(let error):
+                friendFeedback = error.localizedDescription
+                friendFeedbackColor = .red
             }
         }
     }
