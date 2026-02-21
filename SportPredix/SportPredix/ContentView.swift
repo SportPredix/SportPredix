@@ -846,7 +846,11 @@ final class BettingViewModel: ObservableObject {
                     case .failure(let error):
                         switch error {
                         case .limitReached:
-                            completion(.limitReached(maxUses: promoCode.maxUses))
+                            if promoCode.maxUses == 1 {
+                                completion(.alreadyRedeemed)
+                            } else {
+                                completion(.limitReached(maxUses: promoCode.maxUses))
+                            }
                         case .invalidConfiguration:
                             completion(.invalidCode)
                         case .generic:

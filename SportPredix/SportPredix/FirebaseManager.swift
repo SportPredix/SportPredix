@@ -100,7 +100,7 @@ class FirebaseManager: ObservableObject {
         }
     }
 
-    // MARK: - Registra utilizzo codice promo (con limite globale e uso singolo per utente)
+    // MARK: - Registra utilizzo codice promo (limite per utente, non globale)
     func registerPromoCodeUsage(
         userID: String,
         code: String,
@@ -123,10 +123,10 @@ class FirebaseManager: ObservableObject {
         
         db.runTransaction({ transaction, errorPointer in
             do {
-                let promoCodeSnapshot = try transaction.getDocument(promoCodeRef)
-                let currentUsedCount = Self.intValue(from: promoCodeSnapshot.data()?["usedCount"]) ?? 0
-                
-                if currentUsedCount >= maxUses {
+                let userRedemptionSnapshot = try transaction.getDocument(userRedemptionRef)
+                let previousUserRedemptions = Self.intValue(from: userRedemptionSnapshot.data()?["redemptionCount"]) ?? 0
+
+                if previousUserRedemptions >= maxUses {
                     errorPointer?.pointee = NSError(
                         domain: self.promoCodeErrorDomain,
                         code: limitReachedCode,
@@ -134,11 +134,15 @@ class FirebaseManager: ObservableObject {
                     )
                     return nil
                 }
-                
+
+                let promoCodeSnapshot = try transaction.getDocument(promoCodeRef)
+                let currentUsedCount = Self.intValue(from: promoCodeSnapshot.data()?["usedCount"]) ?? 0
+
                 var promoData: [String: Any] = [
                     "code": normalizedCode,
                     "usedCount": currentUsedCount + 1,
                     "maxUses": maxUses,
+                    "maxUsesPerUser": maxUses,
                     "lastBonus": bonus,
                     "lastUpdated": FieldValue.serverTimestamp()
                 ]
@@ -149,9 +153,7 @@ class FirebaseManager: ObservableObject {
                 let userSnapshot = try transaction.getDocument(userRef)
                 let currentBalance = Self.doubleValue(from: userSnapshot.data()?["balance"]) ?? 1000
                 let newBalance = currentBalance + bonus
-                
-                let userRedemptionSnapshot = try transaction.getDocument(userRedemptionRef)
-                let previousUserRedemptions = Self.intValue(from: userRedemptionSnapshot.data()?["redemptionCount"]) ?? 0
+
                 let newUserRedemptions = previousUserRedemptions + 1
                 
                 transaction.setData(promoData, forDocument: promoCodeRef, merge: true)
