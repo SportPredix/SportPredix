@@ -1,4 +1,6 @@
-import SwiftUI
+﻿import SwiftUI
+import PhotosUI
+import UIKit
 
 struct ProfileView: View {
     @EnvironmentObject var authManager: AuthManager
@@ -10,14 +12,25 @@ struct ProfileView: View {
     @State private var promoFeedbackColor: Color = .gray
     @State private var redeemedCodeLabel = ""
     @State private var redeemedBonusLabel = ""
-    
+
+    @State private var editableUserName = ""
+    @State private var userNameFeedback: String?
+    @State private var userNameFeedbackColor: Color = .gray
+    @State private var isSavingUserName = false
+
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var photoFeedback: String?
+    @State private var photoFeedbackColor: Color = .gray
+    @State private var isSavingPhoto = false
+
     var body: some View {
         ZStack {
             background
-            
+
             ScrollView {
                 VStack(spacing: 20) {
                     userCard
+                    profileEditorCard
                     statsRow
                     accountCard
                     settingsCard
@@ -32,11 +45,11 @@ struct ProfileView: View {
             .safeAreaInset(edge: .bottom) {
                 Color.clear.frame(height: 130)
             }
-            
+
             if showRedeemPopup {
                 Color.black.opacity(0.55)
                     .ignoresSafeArea()
-                
+
                 redeemPopup
                     .padding(.horizontal, 28)
                     .transition(.scale.combined(with: .opacity))
@@ -51,8 +64,25 @@ struct ProfileView: View {
             Text("Sei sicuro di voler uscire?")
         }
         .animation(.easeInOut(duration: 0.2), value: showRedeemPopup)
+        .onAppear {
+            if editableUserName.isEmpty {
+                editableUserName = authManager.currentUserName ?? ""
+            }
+        }
+        .onChange(of: authManager.currentUserName) { _, newValue in
+            let incomingName = newValue ?? ""
+            if !isSavingUserName && editableUserName != incomingName {
+                editableUserName = incomingName
+            }
+        }
+        .onChange(of: selectedPhotoItem) { _, newItem in
+            guard let newItem else { return }
+            Task {
+                await handlePhotoSelection(item: newItem)
+            }
+        }
     }
-    
+
     private var background: some View {
         ZStack {
             LinearGradient(
@@ -63,7 +93,7 @@ struct ProfileView: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
-            
+
             RadialGradient(
                 gradient: Gradient(colors: [
                     Color.accentCyan.opacity(0.25),
@@ -76,42 +106,145 @@ struct ProfileView: View {
         }
         .ignoresSafeArea()
     }
-    
+
     private var userCard: some View {
         VStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color.accentCyan,
-                                Color.blue.opacity(0.7)
-                            ]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+            if let profileImage = profileUIImage {
+                Image(uiImage: profileImage)
+                    .resizable()
+                    .scaledToFill()
                     .frame(width: 84, height: 84)
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(Color.accentCyan.opacity(0.7), lineWidth: 2)
+                    )
                     .shadow(color: Color.accentCyan.opacity(0.35), radius: 12, x: 0, y: 6)
-                
-                Text(String(authManager.currentUserName?.prefix(1) ?? "U").uppercased())
-                    .font(.system(size: 34, weight: .bold))
-                    .foregroundColor(.black)
+            } else {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color.accentCyan,
+                                    Color.blue.opacity(0.7)
+                                ]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 84, height: 84)
+                        .shadow(color: Color.accentCyan.opacity(0.35), radius: 12, x: 0, y: 6)
+
+                    Text(String(authManager.currentUserName?.prefix(1) ?? "U").uppercased())
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundColor(.black)
+                }
             }
-            
+
             Text(authManager.currentUserName ?? "Utente")
                 .font(.title3.bold())
                 .foregroundColor(.white)
-            
+
             Text(authManager.currentUserEmail ?? "Email non disponibile")
                 .font(.caption)
                 .foregroundColor(.gray)
+
+            HStack(spacing: 10) {
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "photo")
+                        Text(profileUIImage == nil ? "Aggiungi foto" : "Cambia foto")
+                            .font(.subheadline.bold())
+                    }
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 14)
+                    .frame(height: 40)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.accentCyan)
+                    )
+                }
+                .disabled(isSavingPhoto)
+                .opacity(isSavingPhoto ? 0.6 : 1)
+
+                if profileUIImage != nil {
+                    Button(action: removeProfilePhoto) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash")
+                            Text("Elimina")
+                                .font(.subheadline.bold())
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .frame(height: 40)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.red.opacity(0.85))
+                        )
+                    }
+                    .disabled(isSavingPhoto)
+                    .opacity(isSavingPhoto ? 0.6 : 1)
+                }
+            }
+
+            if let photoFeedback {
+                Text(photoFeedback)
+                    .font(.caption)
+                    .foregroundColor(photoFeedbackColor)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 22)
         .background(glassCard(cornerRadius: 18))
     }
-    
+
+    private var profileEditorCard: some View {
+        sectionCard(title: "Profilo") {
+            VStack(alignment: .leading, spacing: 12) {
+                TextField("Nome utente", text: $editableUserName)
+                    .textInputAutocapitalization(.words)
+                    .disableAutocorrection(true)
+                    .padding(.horizontal, 12)
+                    .frame(height: 44)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.white.opacity(0.05))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            )
+                    )
+                    .foregroundColor(.white)
+
+                Button(action: saveUserName) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.and.pencil")
+                        Text("Salva nome utente")
+                            .font(.subheadline.bold())
+                    }
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.accentCyan)
+                    )
+                }
+                .disabled(!canSaveUserName || isSavingUserName)
+                .opacity((!canSaveUserName || isSavingUserName) ? 0.5 : 1.0)
+
+                if let userNameFeedback {
+                    Text(userNameFeedback)
+                        .font(.caption)
+                        .foregroundColor(userNameFeedbackColor)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
     private var statsRow: some View {
         HStack(spacing: 12) {
             statCard(title: "Puntate", value: "\(vm.totalBetsCount)", color: .accentCyan)
@@ -119,7 +252,7 @@ struct ProfileView: View {
             statCard(title: "Perse", value: "\(vm.totalLosses)", color: .red)
         }
     }
-    
+
     private var accountCard: some View {
         sectionCard(title: "Account") {
             accountRow(
@@ -127,9 +260,9 @@ struct ProfileView: View {
                 label: "Email",
                 value: authManager.currentUserEmail ?? "N/A"
             )
-            
+
             Divider().background(Color.white.opacity(0.08))
-            
+
             accountRow(
                 icon: "person.crop.square.fill",
                 label: "ID Utente",
@@ -138,7 +271,7 @@ struct ProfileView: View {
             )
         }
     }
-    
+
     private var settingsCard: some View {
         sectionCard(title: "Impostazioni") {
             Toggle(isOn: $vm.notificationsEnabled) {
@@ -156,9 +289,9 @@ struct ProfileView: View {
                 }
             }
             .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
-            
+
             Divider().background(Color.white.opacity(0.08))
-            
+
             Toggle(isOn: $vm.privacyEnabled) {
                 HStack(spacing: 10) {
                     Image(systemName: "lock.shield.fill")
@@ -224,7 +357,7 @@ struct ProfileView: View {
             }
         }
     }
-    
+
     private var logoutButton: some View {
         Button(action: { showLogoutAlert = true }) {
             HStack(spacing: 10) {
@@ -250,13 +383,13 @@ struct ProfileView: View {
         }
         .padding(.top, 6)
     }
-    
+
     private var footer: some View {
         VStack(spacing: 6) {
             Text("SportPredix v1.0")
                 .font(.caption)
                 .foregroundColor(.gray)
-            
+
             Text("Copyright 2026 SportPredix. All rights reserved.")
                 .font(.caption2)
                 .foregroundColor(.gray.opacity(0.7))
@@ -270,19 +403,19 @@ struct ProfileView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 46))
                 .foregroundColor(.green)
-            
+
             Text("Codice Riscattato")
                 .font(.title3.bold())
                 .foregroundColor(.white)
-            
+
             Text("Codice: \(redeemedCodeLabel)")
                 .font(.subheadline)
                 .foregroundColor(.gray)
-            
+
             Text("Importo accreditato: \(redeemedBonusLabel)")
                 .font(.headline)
                 .foregroundColor(.accentCyan)
-            
+
             Button {
                 showRedeemPopup = false
             } label: {
@@ -306,6 +439,99 @@ struct ProfileView: View {
                         .stroke(Color.accentCyan.opacity(0.25), lineWidth: 1)
                 )
         )
+    }
+
+    private var canSaveUserName: Bool {
+        let trimmedInput = editableUserName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let currentName = (authManager.currentUserName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmedInput.isEmpty && trimmedInput != currentName
+    }
+
+    private var profileUIImage: UIImage? {
+        guard let data = authManager.currentUserProfileImageData else { return nil }
+        return UIImage(data: data)
+    }
+
+    private func saveUserName() {
+        let trimmedName = editableUserName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            userNameFeedback = "Inserisci un nome utente valido."
+            userNameFeedbackColor = .orange
+            return
+        }
+
+        isSavingUserName = true
+        userNameFeedback = "Salvataggio nome utente in corso..."
+        userNameFeedbackColor = .gray
+
+        authManager.updateUserName(trimmedName) { success in
+            isSavingUserName = false
+
+            if success {
+                editableUserName = authManager.currentUserName ?? trimmedName
+                userNameFeedback = "Nome utente aggiornato."
+                userNameFeedbackColor = .green
+            } else {
+                userNameFeedback = authManager.errorMessage ?? "Errore durante il salvataggio del nome utente."
+                userNameFeedbackColor = .red
+            }
+        }
+    }
+
+    @MainActor
+    private func handlePhotoSelection(item: PhotosPickerItem) async {
+        isSavingPhoto = true
+        photoFeedback = "Caricamento foto in corso..."
+        photoFeedbackColor = .gray
+
+        do {
+            guard let selectedData = try await item.loadTransferable(type: Data.self) else {
+                photoFeedback = "Impossibile leggere la foto selezionata."
+                photoFeedbackColor = .red
+                isSavingPhoto = false
+                selectedPhotoItem = nil
+                return
+            }
+
+            authManager.updateProfileImage(selectedData) { success in
+                isSavingPhoto = false
+                selectedPhotoItem = nil
+
+                if success {
+                    photoFeedback = "Foto profilo aggiornata."
+                    photoFeedbackColor = .green
+                } else {
+                    photoFeedback = authManager.errorMessage ?? "Errore durante il salvataggio della foto."
+                    photoFeedbackColor = .red
+                }
+            }
+        } catch {
+            photoFeedback = "Errore durante la selezione della foto."
+            photoFeedbackColor = .red
+            isSavingPhoto = false
+            selectedPhotoItem = nil
+        }
+    }
+
+    private func removeProfilePhoto() {
+        guard profileUIImage != nil else { return }
+
+        isSavingPhoto = true
+        photoFeedback = "Rimozione foto in corso..."
+        photoFeedbackColor = .gray
+
+        authManager.removeProfileImage { success in
+            isSavingPhoto = false
+            selectedPhotoItem = nil
+
+            if success {
+                photoFeedback = "Foto profilo eliminata."
+                photoFeedbackColor = .green
+            } else {
+                photoFeedback = authManager.errorMessage ?? "Errore durante la rimozione della foto."
+                photoFeedbackColor = .red
+            }
+        }
     }
 
     private func redeemCode() {
@@ -345,13 +571,13 @@ struct ProfileView: View {
             }
         }
     }
-    
+
     private func statCard(title: String, value: String, color: Color) -> some View {
         VStack(spacing: 6) {
             Text(value)
                 .font(.title3.bold())
                 .foregroundColor(color)
-            
+
             Text(title)
                 .font(.caption)
                 .foregroundColor(.gray)
@@ -360,33 +586,33 @@ struct ProfileView: View {
         .padding(.vertical, 12)
         .background(glassCard(cornerRadius: 14))
     }
-    
+
     private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.headline)
                 .foregroundColor(.white)
-            
+
             content()
         }
         .padding(16)
         .background(glassCard(cornerRadius: 16))
     }
-    
+
     private func accountRow(icon: String, label: String, value: String, valueColor: Color = .white) -> some View {
         HStack {
             Label(label, systemImage: icon)
                 .font(.subheadline)
                 .foregroundColor(.gray)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            
+
             Text(value)
                 .font(.subheadline.bold())
                 .foregroundColor(valueColor)
                 .lineLimit(1)
         }
     }
-    
+
     private func glassCard(cornerRadius: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(Color.white.opacity(0.06))
