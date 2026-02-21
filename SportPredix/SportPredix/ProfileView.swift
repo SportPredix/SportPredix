@@ -595,7 +595,7 @@ struct ProfileSettingsView: View {
                         ProfileNotificationsView()
                     }
 
-                    settingsItemCard(icon: "person.crop.circle.badge.pencil", title: "Modifica informazioni personali") {
+                    settingsItemCard(icon: "person.crop.circle.fill", title: "Informazioni personali") {
                         ProfilePersonalInfoView()
                     }
 
@@ -676,8 +676,46 @@ struct ProfileSettingsView: View {
     }
 }
 
+private struct FakeNotificationItem: Identifiable {
+    let id = UUID()
+    let icon: String
+    let title: String
+    let detail: String
+    let time: String
+    let isUnread: Bool
+}
+
 struct ProfileNotificationsView: View {
-    @EnvironmentObject var vm: BettingViewModel
+    private let notifications: [FakeNotificationItem] = [
+        FakeNotificationItem(
+            icon: "gift.fill",
+            title: "Bonus giornaliero disponibile",
+            detail: "Riscatta il tuo bonus prima di mezzanotte.",
+            time: "Adesso",
+            isUnread: true
+        ),
+        FakeNotificationItem(
+            icon: "trophy.fill",
+            title: "Hai scalato la classifica",
+            detail: "Sei salito di 3 posizioni nella classifica amici.",
+            time: "12 min fa",
+            isUnread: true
+        ),
+        FakeNotificationItem(
+            icon: "soccerball",
+            title: "Nuove partite disponibili",
+            detail: "Sono state aggiunte nuove quote per stasera.",
+            time: "1 h fa",
+            isUnread: false
+        ),
+        FakeNotificationItem(
+            icon: "person.2.fill",
+            title: "Nuova richiesta amico",
+            detail: "Controlla la sezione amici per rispondere.",
+            time: "Ieri",
+            isUnread: false
+        )
+    ]
 
     var body: some View {
         ZStack {
@@ -685,13 +723,16 @@ struct ProfileNotificationsView: View {
 
             ScrollView {
                 VStack(spacing: 16) {
-                    sectionCard(title: "Notifiche") {
-                        Toggle(isOn: $vm.notificationsEnabled) {
-                            Label("Notifiche", systemImage: "bell.fill")
-                                .foregroundColor(.white)
-                                .font(.subheadline.bold())
+                    sectionCard(title: "Notifiche Recenti") {
+                        VStack(spacing: 12) {
+                            ForEach(Array(notifications.enumerated()), id: \.element.id) { index, item in
+                                notificationRow(item)
+
+                                if index < notifications.count - 1 {
+                                    Divider().background(Color.white.opacity(0.08))
+                                }
+                            }
                         }
-                        .toggleStyle(SwitchToggleStyle(tint: .accentCyan))
                     }
                 }
                 .padding(.horizontal, 20)
@@ -701,6 +742,45 @@ struct ProfileNotificationsView: View {
         }
         .navigationTitle("Notifiche")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func notificationRow(_ item: FakeNotificationItem) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentCyan.opacity(0.2))
+                    .frame(width: 34, height: 34)
+
+                Image(systemName: item.icon)
+                    .foregroundColor(.accentCyan)
+                    .font(.subheadline.bold())
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(item.title)
+                        .foregroundColor(.white)
+                        .font(.subheadline.bold())
+                        .lineLimit(2)
+
+                    if item.isUnread {
+                        Circle()
+                            .fill(Color.accentCyan)
+                            .frame(width: 7, height: 7)
+                    }
+                }
+
+                Text(item.detail)
+                    .foregroundColor(.gray)
+                    .font(.caption)
+
+                Text(item.time)
+                    .foregroundColor(.gray.opacity(0.8))
+                    .font(.caption2)
+            }
+
+            Spacer(minLength: 0)
+        }
     }
 
     private var settingsBackground: some View {
@@ -748,29 +828,21 @@ struct ProfileNotificationsView: View {
 }
 
 struct ProfileInformationView: View {
+    private let members = ["enribocco", "cranci", "SuperFico2100"]
+
     var body: some View {
         ZStack {
             settingsBackground
 
             ScrollView {
                 VStack(spacing: 16) {
-                    sectionCard(title: "Crediti") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Formatiks")
-                                .font(.headline)
-                                .foregroundColor(.accentCyan)
+                    teamHeader
 
-                            Text("enribocco")
-                                .foregroundColor(.white)
-                                .font(.subheadline)
-
-                            Text("cranci")
-                                .foregroundColor(.white)
-                                .font(.subheadline)
-
-                            Text("SuperFico2100")
-                                .foregroundColor(.white)
-                                .font(.subheadline)
+                    sectionCard(title: "Membri") {
+                        VStack(spacing: 10) {
+                            ForEach(members, id: \.self) { member in
+                                memberRow(member)
+                            }
                         }
                     }
                 }
@@ -781,6 +853,72 @@ struct ProfileInformationView: View {
         }
         .navigationTitle("Informazioni")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var teamHeader: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentCyan.opacity(0.2))
+                        .frame(width: 38, height: 38)
+
+                    Image(systemName: "sparkles")
+                        .foregroundColor(.accentCyan)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Formatiks")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Text("Gruppo creatore di SportPredix")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+
+                Spacer()
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.accentCyan.opacity(0.25), lineWidth: 1)
+                )
+        )
+    }
+
+    private func memberRow(_ member: String) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(Color.white.opacity(0.08))
+                    .frame(width: 34, height: 34)
+
+                Image(systemName: "person.fill")
+                    .foregroundColor(.accentCyan)
+                    .font(.caption.bold())
+            }
+
+            Text(member)
+                .foregroundColor(.white)
+                .font(.subheadline.bold())
+
+            Spacer()
+
+            Text("Membro")
+                .font(.caption2.bold())
+                .foregroundColor(.accentCyan)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(Color.accentCyan.opacity(0.12))
+                )
+        }
+        .padding(.horizontal, 4)
     }
 
     private var settingsBackground: some View {
