@@ -877,15 +877,28 @@ struct ProfileFriendsCenterView: View {
     private func friendRow(_ friend: FriendUserSummary) -> some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                Image(systemName: "person.crop.circle.fill")
-                    .foregroundColor(.accentCyan)
+                friendAvatar(for: friend)
+
                 Text(friend.name)
                     .foregroundColor(.white)
                     .font(.subheadline.bold())
+
                 Spacer()
-                Text(friend.accountCode)
-                    .foregroundColor(.gray)
-                    .font(.caption)
+
+                Button {
+                    remove(friend)
+                } label: {
+                    Image(systemName: "trash.fill")
+                        .foregroundColor(.red.opacity(0.9))
+                        .font(.subheadline)
+                        .frame(width: 30, height: 30)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.08))
+                        )
+                }
+                .disabled(isSubmitting)
+                .opacity(isSubmitting ? 0.6 : 1)
             }
             Divider().background(Color.white.opacity(0.08))
         }
@@ -894,12 +907,14 @@ struct ProfileFriendsCenterView: View {
     private func requestReceivedRow(_ friend: FriendUserSummary) -> some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                Image(systemName: "tray.and.arrow.down.fill")
-                    .foregroundColor(.accentCyan)
+                friendAvatar(for: friend)
+
                 Text(friend.name)
                     .foregroundColor(.white)
                     .font(.subheadline.bold())
+
                 Spacer()
+
                 Text(friend.accountCode)
                     .foregroundColor(.gray)
                     .font(.caption)
@@ -946,12 +961,14 @@ struct ProfileFriendsCenterView: View {
     private func requestSentRow(_ friend: FriendUserSummary) -> some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                Image(systemName: "tray.and.arrow.up.fill")
-                    .foregroundColor(.accentCyan)
+                friendAvatar(for: friend)
+
                 Text(friend.name)
                     .foregroundColor(.white)
                     .font(.subheadline.bold())
+
                 Spacer()
+
                 Text(friend.accountCode)
                     .foregroundColor(.gray)
                     .font(.caption)
@@ -982,6 +999,32 @@ struct ProfileFriendsCenterView: View {
             .foregroundColor(.gray)
             .font(.subheadline)
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func friendAvatar(for friend: FriendUserSummary, size: CGFloat = 34) -> some View {
+        Group {
+            if let imageData = friend.profileImageData, let image = UIImage(data: imageData) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+            } else {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentCyan.opacity(0.25))
+                        .frame(width: size, height: size)
+
+                    Text(String(friend.name.prefix(1)).uppercased())
+                        .foregroundColor(.accentCyan)
+                        .font(.caption.bold())
+                }
+            }
+        }
+        .overlay(
+            Circle()
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
     }
 
     private var settingsBackground: some View {
@@ -1128,6 +1171,26 @@ struct ProfileFriendsCenterView: View {
             switch result {
             case .success:
                 feedbackMessage = "Richiesta annullata."
+                feedbackColor = .green
+                loadSnapshot()
+            case .failure(let error):
+                feedbackMessage = error.localizedDescription
+                feedbackColor = .red
+            }
+        }
+    }
+
+    private func remove(_ friend: FriendUserSummary) {
+        isSubmitting = true
+        feedbackMessage = "Rimozione amico in corso..."
+        feedbackColor = .gray
+
+        authManager.removeFriend(userID: friend.id) { result in
+            isSubmitting = false
+
+            switch result {
+            case .success:
+                feedbackMessage = "\(friend.name) rimosso dai tuoi amici."
                 feedbackColor = .green
                 loadSnapshot()
             case .failure(let error):

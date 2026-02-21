@@ -68,6 +68,7 @@ struct FriendUserSummary: Identifiable {
     let id: String
     let name: String
     let accountCode: String
+    let profileImageData: Data?
 }
 
 struct FriendCenterSnapshot {
@@ -735,6 +736,41 @@ class AuthManager: ObservableObject {
         }
     }
 
+    func removeFriend(userID friendUserID: String, completion: @escaping (Result<Void, FriendRequestError>) -> Void) {
+        guard let currentUserID else {
+            completion(.failure(.userNotAuthenticated))
+            return
+        }
+
+        let db = Firestore.firestore()
+        let currentUserRef = db.collection("users").document(currentUserID)
+        let friendRef = db.collection("users").document(friendUserID)
+        let batch = db.batch()
+
+        batch.setData([
+            "friends": FieldValue.arrayRemove([friendUserID]),
+            "friendRequestsSent": FieldValue.arrayRemove([friendUserID]),
+            "friendRequestsReceived": FieldValue.arrayRemove([friendUserID]),
+            "lastUpdated": FieldValue.serverTimestamp()
+        ], forDocument: currentUserRef, merge: true)
+        batch.setData([
+            "friends": FieldValue.arrayRemove([currentUserID]),
+            "friendRequestsSent": FieldValue.arrayRemove([currentUserID]),
+            "friendRequestsReceived": FieldValue.arrayRemove([currentUserID]),
+            "lastUpdated": FieldValue.serverTimestamp()
+        ], forDocument: friendRef, merge: true)
+
+        batch.commit { error in
+            DispatchQueue.main.async {
+                if let error {
+                    completion(.failure(.generic(error.localizedDescription)))
+                    return
+                }
+                completion(.success(()))
+            }
+        }
+    }
+
     // MARK: - Logout
     func logout() {
         do {
@@ -828,7 +864,8 @@ class AuthManager: ObservableObject {
         FriendUserSummary(
             id: userID,
             name: "Utente",
-            accountCode: String(userID.prefix(accountCodeLength)).uppercased()
+            accountCode: String(userID.prefix(accountCodeLength)).uppercased(),
+            profileImageData: nil
         )
     }
 
@@ -863,7 +900,13 @@ class AuthManager: ObservableObject {
                 let data = snapshot?.data() ?? [:]
                 let name = self.resolvedName(from: data)
                 let accountCode = self.resolvedAccountCode(from: userID, storedCode: data["accountCode"] as? String)
-                let summary = FriendUserSummary(id: userID, name: name, accountCode: accountCode)
+                let imageData = self.profileImageData(from: data)
+                let summary = FriendUserSummary(
+                    id: userID,
+                    name: name,
+                    accountCode: accountCode,
+                    profileImageData: imageData
+                )
 
                 lock.lock()
                 usersByID[userID] = summary
@@ -894,6 +937,11 @@ class AuthManager: ObservableObject {
             }
         }
         return String(userID.prefix(accountCodeLength)).uppercased()
+    }
+
+    private func profileImageData(from data: [String: Any]) -> Data? {
+        guard let base64 = data["profileImageBase64"] as? String else { return nil }
+        return Data(base64Encoded: base64)
     }
 
     private func prepareProfileImageData(from data: Data) -> Data? {
