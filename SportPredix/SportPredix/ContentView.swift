@@ -1062,10 +1062,6 @@ struct ContentView: View {
                 ) { stake in vm.confirmSlip(stake: stake) }
             }
             .sheet(item: $vm.showSlipDetail) { SlipDetailView(slip: $0) }
-            .sheet(isPresented: $showProfileSettings) {
-                ProfileSettingsRootView()
-                    .environmentObject(vm)
-            }
     }
     
     private var sportTab: some View {
@@ -1150,6 +1146,14 @@ struct ContentView: View {
                 
                 ProfileView()
                     .environmentObject(vm)
+
+                NavigationLink(isActive: $showProfileSettings) {
+                    ProfileSettingsView()
+                        .environmentObject(vm)
+                } label: {
+                    EmptyView()
+                }
+                .hidden()
             }
             .id(refreshID)
         }
