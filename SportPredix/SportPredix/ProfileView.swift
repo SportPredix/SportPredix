@@ -57,23 +57,6 @@ struct ProfileView: View {
         } message: {
             Text("Sei sicuro di voler uscire?")
         }
-        .onAppear {
-            if editableUserName.isEmpty {
-                editableUserName = authManager.currentUserName ?? ""
-            }
-        }
-        .onChange(of: authManager.currentUserName) { _, newValue in
-            let incomingName = newValue ?? ""
-            if !isSavingUserName && editableUserName != incomingName {
-                editableUserName = incomingName
-            }
-        }
-        .onChange(of: selectedPhotoItem) { _, newItem in
-            guard let newItem else { return }
-            Task {
-                await handlePhotoSelection(item: newItem)
-            }
-        }
     }
 
     private var background: some View {
@@ -143,50 +126,11 @@ struct ProfileView: View {
                 .font(.caption)
                 .foregroundColor(.gray)
 
-            HStack(spacing: 10) {
-                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "photo")
-                        Text(profileUIImage == nil ? "Aggiungi foto" : "Cambia foto")
-                            .font(.subheadline.bold())
-                    }
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 14)
-                    .frame(height: 40)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.accentCyan)
-                    )
-                }
-                .disabled(isSavingPhoto)
-                .opacity(isSavingPhoto ? 0.6 : 1)
-
-                if profileUIImage != nil {
-                    Button(action: removeProfilePhoto) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "trash")
-                            Text("Elimina")
-                                .font(.subheadline.bold())
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 14)
-                        .frame(height: 40)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.red.opacity(0.85))
-                        )
-                    }
-                    .disabled(isSavingPhoto)
-                    .opacity(isSavingPhoto ? 0.6 : 1)
-                }
-            }
-
-            if let photoFeedback {
-                Text(photoFeedback)
-                    .font(.caption)
-                    .foregroundColor(photoFeedbackColor)
-                    .frame(maxWidth: .infinity, alignment: .center)
-            }
+            Text("Per modificare nome e foto vai in Impostazioni > Modifica informazioni personali.")
+                .font(.caption)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .padding(.top, 2)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 22)
@@ -757,9 +701,9 @@ struct ProfileSettingsView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                    }
 
-                        Divider().background(Color.white.opacity(0.08))
-
+                    sectionCard(title: "Riscatta Codici") {
                         NavigationLink {
                             ProfileRedeemCodesView()
                         } label: {
@@ -767,6 +711,20 @@ struct ProfileSettingsView: View {
                                 icon: "checkmark.seal.fill",
                                 title: "Riscatta Codici",
                                 subtitle: "Inserisci un codice bonus",
+                                showsChevron: true
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    sectionCard(title: "Temi") {
+                        NavigationLink {
+                            ProfileThemesView()
+                        } label: {
+                            settingsRow(
+                                icon: "paintpalette.fill",
+                                title: "Temi",
+                                subtitle: "Seleziona lo stile dell'app",
                                 showsChevron: true
                             )
                         }
@@ -879,8 +837,8 @@ struct ProfilePersonalInfoView: View {
                                             .font(.subheadline.bold())
                                     }
                                     .foregroundColor(.black)
-                                    .padding(.horizontal, 14)
-                                    .frame(height: 40)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 44)
                                     .background(
                                         RoundedRectangle(cornerRadius: 10, style: .continuous)
                                             .fill(Color.accentCyan)
@@ -888,25 +846,25 @@ struct ProfilePersonalInfoView: View {
                                 }
                                 .disabled(isSavingPhoto)
                                 .opacity(isSavingPhoto ? 0.6 : 1)
+                                .frame(maxWidth: .infinity)
 
-                                if profileUIImage != nil {
-                                    Button(action: removeProfilePhoto) {
-                                        HStack(spacing: 6) {
-                                            Image(systemName: "trash")
-                                            Text("Elimina")
-                                                .font(.subheadline.bold())
-                                        }
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 14)
-                                        .frame(height: 40)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                                .fill(Color.red.opacity(0.85))
-                                        )
+                                Button(action: removeProfilePhoto) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "trash")
+                                        Text("Elimina")
+                                            .font(.subheadline.bold())
                                     }
-                                    .disabled(isSavingPhoto)
-                                    .opacity(isSavingPhoto ? 0.6 : 1)
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 44)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .fill(Color.red.opacity(0.85))
+                                    )
                                 }
+                                .disabled(isSavingPhoto || profileUIImage == nil)
+                                .opacity((isSavingPhoto || profileUIImage == nil) ? 0.5 : 1)
+                                .frame(maxWidth: .infinity)
                             }
 
                             if let photoFeedback {
@@ -1004,7 +962,7 @@ struct ProfilePersonalInfoView: View {
                 Image(uiImage: profileImage)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 90, height: 90)
+                    .frame(width: 84, height: 84)
                     .clipShape(Circle())
                     .overlay(
                         Circle()
@@ -1021,11 +979,11 @@ struct ProfilePersonalInfoView: View {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: 90, height: 90)
+                        .frame(width: 84, height: 84)
                         .shadow(color: Color.accentCyan.opacity(0.35), radius: 12, x: 0, y: 6)
 
                     Text(String(authManager.currentUserName?.prefix(1) ?? "U").uppercased())
-                        .font(.system(size: 36, weight: .bold))
+                        .font(.system(size: 34, weight: .bold))
                         .foregroundColor(.black)
                 }
             }
@@ -1347,6 +1305,107 @@ struct ProfileRedeemCodesView: View {
                 promoCodeInput = ""
             }
         }
+    }
+}
+
+struct ProfileThemesView: View {
+    @AppStorage("profileSelectedTheme") private var selectedTheme = "Sistema"
+    private let themes = ["Sistema", "Chiaro", "Scuro"]
+
+    var body: some View {
+        ZStack {
+            settingsBackground
+
+            ScrollView {
+                VStack(spacing: 16) {
+                    sectionCard(title: "Temi") {
+                        Text("Scegli il tema da usare nell'app.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+
+                        ForEach(themes, id: \.self) { theme in
+                            Button {
+                                selectedTheme = theme
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "paintpalette.fill")
+                                        .foregroundColor(.accentCyan)
+
+                                    Text(theme)
+                                        .foregroundColor(.white)
+                                        .font(.subheadline.bold())
+
+                                    Spacer()
+
+                                    Image(systemName: selectedTheme == theme ? "checkmark.circle.fill" : "circle")
+                                        .foregroundColor(selectedTheme == theme ? .accentCyan : .gray)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .padding(.horizontal, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(Color.white.opacity(0.05))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                        )
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 32)
+            }
+        }
+        .navigationTitle("Temi")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var settingsBackground: some View {
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.black,
+                    Color(red: 0.06, green: 0.07, blue: 0.1)
+                ]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            RadialGradient(
+                gradient: Gradient(colors: [
+                    Color.accentCyan.opacity(0.25),
+                    Color.clear
+                ]),
+                center: .topTrailing,
+                startRadius: 20,
+                endRadius: 320
+            )
+        }
+        .ignoresSafeArea()
+    }
+
+    private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.white)
+
+            content()
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.accentCyan.opacity(0.18), lineWidth: 1)
+                )
+        )
     }
 }
 

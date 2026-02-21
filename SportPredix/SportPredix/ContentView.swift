@@ -980,6 +980,7 @@ struct ContentView: View {
     @StateObject private var vm = BettingViewModel()
     @State private var refreshID = UUID()
     @State private var showProfileSettings = false
+    @AppStorage("profileSelectedTheme") private var selectedTheme = "Sistema"
     
     var body: some View {
         NavigationView {
@@ -997,6 +998,18 @@ struct ContentView: View {
             #endif
         }
         .navigationBarHidden(true)
+        .preferredColorScheme(preferredColorScheme)
+    }
+
+    private var preferredColorScheme: ColorScheme? {
+        switch selectedTheme {
+        case "Chiaro":
+            return .light
+        case "Scuro":
+            return .dark
+        default:
+            return nil
+        }
     }
     
     private var tabContainer: some View {
