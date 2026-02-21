@@ -908,7 +908,7 @@ struct ProfileInformationView: View {
 
             Spacer()
 
-            Text("Membro")
+            Text("Sviluppatore")
                 .font(.caption2.bold())
                 .foregroundColor(.accentCyan)
                 .padding(.horizontal, 8)
