@@ -1318,13 +1318,26 @@ struct ProfileFriendsCenterView: View {
     private func friendRow(_ friend: FriendUserSummary) -> some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                friendAvatar(for: friend)
+                NavigationLink {
+                    UserPublicProfileView(
+                        userID: friend.id,
+                        initialName: friend.name,
+                        initialAccountCode: friend.accountCode,
+                        initialProfileImageData: friend.profileImageData
+                    )
+                } label: {
+                    HStack(spacing: 10) {
+                        friendAvatar(for: friend)
 
-                Text(friend.name)
-                    .foregroundColor(.white)
-                    .font(.subheadline.bold())
+                        Text(friend.name)
+                            .foregroundColor(.white)
+                            .font(.subheadline.bold())
 
-                Spacer()
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
 
                 Button {
                     pendingFriendRemoval = friend

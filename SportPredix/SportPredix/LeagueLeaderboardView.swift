@@ -121,11 +121,21 @@ struct LeagueLeaderboardView: View {
 
                     ForEach(entries.indices, id: \.self) { index in
                         let entry = entries[index]
-                        leagueRow(
-                            rank: index + 1,
-                            entry: entry,
-                            isCurrentUser: entry.id == authManager.currentUserID
-                        )
+                        NavigationLink {
+                            UserPublicProfileView(
+                                userID: entry.id,
+                                initialName: entry.name,
+                                initialProfileImageData: entry.profileImageData,
+                                initialBalance: entry.balance
+                            )
+                        } label: {
+                            leagueRow(
+                                rank: index + 1,
+                                entry: entry,
+                                isCurrentUser: entry.id == authManager.currentUserID
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -156,7 +166,7 @@ struct LeagueLeaderboardView: View {
                     .font(.subheadline.bold())
                     .foregroundColor(.white)
                 Spacer()
-                Text("#\(rank)")
+                Text("\(rank)")
                     .font(.title3.bold().monospacedDigit())
                     .foregroundColor(.accentCyan)
             }
@@ -200,7 +210,7 @@ struct LeagueLeaderboardView: View {
 
     private func leagueRow(rank: Int, entry: LeagueEntry, isCurrentUser: Bool) -> some View {
         HStack(spacing: 12) {
-            Text("#\(rank)")
+            Text("\(rank)")
                 .font(.headline.monospacedDigit())
                 .foregroundColor(isCurrentUser ? .accentCyan : rankColor(rank))
                 .frame(width: 42, alignment: .leading)
@@ -500,6 +510,305 @@ struct LeagueLeaderboardView: View {
             return "\(Int(rounded))"
         }
         return String(format: "%.1f", rounded)
+    }
+}
+
+struct UserPublicProfileView: View {
+    let userID: String
+    let initialName: String?
+    let initialAccountCode: String?
+    let initialProfileImageData: Data?
+    let initialBalance: Double?
+
+    @State private var name: String
+    @State private var accountCode: String
+    @State private var profileImageData: Data?
+    @State private var balance: Double?
+    @State private var totalBetsCount: Int?
+    @State private var totalWins: Int?
+    @State private var totalLosses: Int?
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+
+    init(
+        userID: String,
+        initialName: String? = nil,
+        initialAccountCode: String? = nil,
+        initialProfileImageData: Data? = nil,
+        initialBalance: Double? = nil
+    ) {
+        self.userID = userID
+        self.initialName = initialName
+        self.initialAccountCode = initialAccountCode
+        self.initialProfileImageData = initialProfileImageData
+        self.initialBalance = initialBalance
+
+        let trimmedInitialName = initialName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        _name = State(initialValue: (trimmedInitialName?.isEmpty == false) ? (trimmedInitialName ?? "Utente") : "Utente")
+        _accountCode = State(initialValue: UserPublicProfileView.normalizedAccountCode(initialAccountCode, userID: userID))
+        _profileImageData = State(initialValue: initialProfileImageData)
+        _balance = State(initialValue: initialBalance)
+        _totalBetsCount = State(initialValue: nil)
+        _totalWins = State(initialValue: nil)
+        _totalLosses = State(initialValue: nil)
+    }
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.black,
+                    Color(red: 0.06, green: 0.07, blue: 0.1)
+                ]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: 16) {
+                    profileHeader
+                    statsCard
+
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(Color.white.opacity(0.05))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                                    )
+                            )
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 30)
+            }
+
+            if isLoading {
+                VStack(spacing: 10) {
+                    ProgressView()
+                        .tint(.accentCyan)
+                    Text("Caricamento profilo...")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.black.opacity(0.82))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.accentCyan.opacity(0.22), lineWidth: 1)
+                        )
+                )
+            }
+        }
+        .navigationTitle("Profilo")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            loadUserProfile()
+        }
+    }
+
+    private var profileHeader: some View {
+        VStack(spacing: 12) {
+            avatarView
+
+            Text(name)
+                .font(.title3.bold())
+                .foregroundColor(.white)
+
+            Text("Codice: \(accountCode)")
+                .font(.caption)
+                .foregroundColor(.gray)
+
+            if let balance {
+                Text("Saldo: \(compactBalance(balance))")
+                    .font(.subheadline.bold())
+                    .foregroundColor(.accentCyan)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.accentCyan.opacity(0.18), lineWidth: 1)
+                )
+        )
+    }
+
+    private var statsCard: some View {
+        HStack(spacing: 10) {
+            statItem(title: "Puntate", value: "\(totalBetsCount ?? 0)", color: .accentCyan)
+            statItem(title: "Vinte", value: "\(totalWins ?? 0)", color: .green)
+            statItem(title: "Perse", value: "\(totalLosses ?? 0)", color: .red)
+        }
+    }
+
+    private func statItem(title: String, value: String, color: Color) -> some View {
+        VStack(spacing: 6) {
+            Text(value)
+                .font(.headline.bold())
+                .foregroundColor(color)
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        )
+    }
+
+    @ViewBuilder
+    private var avatarView: some View {
+        if let profileImageData, let image = UIImage(data: profileImageData) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 84, height: 84)
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(Color.accentCyan.opacity(0.65), lineWidth: 2)
+                )
+        } else {
+            Circle()
+                .fill(Color.accentCyan.opacity(0.25))
+                .frame(width: 84, height: 84)
+                .overlay(
+                    Text(String(name.prefix(1)).uppercased())
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundColor(.accentCyan)
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+        }
+    }
+
+    private func loadUserProfile() {
+        guard !isLoading else { return }
+        isLoading = true
+        errorMessage = nil
+
+        Firestore.firestore().collection("users").document(userID).getDocument { snapshot, error in
+            DispatchQueue.main.async {
+                defer { isLoading = false }
+
+                if let error {
+                    errorMessage = "Errore nel caricamento profilo: \(error.localizedDescription)"
+                    return
+                }
+
+                guard let data = snapshot?.data() else {
+                    errorMessage = "Profilo non disponibile."
+                    return
+                }
+
+                if let rawName = data["name"] as? String {
+                    let trimmedName = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmedName.isEmpty {
+                        name = trimmedName
+                    }
+                }
+
+                accountCode = Self.normalizedAccountCode(data["accountCode"] as? String, userID: userID)
+                balance = toDouble(data["balance"]) ?? balance
+                totalBetsCount = toInt(data["totalBetsCount"]) ?? totalBetsCount ?? 0
+                totalWins = toInt(data["totalWins"]) ?? totalWins ?? 0
+                totalLosses = toInt(data["totalLosses"]) ?? totalLosses ?? 0
+
+                if let base64 = data["profileImageBase64"] as? String,
+                   let decoded = Data(base64Encoded: base64) {
+                    profileImageData = decoded
+                }
+            }
+        }
+    }
+
+    private func compactBalance(_ value: Double) -> String {
+        let absoluteValue = abs(value)
+        let prefix = value < 0 ? "-" : ""
+
+        if absoluteValue >= 1_000_000_000 {
+            return "\(prefix)\(shortValue(absoluteValue / 1_000_000_000))B"
+        }
+        if absoluteValue >= 1_000_000 {
+            return "\(prefix)\(shortValue(absoluteValue / 1_000_000))M"
+        }
+        if absoluteValue >= 1_000 {
+            return "\(prefix)\(shortValue(absoluteValue / 1_000))K"
+        }
+
+        return "\(prefix)\(Int(absoluteValue.rounded()))"
+    }
+
+    private func shortValue(_ value: Double) -> String {
+        let rounded = (value * 10).rounded() / 10
+        if rounded.truncatingRemainder(dividingBy: 1) == 0 {
+            return "\(Int(rounded))"
+        }
+        return String(format: "%.1f", rounded)
+    }
+
+    private func toDouble(_ raw: Any?) -> Double? {
+        switch raw {
+        case let value as Double:
+            return value
+        case let value as Float:
+            return Double(value)
+        case let value as Int:
+            return Double(value)
+        case let value as NSNumber:
+            return value.doubleValue
+        case let value as String:
+            return Double(value)
+        default:
+            return nil
+        }
+    }
+
+    private func toInt(_ raw: Any?) -> Int? {
+        switch raw {
+        case let value as Int:
+            return value
+        case let value as NSNumber:
+            return value.intValue
+        case let value as Double:
+            return Int(value)
+        case let value as String:
+            return Int(value)
+        default:
+            return nil
+        }
+    }
+
+    private static func normalizedAccountCode(_ raw: String?, userID: String) -> String {
+        if let raw {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+        return String(userID.prefix(8)).uppercased()
     }
 }
 
