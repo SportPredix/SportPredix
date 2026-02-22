@@ -242,6 +242,7 @@ final class BettingViewModel: ObservableObject {
     private let promoCodesURLString = "https://raw.githubusercontent.com/SportPredix/Code/refs/heads/main/code.json"
     private var cancellables = Set<AnyCancellable>()
     private var balanceSyncTask: DispatchWorkItem?
+    private var betStatsSyncTask: DispatchWorkItem?
     private var isLoadingRemoteBalance = false
     private var isLoadingPromoCodes = false
     
@@ -315,6 +316,26 @@ final class BettingViewModel: ObservableObject {
             FirebaseManager.shared.updateBalance(userID: userID, newBalance: self.balance) { _ in }
         }
         balanceSyncTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: task)
+    }
+
+    private func syncBetStatsToCloudIfPossible() {
+        guard let userID = AuthManager.shared.currentUserID else { return }
+
+        let totalBets = totalBetsCount
+        let wins = totalWins
+        let losses = totalLosses
+
+        betStatsSyncTask?.cancel()
+        let task = DispatchWorkItem {
+            FirebaseManager.shared.updateBetStats(
+                userID: userID,
+                totalBets: totalBets,
+                totalWins: wins,
+                totalLosses: losses
+            ) { _ in }
+        }
+        betStatsSyncTask = task
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: task)
     }
     
@@ -746,6 +767,7 @@ final class BettingViewModel: ObservableObject {
         if let data = try? JSONEncoder().encode(slips) {
             UserDefaults.standard.set(data, forKey: slipsKey)
         }
+        syncBetStatsToCloudIfPossible()
     }
     
     private func loadSlips() -> [BetSlip] {

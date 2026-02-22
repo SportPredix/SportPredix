@@ -32,6 +32,9 @@ class FirebaseManager: ObservableObject {
             "name": name,
             "email": email,
             "balance": 1000.0,
+            "totalBetsCount": 0,
+            "totalWins": 0,
+            "totalLosses": 0,
             "createdAt": FieldValue.serverTimestamp(),
             "lastUpdated": FieldValue.serverTimestamp()
         ]
@@ -92,6 +95,31 @@ class FirebaseManager: ObservableObject {
             "balance": newBalance,
             "lastUpdated": FieldValue.serverTimestamp()
         ]) { error in
+            if let error = error {
+                completion(.failure(error))
+            } else {
+                completion(.success(()))
+            }
+        }
+    }
+
+    // MARK: - Aggiorna statistiche scommesse utente
+    func updateBetStats(
+        userID: String,
+        totalBets: Int,
+        totalWins: Int,
+        totalLosses: Int,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let db = Firestore.firestore()
+
+        db.collection("users").document(userID).setData([
+            "totalBetsCount": totalBets,
+            "totalWins": totalWins,
+            "totalLosses": totalLosses,
+            "lastStatsUpdated": FieldValue.serverTimestamp(),
+            "lastUpdated": FieldValue.serverTimestamp()
+        ], merge: true) { error in
             if let error = error {
                 completion(.failure(error))
             } else {

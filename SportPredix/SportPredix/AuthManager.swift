@@ -151,6 +151,9 @@ class AuthManager: ObservableObject {
                 "friendRequestsReceived": [],
                 "friendRequestsSent": [],
                 "balance": 1000.0,
+                "totalBetsCount": 0,
+                "totalWins": 0,
+                "totalLosses": 0,
                 "createdAt": FieldValue.serverTimestamp(),
                 "lastUpdated": FieldValue.serverTimestamp()
             ]
