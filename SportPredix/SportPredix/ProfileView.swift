@@ -2,6 +2,32 @@
 import PhotosUI
 import UIKit
 
+private struct AppToastView: View {
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundColor(.accentCyan)
+
+            Text(message)
+                .font(.caption.bold())
+                .foregroundColor(.white)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.black.opacity(0.82))
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(Color.accentCyan.opacity(0.35), lineWidth: 1)
+                )
+        )
+        .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 6)
+    }
+}
+
 struct ProfileView: View {
     @EnvironmentObject var authManager: AuthManager
     @EnvironmentObject var vm: BettingViewModel
@@ -22,6 +48,8 @@ struct ProfileView: View {
     @State private var photoFeedback: String?
     @State private var photoFeedbackColor: Color = .gray
     @State private var isSavingPhoto = false
+    @State private var showCopyToast = false
+    @State private var copyToastHideWorkItem: DispatchWorkItem?
 
     var body: some View {
         ZStack {
@@ -42,7 +70,20 @@ struct ProfileView: View {
             .safeAreaInset(edge: .bottom) {
                 Color.clear.frame(height: 130)
             }
+
+            if showCopyToast {
+                VStack {
+                    Spacer()
+
+                    AppToastView(message: "Codice amico copiato")
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 108)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .zIndex(2)
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: showCopyToast)
         .alert("Conferma Logout", isPresented: $showLogoutAlert) {
             Button("Annulla", role: .cancel) { }
             Button("Esci", role: .destructive) {
@@ -53,6 +94,10 @@ struct ProfileView: View {
         }
         .onAppear {
             authManager.refreshUnreadFriendRequestsStatus()
+        }
+        .onDisappear {
+            copyToastHideWorkItem?.cancel()
+            copyToastHideWorkItem = nil
         }
     }
 
@@ -592,6 +637,22 @@ struct ProfileView: View {
 
     private func copyCurrentUserFriendCode() {
         UIPasteboard.general.string = authManager.currentUserAccountCode
+        showCopyToastMessage()
+    }
+
+    private func showCopyToastMessage() {
+        copyToastHideWorkItem?.cancel()
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showCopyToast = true
+        }
+
+        let workItem = DispatchWorkItem {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showCopyToast = false
+            }
+        }
+        copyToastHideWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8, execute: workItem)
     }
 
     private func glassCard(cornerRadius: CGFloat) -> some View {
@@ -1030,6 +1091,8 @@ struct ProfileFriendsCenterView: View {
     @State private var isSubmitting = false
     @State private var showRemoveFriendAlert = false
     @State private var pendingFriendRemoval: FriendUserSummary?
+    @State private var showCopyToast = false
+    @State private var copyToastHideWorkItem: DispatchWorkItem?
 
     var body: some View {
         ZStack {
@@ -1123,7 +1186,20 @@ struct ProfileFriendsCenterView: View {
                 .padding(.top, 20)
                 .padding(.bottom, 32)
             }
+
+            if showCopyToast {
+                VStack {
+                    Spacer()
+
+                    AppToastView(message: "Codice amico copiato")
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 24)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .zIndex(2)
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: showCopyToast)
         .navigationTitle("Amici")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: loadSnapshot)
@@ -1146,6 +1222,10 @@ struct ProfileFriendsCenterView: View {
             } else {
                 Text("Vuoi rimuovere questo amico?")
             }
+        }
+        .onDisappear {
+            copyToastHideWorkItem?.cancel()
+            copyToastHideWorkItem = nil
         }
     }
 
@@ -1434,8 +1514,22 @@ struct ProfileFriendsCenterView: View {
 
     private func copyCurrentUserFriendCode() {
         UIPasteboard.general.string = authManager.currentUserAccountCode
-        feedbackMessage = "Codice amico copiato negli appunti."
-        feedbackColor = .green
+        showCopyToastMessage()
+    }
+
+    private func showCopyToastMessage() {
+        copyToastHideWorkItem?.cancel()
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showCopyToast = true
+        }
+
+        let workItem = DispatchWorkItem {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showCopyToast = false
+            }
+        }
+        copyToastHideWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8, execute: workItem)
     }
 
     private func markReceivedRequestsAsSeen() {
