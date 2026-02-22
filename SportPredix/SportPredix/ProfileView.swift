@@ -1176,7 +1176,7 @@ struct ProfileFriendsCenterView: View {
                         }
                     }
 
-                    sectionCard(title: "Richieste") {
+                    sectionCard(title: requestsSectionTitle) {
                         requestsTabSelector
                     }
 
@@ -1278,54 +1278,16 @@ struct ProfileFriendsCenterView: View {
     }
 
     private var requestsTabSelector: some View {
-        HStack(spacing: 8) {
+        Picker("Classifica", selection: $selectedTab) {
             ForEach(FriendCenterTab.allCases) { tab in
-                Button {
-                    selectedTab = tab
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(tab.rawValue)
-                            .font(.subheadline.bold())
-
-                        if tab == .received && authManager.hasUnreadFriendRequests {
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: 8, height: 8)
-                        }
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 36)
-                    .background(
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(selectedTab == tab ? Color.accentCyan.opacity(0.26) : Color.clear)
-                            .background(
-                                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                    .fill(.ultraThinMaterial)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                    .stroke(
-                                        selectedTab == tab
-                                        ? Color.accentCyan.opacity(0.58)
-                                        : Color.white.opacity(0.2),
-                                        lineWidth: 1
-                                    )
-                            )
-                    )
-                }
-                .buttonStyle(.plain)
+                Text(tab.rawValue).tag(tab)
             }
         }
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
-                )
-        )
+        .pickerStyle(.segmented)
+    }
+
+    private var requestsSectionTitle: String {
+        authManager.hasUnreadFriendRequests ? "Richieste •" : "Richieste"
     }
 
     private func friendRow(_ friend: FriendUserSummary) -> some View {
