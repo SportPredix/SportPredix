@@ -230,6 +230,9 @@ final class BettingViewModel: ObservableObject {
     @Published var currentPicks: [BetPick] = []
     @Published var slips: [BetSlip] = []
     @Published private(set) var promoCodes: [PromoCode] = []
+    @Published private(set) var remoteTotalBetsCount = 0
+    @Published private(set) var remoteTotalWins = 0
+    @Published private(set) var remoteTotalLosses = 0
     
     @Published var dailyMatches: [String: [Match]] = [:]
     @Published var isLoading = false
@@ -274,7 +277,13 @@ final class BettingViewModel: ObservableObject {
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] userID in
-                guard let self = self, let userID = userID else { return }
+                guard let self = self else { return }
+                guard let userID = userID else {
+                    self.remoteTotalBetsCount = 0
+                    self.remoteTotalWins = 0
+                    self.remoteTotalLosses = 0
+                    return
+                }
                 self.loadBalanceFromCloud(userID: userID)
             }
             .store(in: &cancellables)
@@ -293,10 +302,12 @@ final class BettingViewModel: ObservableObject {
                     } else if let remoteBalance = data["balance"] as? NSNumber {
                         self.balance = remoteBalance.doubleValue
                     } else {
-                        self.isLoadingRemoteBalance = false
                         self.syncBalanceToCloudIfPossible()
-                        return
                     }
+
+                    self.remoteTotalBetsCount = self.intValue(from: data["totalBetsCount"]) ?? 0
+                    self.remoteTotalWins = self.intValue(from: data["totalWins"]) ?? 0
+                    self.remoteTotalLosses = self.intValue(from: data["totalLosses"]) ?? 0
                 case .failure:
                     break
                 }
@@ -325,6 +336,11 @@ final class BettingViewModel: ObservableObject {
         let totalBets = totalBetsCount
         let wins = totalWins
         let losses = totalLosses
+
+        // Keep profile counters in sync immediately while Firestore update is in flight.
+        remoteTotalBetsCount = totalBets
+        remoteTotalWins = wins
+        remoteTotalLosses = losses
 
         betStatsSyncTask?.cancel()
         let task = DispatchWorkItem {
@@ -830,15 +846,24 @@ final class BettingViewModel: ObservableObject {
     }
     
     var totalBetsCount: Int {
-        slips.count
+        if slips.isEmpty {
+            return remoteTotalBetsCount
+        }
+        return slips.count
     }
     
     var totalWins: Int {
-        slips.filter { $0.isWon == true }.count
+        if slips.isEmpty {
+            return remoteTotalWins
+        }
+        return slips.filter { $0.isWon == true }.count
     }
     
     var totalLosses: Int {
-        slips.filter { $0.isWon == false }.count
+        if slips.isEmpty {
+            return remoteTotalLosses
+        }
+        return slips.filter { $0.isWon == false }.count
     }
 
     func redeemPromoCode(_ rawCode: String, completion: @escaping (PromoCodeRedemptionResult) -> Void) {
@@ -992,6 +1017,21 @@ final class BettingViewModel: ObservableObject {
 
     private func normalizePromoCode(_ code: String) -> String {
         code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    }
+
+    private func intValue(from raw: Any?) -> Int? {
+        switch raw {
+        case let value as Int:
+            return value
+        case let value as NSNumber:
+            return value.intValue
+        case let value as Double:
+            return Int(value)
+        case let value as String:
+            return Int(value)
+        default:
+            return nil
+        }
     }
 }
 
