@@ -1293,18 +1293,22 @@ struct ProfileFriendsCenterView: View {
                                 .frame(width: 8, height: 8)
                         }
                     }
-                    .foregroundColor(selectedTab == tab ? .black : .white)
+                    .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 36)
                     .background(
                         RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(selectedTab == tab ? Color.accentCyan : Color.white.opacity(0.06))
+                            .fill(selectedTab == tab ? Color.accentCyan.opacity(0.26) : Color.clear)
+                            .background(
+                                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                    .fill(.ultraThinMaterial)
+                            )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 9, style: .continuous)
                                     .stroke(
                                         selectedTab == tab
-                                        ? Color.accentCyan.opacity(0.4)
-                                        : Color.white.opacity(0.12),
+                                        ? Color.accentCyan.opacity(0.58)
+                                        : Color.white.opacity(0.2),
                                         lineWidth: 1
                                     )
                             )
@@ -1313,6 +1317,15 @@ struct ProfileFriendsCenterView: View {
                 .buttonStyle(.plain)
             }
         }
+        .padding(4)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                )
+        )
     }
 
     private func friendRow(_ friend: FriendUserSummary) -> some View {
