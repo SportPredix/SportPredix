@@ -51,6 +51,9 @@ struct ProfileView: View {
         } message: {
             Text("Sei sicuro di voler uscire?")
         }
+        .onAppear {
+            authManager.refreshUnreadFriendRequestsStatus()
+        }
     }
 
     private var background: some View {
@@ -192,6 +195,12 @@ struct ProfileView: View {
                             .foregroundColor(.white)
                             .font(.subheadline.bold())
 
+                        if authManager.hasUnreadFriendRequests {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 8, height: 8)
+                        }
+
                         Spacer()
 
                         Image(systemName: "chevron.right")
@@ -207,7 +216,9 @@ struct ProfileView: View {
                     icon: "number.square.fill",
                     label: "Codice Amico",
                     value: authManager.currentUserAccountCode,
-                    valueColor: .accentCyan
+                    valueColor: .accentCyan,
+                    showsCopyButton: true,
+                    copyAction: copyCurrentUserFriendCode
                 )
             }
         }
@@ -542,18 +553,45 @@ struct ProfileView: View {
         .background(glassCard(cornerRadius: 16))
     }
 
-    private func accountRow(icon: String, label: String, value: String, valueColor: Color = .white) -> some View {
+    private func accountRow(
+        icon: String,
+        label: String,
+        value: String,
+        valueColor: Color = .white,
+        showsCopyButton: Bool = false,
+        copyAction: (() -> Void)? = nil
+    ) -> some View {
         HStack {
             Label(label, systemImage: icon)
                 .font(.subheadline)
                 .foregroundColor(.gray)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(value)
-                .font(.subheadline.bold())
-                .foregroundColor(valueColor)
-                .lineLimit(1)
+            HStack(spacing: 8) {
+                Text(value)
+                    .font(.subheadline.bold())
+                    .foregroundColor(valueColor)
+                    .lineLimit(1)
+
+                if showsCopyButton, let copyAction = copyAction {
+                    Button(action: copyAction) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.caption.bold())
+                            .foregroundColor(.accentCyan)
+                            .frame(width: 28, height: 28)
+                            .background(
+                                Circle()
+                                    .fill(Color.white.opacity(0.08))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
+    }
+
+    private func copyCurrentUserFriendCode() {
+        UIPasteboard.general.string = authManager.currentUserAccountCode
     }
 
     private func glassCard(cornerRadius: CGFloat) -> some View {
@@ -990,6 +1028,8 @@ struct ProfileFriendsCenterView: View {
     @State private var sent: [FriendUserSummary] = []
     @State private var isLoading = false
     @State private var isSubmitting = false
+    @State private var showRemoveFriendAlert = false
+    @State private var pendingFriendRemoval: FriendUserSummary?
 
     var body: some View {
         ZStack {
@@ -998,7 +1038,7 @@ struct ProfileFriendsCenterView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     sectionCard(title: "Codice Amico") {
-                        HStack {
+                        HStack(spacing: 10) {
                             Label("Il tuo codice", systemImage: "number.square.fill")
                                 .foregroundColor(.gray)
                                 .font(.subheadline)
@@ -1007,6 +1047,18 @@ struct ProfileFriendsCenterView: View {
                             Text(authManager.currentUserAccountCode)
                                 .foregroundColor(.accentCyan)
                                 .font(.subheadline.bold())
+
+                            Button(action: copyCurrentUserFriendCode) {
+                                Image(systemName: "doc.on.doc")
+                                    .font(.caption.bold())
+                                    .foregroundColor(.accentCyan)
+                                    .frame(width: 28, height: 28)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.white.opacity(0.08))
+                                    )
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
 
@@ -1062,12 +1114,7 @@ struct ProfileFriendsCenterView: View {
                     }
 
                     sectionCard(title: "Richieste") {
-                        Picker("Sezione amici", selection: $selectedTab) {
-                            ForEach(FriendCenterTab.allCases) { tab in
-                                Text(tab.rawValue).tag(tab)
-                            }
-                        }
-                        .pickerStyle(.segmented)
+                        requestsTabSelector
                     }
 
                     tabContent
@@ -1080,6 +1127,26 @@ struct ProfileFriendsCenterView: View {
         .navigationTitle("Amici")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: loadSnapshot)
+        .onChange(of: selectedTab) { _, newTab in
+            guard newTab == .received else { return }
+            markReceivedRequestsAsSeen()
+        }
+        .alert("Conferma rimozione", isPresented: $showRemoveFriendAlert) {
+            Button("Annulla", role: .cancel) {
+                pendingFriendRemoval = nil
+            }
+            Button("Rimuovi", role: .destructive) {
+                guard let friend = pendingFriendRemoval else { return }
+                pendingFriendRemoval = nil
+                remove(friend)
+            }
+        } message: {
+            if let friend = pendingFriendRemoval {
+                Text("Vuoi rimuovere \(friend.name) dai tuoi amici?")
+            } else {
+                Text("Vuoi rimuovere questo amico?")
+            }
+        }
     }
 
     @ViewBuilder
@@ -1130,6 +1197,44 @@ struct ProfileFriendsCenterView: View {
         }
     }
 
+    private var requestsTabSelector: some View {
+        HStack(spacing: 8) {
+            ForEach(FriendCenterTab.allCases) { tab in
+                Button {
+                    selectedTab = tab
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(tab.rawValue)
+                            .font(.subheadline.bold())
+
+                        if tab == .received && authManager.hasUnreadFriendRequests {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 8, height: 8)
+                        }
+                    }
+                    .foregroundColor(selectedTab == tab ? .black : .white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 36)
+                    .background(
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(selectedTab == tab ? Color.accentCyan : Color.white.opacity(0.06))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                    .stroke(
+                                        selectedTab == tab
+                                        ? Color.accentCyan.opacity(0.4)
+                                        : Color.white.opacity(0.12),
+                                        lineWidth: 1
+                                    )
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
     private func friendRow(_ friend: FriendUserSummary) -> some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
@@ -1142,7 +1247,8 @@ struct ProfileFriendsCenterView: View {
                 Spacer()
 
                 Button {
-                    remove(friend)
+                    pendingFriendRemoval = friend
+                    showRemoveFriendAlert = true
                 } label: {
                     Image(systemName: "trash.fill")
                         .foregroundColor(.red.opacity(0.9))
@@ -1326,6 +1432,17 @@ struct ProfileFriendsCenterView: View {
         )
     }
 
+    private func copyCurrentUserFriendCode() {
+        UIPasteboard.general.string = authManager.currentUserAccountCode
+        feedbackMessage = "Codice amico copiato negli appunti."
+        feedbackColor = .green
+    }
+
+    private func markReceivedRequestsAsSeen() {
+        guard !received.isEmpty else { return }
+        authManager.markFriendRequestsAsSeen(received.map(\.id))
+    }
+
     private func loadSnapshot() {
         isLoading = true
         authManager.loadFriendCenterSnapshot { result in
@@ -1336,6 +1453,9 @@ struct ProfileFriendsCenterView: View {
                 friends = snapshot.friends
                 received = snapshot.received
                 sent = snapshot.sent
+                if selectedTab == .received {
+                    markReceivedRequestsAsSeen()
+                }
             case .failure(let error):
                 feedbackMessage = error.localizedDescription
                 feedbackColor = .red

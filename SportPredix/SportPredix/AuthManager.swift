@@ -85,10 +85,12 @@ class AuthManager: ObservableObject {
     @Published var currentUserProfileImageData: Data?
     @Published var errorMessage: String?
     @Published var isLoading = false
+    @Published var hasUnreadFriendRequests = false
 
     static let shared = AuthManager()
     private let maxProfileImageBytes = 180_000
     private let accountCodeLength = 8
+    private let seenFriendRequestsDefaultsKeyPrefix = "seenFriendRequestIDs_"
 
     private init() {
         checkAuthStatus()
@@ -167,6 +169,7 @@ class AuthManager: ObservableObject {
                     self?.currentUserName = resolvedName
                     self?.currentUserProfileImageData = nil
                     self?.isLoggedIn = true
+                    self?.hasUnreadFriendRequests = false
                     self?.isLoading = false
                     completion(true)
                 }
@@ -248,6 +251,9 @@ class AuthManager: ObservableObject {
                 } else {
                     self.currentUserProfileImageData = nil
                 }
+
+                let receivedIDs = self.uniquePreservingOrder(self.friendIDList(from: data, key: "friendRequestsReceived"))
+                self.updateUnreadFriendRequests(using: receivedIDs)
             }
         }
     }
@@ -558,6 +564,46 @@ class AuthManager: ObservableObject {
         }
     }
 
+    func refreshUnreadFriendRequestsStatus() {
+        guard let currentUserID else {
+            hasUnreadFriendRequests = false
+            return
+        }
+
+        Firestore.firestore().collection("users").document(currentUserID).getDocument { [weak self] snapshot, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                guard error == nil else { return }
+
+                let data = snapshot?.data() ?? [:]
+                let receivedIDs = self.uniquePreservingOrder(self.friendIDList(from: data, key: "friendRequestsReceived"))
+                self.updateUnreadFriendRequests(using: receivedIDs)
+            }
+        }
+    }
+
+    func markFriendRequestsAsSeen(_ requesterIDs: [String]) {
+        guard let currentUserID else { return }
+
+        let normalizedIDs = uniquePreservingOrder(requesterIDs)
+        guard !normalizedIDs.isEmpty else { return }
+
+        var seenIDs = loadSeenFriendRequestIDs(for: currentUserID)
+        var hasChanged = false
+
+        for requesterID in normalizedIDs {
+            if seenIDs.insert(requesterID).inserted {
+                hasChanged = true
+            }
+        }
+
+        if hasChanged {
+            saveSeenFriendRequestIDs(seenIDs, for: currentUserID)
+        }
+
+        updateUnreadFriendRequests(using: normalizedIDs)
+    }
+
     func loadFriendCenterSnapshot(completion: @escaping (Result<FriendCenterSnapshot, FriendRequestError>) -> Void) {
         guard let currentUserID else {
             completion(.failure(.userNotAuthenticated))
@@ -579,6 +625,7 @@ class AuthManager: ObservableObject {
                 let receivedIDs = self.uniquePreservingOrder(self.friendIDList(from: data, key: "friendRequestsReceived"))
                 let sentIDs = self.uniquePreservingOrder(self.friendIDList(from: data, key: "friendRequestsSent"))
                 let allIDs = self.uniquePreservingOrder(friendIDs + receivedIDs + sentIDs)
+                self.updateUnreadFriendRequests(using: receivedIDs)
 
                 guard !allIDs.isEmpty else {
                     completion(.success(FriendCenterSnapshot(friends: [], received: [], sent: [])))
@@ -788,6 +835,7 @@ class AuthManager: ObservableObject {
         currentUserName = nil
         currentUserProfileImageData = nil
         errorMessage = nil
+        hasUnreadFriendRequests = false
     }
 
     private func findUserByAccountCode(_ code: String, completion: @escaping (Result<(id: String, name: String), AddFriendError>) -> Void) {
@@ -849,6 +897,42 @@ class AuthManager: ObservableObject {
         case .generic(let message):
             return .generic(message)
         }
+    }
+
+    private func updateUnreadFriendRequests(using receivedIDs: [String]) {
+        guard let currentUserID else {
+            hasUnreadFriendRequests = false
+            return
+        }
+
+        let normalizedReceivedIDs = uniquePreservingOrder(receivedIDs)
+        let currentReceivedSet = Set(normalizedReceivedIDs)
+        var seenIDs = loadSeenFriendRequestIDs(for: currentUserID)
+        let prunedSeenIDs = seenIDs.intersection(currentReceivedSet)
+
+        if prunedSeenIDs != seenIDs {
+            seenIDs = prunedSeenIDs
+            saveSeenFriendRequestIDs(seenIDs, for: currentUserID)
+        } else {
+            seenIDs = prunedSeenIDs
+        }
+
+        hasUnreadFriendRequests = normalizedReceivedIDs.contains { !seenIDs.contains($0) }
+    }
+
+    private func seenFriendRequestIDsDefaultsKey(for userID: String) -> String {
+        "\(seenFriendRequestsDefaultsKeyPrefix)\(userID)"
+    }
+
+    private func loadSeenFriendRequestIDs(for userID: String) -> Set<String> {
+        let key = seenFriendRequestIDsDefaultsKey(for: userID)
+        let values = UserDefaults.standard.stringArray(forKey: key) ?? []
+        return Set(values)
+    }
+
+    private func saveSeenFriendRequestIDs(_ ids: Set<String>, for userID: String) {
+        let key = seenFriendRequestIDsDefaultsKey(for: userID)
+        UserDefaults.standard.set(Array(ids), forKey: key)
     }
 
     private func friendIDList(from data: [String: Any], key: String) -> [String] {
