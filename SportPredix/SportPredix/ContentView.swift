@@ -1148,8 +1148,7 @@ struct ContentView: View {
                     .environmentObject(vm)
 
                 NavigationLink(isActive: $showProfileSettings) {
-                    ProfileSettingsView()
-                        .environmentObject(vm)
+                    ProfileSettingsView(vm: vm)
                 } label: {
                     EmptyView()
                 }

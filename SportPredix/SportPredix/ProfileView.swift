@@ -480,35 +480,37 @@ struct ProfileView: View {
         promoFeedbackColor = .gray
 
         vm.redeemPromoCode(promoCodeInput) { result in
-            switch result {
-            case .emptyCode:
-                promoFeedback = "Inserisci un codice prima di riscattare."
-                promoFeedbackColor = .orange
-            case .authRequired:
-                promoFeedback = "Devi essere autenticato per riscattare un codice."
-                promoFeedbackColor = .red
-            case .invalidCode:
-                promoFeedback = "Codice non valido."
-                promoFeedbackColor = .red
-            case .limitReached(let maxUses):
-                promoFeedback = "Codice esaurito: limite massimo \(maxUses) utilizzi raggiunto."
-                promoFeedbackColor = .orange
-            case .alreadyRedeemed:
-                promoFeedback = "Hai gia usato questo codice."
-                promoFeedbackColor = .orange
-            case .storeUnavailable:
-                promoFeedback = "Archivio codici non disponibile o errore Firebase."
-                promoFeedbackColor = .red
-            case .success(let promoCode):
-                let bonusText = promoCode.bonus.formatted(
-                    .currency(code: "EUR").locale(Locale(identifier: "it_IT"))
-                )
-                promoFeedback = "Codice accettato: bonus \(bonusText)."
-                promoFeedbackColor = .green
-                redeemedCodeLabel = promoCode.normalizedCode
-                redeemedBonusLabel = bonusText
-                showRedeemPopup = true
-                promoCodeInput = ""
+            DispatchQueue.main.async {
+                switch result {
+                case .emptyCode:
+                    promoFeedback = "Inserisci un codice prima di riscattare."
+                    promoFeedbackColor = .orange
+                case .authRequired:
+                    promoFeedback = "Devi essere autenticato per riscattare un codice."
+                    promoFeedbackColor = .red
+                case .invalidCode:
+                    promoFeedback = "Codice non valido."
+                    promoFeedbackColor = .red
+                case .limitReached(let maxUses):
+                    promoFeedback = "Codice esaurito: limite massimo \(maxUses) utilizzi raggiunto."
+                    promoFeedbackColor = .orange
+                case .alreadyRedeemed:
+                    promoFeedback = "Hai gia usato questo codice."
+                    promoFeedbackColor = .orange
+                case .storeUnavailable:
+                    promoFeedback = "Archivio codici non disponibile o errore Firebase."
+                    promoFeedbackColor = .red
+                case .success(let promoCode):
+                    let bonusText = promoCode.bonus.formatted(
+                        .currency(code: "EUR").locale(Locale(identifier: "it_IT"))
+                    )
+                    promoFeedback = "Codice accettato: bonus \(bonusText)."
+                    promoFeedbackColor = .green
+                    redeemedCodeLabel = promoCode.normalizedCode
+                    redeemedBonusLabel = bonusText
+                    showRedeemPopup = true
+                    promoCodeInput = ""
+                }
             }
         }
     }
@@ -566,10 +568,11 @@ struct ProfileView: View {
 
 struct ProfileSettingsRootView: View {
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject var vm: BettingViewModel
 
     var body: some View {
         NavigationStack {
-            ProfileSettingsView()
+            ProfileSettingsView(vm: vm)
                 .navigationTitle("Impostazioni")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -585,6 +588,8 @@ struct ProfileSettingsRootView: View {
 }
 
 struct ProfileSettingsView: View {
+    @ObservedObject var vm: BettingViewModel
+
     var body: some View {
         ZStack {
             settingsBackground
@@ -600,7 +605,7 @@ struct ProfileSettingsView: View {
                     }
 
                     settingsItemCard(icon: "checkmark.seal.fill", title: "Riscatta Codici") {
-                        ProfileRedeemCodesView()
+                        ProfileRedeemCodesView(vm: vm)
                     }
 
                     settingsItemCard(icon: "paintpalette.fill", title: "Temi") {
@@ -1750,7 +1755,7 @@ struct ProfilePersonalInfoView: View {
 }
 
 struct ProfileRedeemCodesView: View {
-    @EnvironmentObject var vm: BettingViewModel
+    @ObservedObject var vm: BettingViewModel
 
     @State private var promoCodeInput = ""
     @State private var promoFeedback: String?
@@ -1920,35 +1925,37 @@ struct ProfileRedeemCodesView: View {
         promoFeedbackColor = .gray
 
         vm.redeemPromoCode(promoCodeInput) { result in
-            switch result {
-            case .emptyCode:
-                promoFeedback = "Inserisci un codice prima di riscattare."
-                promoFeedbackColor = .orange
-            case .authRequired:
-                promoFeedback = "Devi essere autenticato per riscattare un codice."
-                promoFeedbackColor = .red
-            case .invalidCode:
-                promoFeedback = "Codice non valido."
-                promoFeedbackColor = .red
-            case .limitReached(let maxUses):
-                promoFeedback = "Codice esaurito: limite massimo \(maxUses) utilizzi raggiunto."
-                promoFeedbackColor = .orange
-            case .alreadyRedeemed:
-                promoFeedback = "Hai gia usato questo codice."
-                promoFeedbackColor = .orange
-            case .storeUnavailable:
-                promoFeedback = "Archivio codici non disponibile o errore Firebase."
-                promoFeedbackColor = .red
-            case .success(let promoCode):
-                let bonusText = promoCode.bonus.formatted(
-                    .currency(code: "EUR").locale(Locale(identifier: "it_IT"))
-                )
-                promoFeedback = "Codice accettato: bonus \(bonusText)."
-                promoFeedbackColor = .green
-                redeemedCodeLabel = promoCode.normalizedCode
-                redeemedBonusLabel = bonusText
-                showRedeemPopup = true
-                promoCodeInput = ""
+            DispatchQueue.main.async {
+                switch result {
+                case .emptyCode:
+                    promoFeedback = "Inserisci un codice prima di riscattare."
+                    promoFeedbackColor = .orange
+                case .authRequired:
+                    promoFeedback = "Devi essere autenticato per riscattare un codice."
+                    promoFeedbackColor = .red
+                case .invalidCode:
+                    promoFeedback = "Codice non valido."
+                    promoFeedbackColor = .red
+                case .limitReached(let maxUses):
+                    promoFeedback = "Codice esaurito: limite massimo \(maxUses) utilizzi raggiunto."
+                    promoFeedbackColor = .orange
+                case .alreadyRedeemed:
+                    promoFeedback = "Hai gia usato questo codice."
+                    promoFeedbackColor = .orange
+                case .storeUnavailable:
+                    promoFeedback = "Archivio codici non disponibile o errore Firebase."
+                    promoFeedbackColor = .red
+                case .success(let promoCode):
+                    let bonusText = promoCode.bonus.formatted(
+                        .currency(code: "EUR").locale(Locale(identifier: "it_IT"))
+                    )
+                    promoFeedback = "Codice accettato: bonus \(bonusText)."
+                    promoFeedbackColor = .green
+                    redeemedCodeLabel = promoCode.normalizedCode
+                    redeemedBonusLabel = bonusText
+                    showRedeemPopup = true
+                    promoCodeInput = ""
+                }
             }
         }
     }
