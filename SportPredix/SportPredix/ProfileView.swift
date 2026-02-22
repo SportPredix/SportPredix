@@ -1176,9 +1176,7 @@ struct ProfileFriendsCenterView: View {
                         }
                     }
 
-                    sectionCard(title: requestsSectionTitle) {
-                        requestsTabSelector
-                    }
+                    requestsSegmentedCard
 
                     tabContent
                 }
@@ -1280,14 +1278,29 @@ struct ProfileFriendsCenterView: View {
     private var requestsTabSelector: some View {
         Picker("Classifica", selection: $selectedTab) {
             ForEach(FriendCenterTab.allCases) { tab in
-                Text(tab.rawValue).tag(tab)
+                if tab == .received && authManager.hasUnreadFriendRequests {
+                    Text("\(tab.rawValue) •").tag(tab)
+                } else {
+                    Text(tab.rawValue).tag(tab)
+                }
             }
         }
         .pickerStyle(.segmented)
     }
 
-    private var requestsSectionTitle: String {
-        authManager.hasUnreadFriendRequests ? "Richieste •" : "Richieste"
+    private var requestsSegmentedCard: some View {
+        VStack(spacing: 0) {
+            requestsTabSelector
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.accentCyan.opacity(0.18), lineWidth: 1)
+                )
+        )
     }
 
     private func friendRow(_ friend: FriendUserSummary) -> some View {

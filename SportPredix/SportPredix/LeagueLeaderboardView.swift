@@ -514,6 +514,8 @@ struct LeagueLeaderboardView: View {
 }
 
 struct UserPublicProfileView: View {
+    @EnvironmentObject private var authManager: AuthManager
+
     let userID: String
     let initialName: String?
     let initialAccountCode: String?
@@ -529,6 +531,10 @@ struct UserPublicProfileView: View {
     @State private var totalLosses: Int?
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var isFriend = false
+    @State private var isPerformingFriendAction = false
+    @State private var friendshipMessage: String?
+    @State private var friendshipMessageColor: Color = .gray
 
     init(
         userID: String,
@@ -569,6 +575,16 @@ struct UserPublicProfileView: View {
                 VStack(spacing: 16) {
                     profileHeader
                     statsCard
+                    if shouldShowFriendshipAction {
+                        friendshipActionCard
+                    }
+
+                    if let friendshipMessage {
+                        Text(friendshipMessage)
+                            .font(.caption)
+                            .foregroundColor(friendshipMessageColor)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
 
                     if let errorMessage {
                         Text(errorMessage)
@@ -614,6 +630,7 @@ struct UserPublicProfileView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             loadUserProfile()
+            refreshFriendshipState()
         }
     }
 
@@ -653,6 +670,31 @@ struct UserPublicProfileView: View {
             statItem(title: "Vinte", value: "\(totalWins ?? 0)", color: .green)
             statItem(title: "Perse", value: "\(totalLosses ?? 0)", color: .red)
         }
+    }
+
+    private var shouldShowFriendshipAction: Bool {
+        guard let currentUserID = authManager.currentUserID else { return false }
+        return currentUserID != userID
+    }
+
+    private var friendshipActionCard: some View {
+        Button(action: performFriendshipAction) {
+            HStack(spacing: 8) {
+                Image(systemName: isFriend ? "person.crop.circle.badge.minus" : "person.crop.circle.badge.plus")
+                Text(isFriend ? "Elimina amicizia" : "Aggiungi agli amici")
+                    .font(.subheadline.bold())
+            }
+            .foregroundColor(isFriend ? .white : .black)
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(isFriend ? Color.red.opacity(0.85) : Color.accentCyan)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isPerformingFriendAction)
+        .opacity(isPerformingFriendAction ? 0.6 : 1)
     }
 
     private func statItem(title: String, value: String, color: Color) -> some View {
@@ -741,6 +783,75 @@ struct UserPublicProfileView: View {
                     profileImageData = decoded
                 }
             }
+        }
+    }
+
+    private func refreshFriendshipState() {
+        guard shouldShowFriendshipAction else { return }
+
+        authManager.loadFriendCenterSnapshot { result in
+            switch result {
+            case .success(let snapshot):
+                isFriend = snapshot.friends.contains(where: { $0.id == userID })
+            case .failure:
+                break
+            }
+        }
+    }
+
+    private func performFriendshipAction() {
+        guard !isPerformingFriendAction else { return }
+        if isFriend {
+            removeFriendship()
+        } else {
+            addFriend()
+        }
+    }
+
+    private func addFriend() {
+        isPerformingFriendAction = true
+        friendshipMessage = nil
+
+        authManager.sendFriendRequest(byAccountCode: accountCode) { result in
+            isPerformingFriendAction = false
+
+            switch result {
+            case .success(let resolvedName):
+                friendshipMessage = "Richiesta inviata a \(resolvedName)."
+                friendshipMessageColor = .green
+            case .failure(let error):
+                if case .alreadyFriend = error {
+                    isFriend = true
+                    friendshipMessage = "Siete gia amici."
+                    friendshipMessageColor = .green
+                } else {
+                    friendshipMessage = error.localizedDescription
+                    friendshipMessageColor = .orange
+                }
+            }
+
+            refreshFriendshipState()
+        }
+    }
+
+    private func removeFriendship() {
+        isPerformingFriendAction = true
+        friendshipMessage = nil
+
+        authManager.removeFriend(userID: userID) { result in
+            isPerformingFriendAction = false
+
+            switch result {
+            case .success:
+                isFriend = false
+                friendshipMessage = "Amicizia rimossa."
+                friendshipMessageColor = .green
+            case .failure(let error):
+                friendshipMessage = error.localizedDescription
+                friendshipMessageColor = .orange
+            }
+
+            refreshFriendshipState()
         }
     }
 
