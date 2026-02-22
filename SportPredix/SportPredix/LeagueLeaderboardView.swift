@@ -532,9 +532,11 @@ struct UserPublicProfileView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var isFriend = false
+    @State private var hasPendingRequest = false
     @State private var isPerformingFriendAction = false
     @State private var friendshipMessage: String?
     @State private var friendshipMessageColor: Color = .gray
+    @State private var showRemoveFriendshipAlert = false
 
     init(
         userID: String,
@@ -632,6 +634,14 @@ struct UserPublicProfileView: View {
             loadUserProfile()
             refreshFriendshipState()
         }
+        .alert("Conferma rimozione", isPresented: $showRemoveFriendshipAlert) {
+            Button("Annulla", role: .cancel) { }
+            Button("Rimuovi", role: .destructive) {
+                removeFriendship()
+            }
+        } message: {
+            Text("Vuoi eliminare l'amicizia con \(name)?")
+        }
     }
 
     private var profileHeader: some View {
@@ -677,24 +687,44 @@ struct UserPublicProfileView: View {
         return currentUserID != userID
     }
 
+    @ViewBuilder
     private var friendshipActionCard: some View {
-        Button(action: performFriendshipAction) {
+        if hasPendingRequest && !isFriend {
             HStack(spacing: 8) {
-                Image(systemName: isFriend ? "person.crop.circle.badge.minus" : "person.crop.circle.badge.plus")
-                Text(isFriend ? "Elimina amicizia" : "Aggiungi agli amici")
+                Image(systemName: "clock.fill")
+                Text("Richiesta in sospeso")
                     .font(.subheadline.bold())
             }
-            .foregroundColor(isFriend ? .white : .black)
+            .foregroundColor(.gray)
             .frame(maxWidth: .infinity)
             .frame(height: 44)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(isFriend ? Color.red.opacity(0.85) : Color.accentCyan)
+                    .fill(Color.white.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
             )
+        } else {
+            Button(action: performFriendshipAction) {
+                HStack(spacing: 8) {
+                    Image(systemName: isFriend ? "person.crop.circle.badge.minus" : "person.crop.circle.badge.plus")
+                    Text(isFriend ? "Elimina amicizia" : "Aggiungi agli amici")
+                        .font(.subheadline.bold())
+                }
+                .foregroundColor(isFriend ? .white : .black)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(isFriend ? Color.red.opacity(0.85) : Color.accentCyan)
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(isPerformingFriendAction)
+            .opacity(isPerformingFriendAction ? 0.6 : 1)
         }
-        .buttonStyle(.plain)
-        .disabled(isPerformingFriendAction)
-        .opacity(isPerformingFriendAction ? 0.6 : 1)
     }
 
     private func statItem(title: String, value: String, color: Color) -> some View {
@@ -793,6 +823,9 @@ struct UserPublicProfileView: View {
             switch result {
             case .success(let snapshot):
                 isFriend = snapshot.friends.contains(where: { $0.id == userID })
+                let hasSentRequest = snapshot.sent.contains(where: { $0.id == userID })
+                let hasReceivedRequest = snapshot.received.contains(where: { $0.id == userID })
+                hasPendingRequest = !isFriend && (hasSentRequest || hasReceivedRequest)
             case .failure:
                 break
             }
@@ -800,9 +833,9 @@ struct UserPublicProfileView: View {
     }
 
     private func performFriendshipAction() {
-        guard !isPerformingFriendAction else { return }
+        guard !isPerformingFriendAction, !hasPendingRequest else { return }
         if isFriend {
-            removeFriendship()
+            showRemoveFriendshipAlert = true
         } else {
             addFriend()
         }
@@ -819,9 +852,11 @@ struct UserPublicProfileView: View {
             case .success(let resolvedName):
                 friendshipMessage = "Richiesta inviata a \(resolvedName)."
                 friendshipMessageColor = .green
+                hasPendingRequest = true
             case .failure(let error):
                 if case .alreadyFriend = error {
                     isFriend = true
+                    hasPendingRequest = false
                     friendshipMessage = "Siete gia amici."
                     friendshipMessageColor = .green
                 } else {
@@ -844,6 +879,7 @@ struct UserPublicProfileView: View {
             switch result {
             case .success:
                 isFriend = false
+                hasPendingRequest = false
                 friendshipMessage = "Amicizia rimossa."
                 friendshipMessageColor = .green
             case .failure(let error):

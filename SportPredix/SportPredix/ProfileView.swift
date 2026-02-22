@@ -1176,9 +1176,7 @@ struct ProfileFriendsCenterView: View {
                         }
                     }
 
-                    requestsSegmentedCard
-
-                    tabContent
+                    requestsCenterCard
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
@@ -1230,45 +1228,38 @@ struct ProfileFriendsCenterView: View {
     @ViewBuilder
     private var tabContent: some View {
         if isLoading {
-            sectionCard(title: selectedTab.rawValue) {
-                HStack(spacing: 10) {
-                    ProgressView()
-                        .tint(.accentCyan)
-                    Text("Caricamento in corso...")
-                        .foregroundColor(.gray)
-                        .font(.subheadline)
-                }
+            HStack(spacing: 10) {
+                ProgressView()
+                    .tint(.accentCyan)
+                Text("Caricamento in corso...")
+                    .foregroundColor(.gray)
+                    .font(.subheadline)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             switch selectedTab {
             case .friends:
-                sectionCard(title: "Amici") {
-                    if friends.isEmpty {
-                        emptyState("Non hai ancora amici.")
-                    } else {
-                        ForEach(friends) { friend in
-                            friendRow(friend)
-                        }
+                if friends.isEmpty {
+                    emptyState("Non hai ancora amici.")
+                } else {
+                    ForEach(friends) { friend in
+                        friendRow(friend)
                     }
                 }
             case .received:
-                sectionCard(title: "Ricevuti") {
-                    if received.isEmpty {
-                        emptyState("Non hai richieste ricevute.")
-                    } else {
-                        ForEach(received) { friend in
-                            requestReceivedRow(friend)
-                        }
+                if received.isEmpty {
+                    emptyState("Non hai richieste ricevute.")
+                } else {
+                    ForEach(received) { friend in
+                        requestReceivedRow(friend)
                     }
                 }
             case .sent:
-                sectionCard(title: "Inviate") {
-                    if sent.isEmpty {
-                        emptyState("Non hai richieste inviate.")
-                    } else {
-                        ForEach(sent) { friend in
-                            requestSentRow(friend)
-                        }
+                if sent.isEmpty {
+                    emptyState("Non hai richieste inviate.")
+                } else {
+                    ForEach(sent) { friend in
+                        requestSentRow(friend)
                     }
                 }
             }
@@ -1288,9 +1279,14 @@ struct ProfileFriendsCenterView: View {
         .pickerStyle(.segmented)
     }
 
-    private var requestsSegmentedCard: some View {
-        VStack(spacing: 0) {
+    private var requestsCenterCard: some View {
+        VStack(spacing: 14) {
             requestsTabSelector
+
+            Divider()
+                .background(Color.white.opacity(0.12))
+
+            tabContent
         }
         .padding(16)
         .background(
@@ -1349,19 +1345,30 @@ struct ProfileFriendsCenterView: View {
 
     private func requestReceivedRow(_ friend: FriendUserSummary) -> some View {
         VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                friendAvatar(for: friend)
+            NavigationLink {
+                UserPublicProfileView(
+                    userID: friend.id,
+                    initialName: friend.name,
+                    initialAccountCode: friend.accountCode,
+                    initialProfileImageData: friend.profileImageData
+                )
+            } label: {
+                HStack(spacing: 10) {
+                    friendAvatar(for: friend)
 
-                Text(friend.name)
-                    .foregroundColor(.white)
-                    .font(.subheadline.bold())
+                    Text(friend.name)
+                        .foregroundColor(.white)
+                        .font(.subheadline.bold())
 
-                Spacer()
+                    Spacer()
 
-                Text(friend.accountCode)
-                    .foregroundColor(.gray)
-                    .font(.caption)
+                    Text(friend.accountCode)
+                        .foregroundColor(.gray)
+                        .font(.caption)
+                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
 
             HStack(spacing: 10) {
                 Button {
@@ -1403,19 +1410,30 @@ struct ProfileFriendsCenterView: View {
 
     private func requestSentRow(_ friend: FriendUserSummary) -> some View {
         VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                friendAvatar(for: friend)
+            NavigationLink {
+                UserPublicProfileView(
+                    userID: friend.id,
+                    initialName: friend.name,
+                    initialAccountCode: friend.accountCode,
+                    initialProfileImageData: friend.profileImageData
+                )
+            } label: {
+                HStack(spacing: 10) {
+                    friendAvatar(for: friend)
 
-                Text(friend.name)
-                    .foregroundColor(.white)
-                    .font(.subheadline.bold())
+                    Text(friend.name)
+                        .foregroundColor(.white)
+                        .font(.subheadline.bold())
 
-                Spacer()
+                    Spacer()
 
-                Text(friend.accountCode)
-                    .foregroundColor(.gray)
-                    .font(.caption)
+                    Text(friend.accountCode)
+                        .foregroundColor(.gray)
+                        .font(.caption)
+                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
 
             Button {
                 cancel(friend)
