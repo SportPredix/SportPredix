@@ -9,7 +9,20 @@ final class OddsService {
     static let shared = OddsService()
     private init() {}
 
+    private typealias GoalLineOdds = (over: Double, under: Double)
+
+    private struct PartialGoalLineOdds {
+        var over: Double?
+        var under: Double?
+    }
+
+    private struct FairProbabilities {
+        let over: Double
+        let overround: Double
+    }
+
     private let cachedScoreboardURL = "https://raw.githubusercontent.com/SportPredix/SportPredix/refs/heads/main/data/serie_a_scoreboard.json"
+    private let trackedGoalLines: [Double] = [0.5, 1.5, 2.5, 3.5, 4.5]
 
     func fetchSerieAOdths(for date: Date = Date(), completion: @escaping (Result<[Match], Error>) -> Void) {
         fetchSerieAMatchesByDateRange(from: date, to: date) { [weak self] result in
@@ -160,7 +173,11 @@ final class OddsService {
         let parsedKickoffDate = parseAPIDate(event.date)
         let kickoffDate = parsedKickoffDate ?? Date.distantFuture
         let kickoffTime = parsedKickoffDate.map { displayTimeString(from: $0) } ?? "TBD"
-        let odds = estimatedOdds(homeTeam: home.team.displayName, awayTeam: away.team.displayName)
+        let odds = resolvedOdds(
+            from: competition,
+            homeTeam: home.team.displayName,
+            awayTeam: away.team.displayName
+        )
         let status = normalizedStatus(from: event.status.type)
 
         let homeScore = Int(home.score ?? "")
@@ -214,6 +231,358 @@ final class OddsService {
         return "SCHEDULED"
     }
 
+    private func resolvedOdds(from competition: ESPNCompetition, homeTeam: String, awayTeam: String) -> Odds {
+        let fallback = estimatedOdds(homeTeam: homeTeam, awayTeam: awayTeam)
+        let entries = preferredOddsEntries(from: competition.odds)
+        guard !entries.isEmpty else {
+            return fallback
+        }
+
+        let moneyline = extractMoneylineOdds(from: entries)
+        let homeOdd = moneyline.home ?? fallback.home
+        let drawOdd = moneyline.draw ?? fallback.draw
+        let awayOdd = moneyline.away ?? fallback.away
+
+        let totals = buildGoalLines(from: entries, fallback: fallback)
+        let line05 = goalLineOdds(for: 0.5, in: totals, fallback: (over: fallback.over05, under: fallback.under05))
+        let line15 = goalLineOdds(for: 1.5, in: totals, fallback: (over: fallback.over15, under: fallback.under15))
+        let line25 = goalLineOdds(for: 2.5, in: totals, fallback: (over: fallback.over25, under: fallback.under25))
+        let line35 = goalLineOdds(for: 3.5, in: totals, fallback: (over: fallback.over35, under: fallback.under35))
+        let line45 = goalLineOdds(for: 4.5, in: totals, fallback: (over: fallback.over45, under: fallback.under45))
+
+        return Odds(
+            home: roundToTwoDecimals(homeOdd),
+            draw: roundToTwoDecimals(drawOdd),
+            away: roundToTwoDecimals(awayOdd),
+            homeDraw: combinedOdd(homeOdd, drawOdd),
+            homeAway: combinedOdd(homeOdd, awayOdd),
+            drawAway: combinedOdd(drawOdd, awayOdd),
+            over05: line05.over,
+            under05: line05.under,
+            over15: line15.over,
+            under15: line15.under,
+            over25: line25.over,
+            under25: line25.under,
+            over35: line35.over,
+            under35: line35.under,
+            over45: line45.over,
+            under45: line45.under
+        )
+    }
+
+    private func preferredOddsEntries(from entries: [ESPNCompetitionOdds?]?) -> [ESPNCompetitionOdds] {
+        (entries ?? [])
+            .compactMap { $0 }
+            .sorted { lhs, rhs in
+                let lhsPriority = lhs.provider?.priority ?? Int.max
+                let rhsPriority = rhs.provider?.priority ?? Int.max
+                if lhsPriority != rhsPriority {
+                    return lhsPriority < rhsPriority
+                }
+
+                let lhsName = lhs.provider?.name ?? ""
+                let rhsName = rhs.provider?.name ?? ""
+                return lhsName < rhsName
+            }
+    }
+
+    private func extractMoneylineOdds(from entries: [ESPNCompetitionOdds]) -> (home: Double?, draw: Double?, away: Double?) {
+        var home: Double?
+        var draw: Double?
+        var away: Double?
+
+        for entry in entries {
+            if home == nil {
+                home = decimalOdd(from: entry.moneyline?.home)
+            }
+
+            if draw == nil {
+                draw = decimalOdd(from: entry.moneyline?.draw)
+                if draw == nil, let drawMoneyLine = entry.drawOdds?.moneyLine {
+                    draw = decimalOdd(fromAmericanValue: drawMoneyLine)
+                }
+            }
+
+            if away == nil {
+                away = decimalOdd(from: entry.moneyline?.away)
+            }
+
+            if home != nil, draw != nil, away != nil {
+                break
+            }
+        }
+
+        return (
+            home: sanitizeOdd(home),
+            draw: sanitizeOdd(draw),
+            away: sanitizeOdd(away)
+        )
+    }
+
+    private func buildGoalLines(from entries: [ESPNCompetitionOdds], fallback: Odds) -> [Double: GoalLineOdds] {
+        var collected: [Double: PartialGoalLineOdds] = [:]
+
+        for entry in entries {
+            guard let extracted = extractGoalLine(from: entry) else { continue }
+
+            var current = collected[extracted.line] ?? PartialGoalLineOdds()
+            if current.over == nil {
+                current.over = extracted.over
+            }
+            if current.under == nil {
+                current.under = extracted.under
+            }
+            collected[extracted.line] = current
+        }
+
+        var resolved: [Double: GoalLineOdds] = [:]
+        for line in trackedGoalLines {
+            let key = normalizeGoalLine(line)
+            if let market = collected[key], let over = market.over, let under = market.under {
+                resolved[key] = (over: over, under: under)
+            }
+        }
+
+        if let anchor = pickAnchorGoalLine(from: collected),
+           let fair = fairProbabilities(overOdd: anchor.over, underOdd: anchor.under),
+           let lambda = fitPoissonLambda(
+               targetOverProbability: fair.over,
+               minimumGoals: minimumGoals(for: anchor.line)
+           ) {
+            for line in trackedGoalLines {
+                let key = normalizeGoalLine(line)
+                guard resolved[key] == nil else { continue }
+
+                let overProbability = poissonTailProbability(
+                    lambda: lambda,
+                    minimumGoals: minimumGoals(for: key)
+                )
+                let underProbability = max(0.0001, 1.0 - overProbability)
+
+                guard
+                    let over = decimalOdd(fromProbability: overProbability, overround: fair.overround),
+                    let under = decimalOdd(fromProbability: underProbability, overround: fair.overround)
+                else {
+                    continue
+                }
+
+                resolved[key] = (
+                    over: roundToTwoDecimals(over),
+                    under: roundToTwoDecimals(under)
+                )
+            }
+        }
+
+        let fallbackLines = fallbackGoalLineOdds(from: fallback)
+        for line in trackedGoalLines {
+            let key = normalizeGoalLine(line)
+            if resolved[key] == nil, let fallbackLine = fallbackLines[key] {
+                resolved[key] = fallbackLine
+            }
+        }
+
+        return resolved
+    }
+
+    private func extractGoalLine(from entry: ESPNCompetitionOdds) -> (line: Double, over: Double?, under: Double?)? {
+        guard let total = entry.total else { return nil }
+
+        let overLine = parseGoalLine(from: total.over?.close?.line)
+            ?? parseGoalLine(from: total.over?.open?.line)
+        let underLine = parseGoalLine(from: total.under?.close?.line)
+            ?? parseGoalLine(from: total.under?.open?.line)
+        let line = overLine ?? underLine ?? entry.overUnder
+
+        guard let line else { return nil }
+
+        let over = sanitizeOdd(decimalOdd(from: total.over))
+        let under = sanitizeOdd(decimalOdd(from: total.under))
+
+        return (line: normalizeGoalLine(line), over: over, under: under)
+    }
+
+    private func pickAnchorGoalLine(
+        from lines: [Double: PartialGoalLineOdds]
+    ) -> (line: Double, over: Double, under: Double)? {
+        let candidates = lines.compactMap { pair -> (line: Double, over: Double, under: Double)? in
+            guard let over = pair.value.over, let under = pair.value.under else { return nil }
+            return (line: pair.key, over: over, under: under)
+        }
+
+        return candidates.min { lhs, rhs in
+            let lhsDistance = abs(lhs.line - 2.5)
+            let rhsDistance = abs(rhs.line - 2.5)
+            if lhsDistance == rhsDistance {
+                return lhs.line < rhs.line
+            }
+            return lhsDistance < rhsDistance
+        }
+    }
+
+    private func fairProbabilities(overOdd: Double, underOdd: Double) -> FairProbabilities? {
+        guard overOdd > 1.01, underOdd > 1.01 else { return nil }
+
+        let overRaw = 1.0 / overOdd
+        let underRaw = 1.0 / underOdd
+        let overround = overRaw + underRaw
+        guard overround > 0 else { return nil }
+
+        return FairProbabilities(
+            over: overRaw / overround,
+            overround: max(1.01, min(overround, 1.20))
+        )
+    }
+
+    private func fitPoissonLambda(targetOverProbability: Double, minimumGoals: Int) -> Double? {
+        guard minimumGoals > 0 else { return nil }
+
+        let target = min(max(targetOverProbability, 0.01), 0.99)
+        var lower = 0.05
+        var upper = 7.0
+
+        while poissonTailProbability(lambda: upper, minimumGoals: minimumGoals) < target, upper < 20 {
+            upper *= 1.5
+        }
+
+        for _ in 0..<60 {
+            let mid = (lower + upper) / 2.0
+            let current = poissonTailProbability(lambda: mid, minimumGoals: minimumGoals)
+            if current < target {
+                lower = mid
+            } else {
+                upper = mid
+            }
+        }
+
+        return (lower + upper) / 2.0
+    }
+
+    private func poissonTailProbability(lambda: Double, minimumGoals: Int) -> Double {
+        guard minimumGoals > 0 else { return 1.0 }
+        guard lambda > 0 else { return 0.0 }
+
+        var term = exp(-lambda)
+        var cumulative = term
+
+        if minimumGoals == 1 {
+            return min(max(1.0 - cumulative, 0.0001), 0.9999)
+        }
+
+        for k in 1..<minimumGoals {
+            term *= lambda / Double(k)
+            cumulative += term
+        }
+
+        return min(max(1.0 - cumulative, 0.0001), 0.9999)
+    }
+
+    private func decimalOdd(fromProbability probability: Double, overround: Double) -> Double? {
+        guard probability > 0, probability < 1 else { return nil }
+
+        let adjustedOverround = max(1.01, min(overround, 1.20))
+        let odd = 1.0 / (probability * adjustedOverround)
+        guard odd.isFinite else { return nil }
+
+        return max(1.01, min(odd, 100.0))
+    }
+
+    private func minimumGoals(for line: Double) -> Int {
+        max(1, Int(floor(line + 0.0001)) + 1)
+    }
+
+    private func goalLineOdds(
+        for line: Double,
+        in lines: [Double: GoalLineOdds],
+        fallback: GoalLineOdds
+    ) -> GoalLineOdds {
+        lines[normalizeGoalLine(line)] ?? fallback
+    }
+
+    private func fallbackGoalLineOdds(from odds: Odds) -> [Double: GoalLineOdds] {
+        [
+            normalizeGoalLine(0.5): (over: odds.over05, under: odds.under05),
+            normalizeGoalLine(1.5): (over: odds.over15, under: odds.under15),
+            normalizeGoalLine(2.5): (over: odds.over25, under: odds.under25),
+            normalizeGoalLine(3.5): (over: odds.over35, under: odds.under35),
+            normalizeGoalLine(4.5): (over: odds.over45, under: odds.under45)
+        ]
+    }
+
+    private func decimalOdd(from marketSide: ESPNBetMarketSide?) -> Double? {
+        decimalOdd(fromAmericanString: marketSide?.close?.odds)
+            ?? decimalOdd(fromAmericanString: marketSide?.open?.odds)
+    }
+
+    private func decimalOdd(fromAmericanString value: String?) -> Double? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+
+        let normalized = value.uppercased()
+        if normalized == "EVEN" || normalized == "EV" || normalized == "PK" || normalized == "PICK" || normalized == "PICKEM" {
+            return 2.0
+        }
+
+        if let americanValue = Int(normalized) {
+            return decimalOdd(fromAmericanValue: americanValue)
+        }
+
+        if let decimalValue = Double(normalized), decimalValue >= 1.01 {
+            return decimalValue
+        }
+
+        return nil
+    }
+
+    private func decimalOdd(fromAmericanValue value: Int) -> Double {
+        if value > 0 {
+            return 1.0 + (Double(value) / 100.0)
+        }
+
+        if value < 0 {
+            return 1.0 + (100.0 / Double(abs(value)))
+        }
+
+        return 2.0
+    }
+
+    private func parseGoalLine(from value: String?) -> Double? {
+        guard let value else { return nil }
+
+        let cleaned = value
+            .lowercased()
+            .replacingOccurrences(of: ",", with: ".")
+            .filter { "0123456789.-".contains($0) }
+
+        guard !cleaned.isEmpty, let parsed = Double(cleaned), parsed.isFinite else {
+            return nil
+        }
+
+        return normalizeGoalLine(parsed)
+    }
+
+    private func sanitizeOdd(_ odd: Double?) -> Double? {
+        guard let odd, odd.isFinite else { return nil }
+        guard odd > 1.0 else { return nil }
+
+        return roundToTwoDecimals(min(max(odd, 1.01), 100.0))
+    }
+
+    private func combinedOdd(_ first: Double, _ second: Double) -> Double {
+        let denominator = (1.0 / first) + (1.0 / second)
+        guard denominator > 0 else { return 1.01 }
+
+        return roundToTwoDecimals(max(1.01, 1.0 / denominator))
+    }
+
+    private func normalizeGoalLine(_ value: Double) -> Double {
+        round(value * 10) / 10
+    }
+
+    private func roundToTwoDecimals(_ value: Double) -> Double {
+        (value * 100).rounded() / 100
+    }
+
     private func estimatedOdds(homeTeam: String, awayTeam: String) -> Odds {
         let (homeOdd, drawOdd, awayOdd) = estimated1x2Odds(homeTeam: homeTeam, awayTeam: awayTeam)
 
@@ -221,9 +590,9 @@ final class OddsService {
             home: homeOdd,
             draw: drawOdd,
             away: awayOdd,
-            homeDraw: 1.0 / ((1.0 / homeOdd) + (1.0 / drawOdd)),
-            homeAway: 1.0 / ((1.0 / homeOdd) + (1.0 / awayOdd)),
-            drawAway: 1.0 / ((1.0 / drawOdd) + (1.0 / awayOdd)),
+            homeDraw: combinedOdd(homeOdd, drawOdd),
+            homeAway: combinedOdd(homeOdd, awayOdd),
+            drawAway: combinedOdd(drawOdd, awayOdd),
             over05: 1.12,
             under05: 6.50,
             over15: 1.45,
@@ -407,6 +776,134 @@ private struct ESPNStatusType: Decodable {
 
 private struct ESPNCompetition: Decodable {
     let competitors: [ESPNCompetitor]
+    let odds: [ESPNCompetitionOdds?]?
+}
+
+private struct ESPNCompetitionOdds: Decodable {
+    let provider: ESPNOddsProvider?
+    let overUnder: Double?
+    let drawOdds: ESPNDrawOdds?
+    let total: ESPNTotalOddsMarket?
+    let moneyline: ESPNMoneylineOddsMarket?
+
+    enum CodingKeys: String, CodingKey {
+        case provider
+        case overUnder
+        case drawOdds
+        case total
+        case moneyline
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        provider = try container.decodeIfPresent(ESPNOddsProvider.self, forKey: .provider)
+        drawOdds = try container.decodeIfPresent(ESPNDrawOdds.self, forKey: .drawOdds)
+        total = try container.decodeIfPresent(ESPNTotalOddsMarket.self, forKey: .total)
+        moneyline = try container.decodeIfPresent(ESPNMoneylineOddsMarket.self, forKey: .moneyline)
+
+        if let value = try? container.decode(Double.self, forKey: .overUnder) {
+            overUnder = value
+        } else if let value = try? container.decode(Int.self, forKey: .overUnder) {
+            overUnder = Double(value)
+        } else if let value = try? container.decode(String.self, forKey: .overUnder) {
+            overUnder = Double(value.replacingOccurrences(of: ",", with: "."))
+        } else {
+            overUnder = nil
+        }
+    }
+}
+
+private struct ESPNOddsProvider: Decodable {
+    let name: String?
+    let priority: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case priority
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+
+        if let value = try? container.decode(Int.self, forKey: .priority) {
+            priority = value
+        } else if let value = try? container.decode(String.self, forKey: .priority) {
+            priority = Int(value)
+        } else {
+            priority = nil
+        }
+    }
+}
+
+private struct ESPNDrawOdds: Decodable {
+    let moneyLine: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case moneyLine
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        if let value = try? container.decode(Int.self, forKey: .moneyLine) {
+            moneyLine = value
+        } else if let value = try? container.decode(String.self, forKey: .moneyLine) {
+            moneyLine = Int(value)
+        } else {
+            moneyLine = nil
+        }
+    }
+}
+
+private struct ESPNTotalOddsMarket: Decodable {
+    let over: ESPNBetMarketSide?
+    let under: ESPNBetMarketSide?
+}
+
+private struct ESPNMoneylineOddsMarket: Decodable {
+    let home: ESPNBetMarketSide?
+    let draw: ESPNBetMarketSide?
+    let away: ESPNBetMarketSide?
+}
+
+private struct ESPNBetMarketSide: Decodable {
+    let open: ESPNOddsSnapshot?
+    let close: ESPNOddsSnapshot?
+}
+
+private struct ESPNOddsSnapshot: Decodable {
+    let line: String?
+    let odds: String?
+
+    enum CodingKeys: String, CodingKey {
+        case line
+        case odds
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        if let value = try? container.decode(String.self, forKey: .line) {
+            line = value
+        } else if let value = try? container.decode(Double.self, forKey: .line) {
+            line = String(value)
+        } else if let value = try? container.decode(Int.self, forKey: .line) {
+            line = String(value)
+        } else {
+            line = nil
+        }
+
+        if let value = try? container.decode(String.self, forKey: .odds) {
+            odds = value
+        } else if let value = try? container.decode(Double.self, forKey: .odds) {
+            odds = String(value)
+        } else if let value = try? container.decode(Int.self, forKey: .odds) {
+            odds = String(value)
+        } else {
+            odds = nil
+        }
+    }
 }
 
 private struct ESPNCompetitor: Decodable {
