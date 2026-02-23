@@ -213,7 +213,10 @@ struct BetSheet: View {
             HStack {
                 summaryLabel("Quota totale")
                 Spacer()
-                summaryValue("\(totalOdd, specifier: "%.2f")", color: .accentCyan)
+                summaryValue(
+                    totalOdd.formatted(.number.precision(.fractionLength(2))),
+                    color: .accentCyan
+                )
             }
 
             HStack {
