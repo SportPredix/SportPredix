@@ -241,6 +241,8 @@ final class BettingViewModel: ObservableObject {
     private let slipsKey = "savedSlips"
     private let matchesKey = "savedMatches"
     private let lastFetchKey = "lastBetstackFetch"
+    private let matchesSourceVersionKey = "matchesSourceVersion"
+    private let matchesSourceVersion = 2
     // Sostituisci con la raw URL del JSON nella tua repository esterna.
     private let promoCodesURLString = "https://raw.githubusercontent.com/SportPredix/Code/refs/heads/main/code.json"
     private var cancellables = Set<AnyCancellable>()
@@ -263,6 +265,7 @@ final class BettingViewModel: ObservableObject {
         
         self.slips = loadSlips()
         self.dailyMatches = loadMatches()
+        migrateMatchesCacheIfNeeded()
         
         if let savedDate = UserDefaults.standard.object(forKey: lastFetchKey) as? Date {
             self.lastUpdateTime = savedDate
@@ -408,14 +411,17 @@ final class BettingViewModel: ObservableObject {
 
         let dateKey = keyForDate(date)
         let isToday = Calendar.current.isDateInToday(date)
+        let existingMatches = dailyMatches[dateKey]
+        let hasLikelySimulatedData = existingMatches.map { looksLikeSimulatedMatches($0, for: date) } ?? false
 
         let shouldFetch: Bool
         if isToday {
             shouldFetch = dailyMatches[dateKey] == nil ||
+                hasLikelySimulatedData ||
                 lastUpdateTime == nil ||
                 Date().timeIntervalSince(lastUpdateTime!) > 3600
         } else {
-            shouldFetch = dailyMatches[dateKey] == nil
+            shouldFetch = dailyMatches[dateKey] == nil || hasLikelySimulatedData
         }
 
         if shouldFetch {
@@ -475,6 +481,41 @@ final class BettingViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    private func looksLikeSimulatedMatches(_ matches: [Match], for date: Date) -> Bool {
+        guard !matches.isEmpty else { return false }
+
+        let loweredCompetitions = matches.map { $0.competition.lowercased() }
+        let hasMultiLeagueSyntheticData = loweredCompetitions.contains { competition in
+            competition.contains("premier") ||
+            competition.contains("liga") ||
+            competition.contains("bundesliga") ||
+            competition.contains("ligue")
+        }
+
+        if hasMultiLeagueSyntheticData {
+            return true
+        }
+
+        let notYesterday = !Calendar.current.isDateInYesterday(date)
+        let allFinishedWithResult = matches.allSatisfy { $0.status == "FINISHED" && $0.actualResult != nil }
+        if notYesterday && allFinishedWithResult {
+            return true
+        }
+
+        return false
+    }
+
+    private func migrateMatchesCacheIfNeeded() {
+        let storedVersion = UserDefaults.standard.integer(forKey: matchesSourceVersionKey)
+        guard storedVersion < matchesSourceVersion else { return }
+
+        dailyMatches = [:]
+        lastUpdateTime = nil
+        UserDefaults.standard.removeObject(forKey: matchesKey)
+        UserDefaults.standard.removeObject(forKey: lastFetchKey)
+        UserDefaults.standard.set(matchesSourceVersion, forKey: matchesSourceVersionKey)
     }
 
     private func dateFromKey(_ key: String) -> Date? {
