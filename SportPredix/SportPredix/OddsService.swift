@@ -9,34 +9,69 @@ final class OddsService {
     static let shared = OddsService()
     private init() {}
 
-    private let baseURL = "https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/scoreboard"
+    private let cachedScoreboardURL = "https://raw.githubusercontent.com/SportPredix/SportPredix/refs/heads/main/data/serie_a_scoreboard.json"
 
     func fetchSerieAOdths(for date: Date = Date(), completion: @escaping (Result<[Match], Error>) -> Void) {
-        guard var urlComponents = URLComponents(string: baseURL) else {
+        fetchSerieAMatchesByDateRange(from: date, to: date) { [weak self] result in
+            guard let self else { return }
+
+            switch result {
+            case .success(let grouped):
+                let key = self.dayKey(from: date)
+                let sameDayMatches = grouped[key] ?? grouped.values.flatMap { $0 }
+                completion(.success(sameDayMatches))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+
+    func fetchSerieAMatchesByDateRange(
+        from startDate: Date,
+        to endDate: Date,
+        completion: @escaping (Result<[String: [Match]], Error>) -> Void
+    ) {
+        let start = min(startDate, endDate)
+        let end = max(startDate, endDate)
+        let startString = scoreboardDateString(from: start)
+        let endString = scoreboardDateString(from: end)
+        let datesQuery = startString == endString ? startString : "\(startString)-\(endString)"
+
+        fetchScoreboard(datesQuery: datesQuery) { [weak self] result in
+            guard let self else { return }
+
+            switch result {
+            case .success(let parsed):
+                let groupedPairs = Dictionary(grouping: parsed) { pair in
+                    self.dayKey(from: pair.kickoff)
+                }
+                let groupedMatches = groupedPairs.mapValues { pairs in
+                    pairs
+                        .sorted { $0.kickoff < $1.kickoff }
+                        .map { $0.match }
+                }
+                completion(.success(groupedMatches))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+
+    private func fetchScoreboard(
+        datesQuery: String,
+        completion: @escaping (Result<[(kickoff: Date, match: Match)], Error>) -> Void
+    ) {
+        guard let url = URL(string: cachedScoreboardURL) else {
             let error = NSError(
                 domain: "Matches API",
                 code: 400,
-                userInfo: [NSLocalizedDescriptionKey: "URL non valida"]
+                userInfo: [NSLocalizedDescriptionKey: "URL cache non valida"]
             )
             completion(.failure(error))
             return
         }
 
-        urlComponents.queryItems = [
-            URLQueryItem(name: "dates", value: scoreboardDateString(from: date))
-        ]
-
-        guard let url = urlComponents.url else {
-            let error = NSError(
-                domain: "Matches API",
-                code: 400,
-                userInfo: [NSLocalizedDescriptionKey: "Impossibile creare URL"]
-            )
-            completion(.failure(error))
-            return
-        }
-
-        print("Fetching real matches from API: \(url.absoluteString)")
+        print("Fetching shared cached matches: \(url.absoluteString)")
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -94,13 +129,12 @@ final class OddsService {
                 let response = try decoder.decode(ESPNScoreboardResponse.self, from: data)
                 let competitionName = response.leagues.first?.name ?? "Serie A"
 
-                let matches = response.events
+                let parsedMatches = response.events
                     .compactMap { self.convertESPNEvent($0, competitionName: competitionName) }
-                    .sorted { $0.kickoff < $1.kickoff }
-                    .map(\.match)
+                let filteredMatches = self.filterParsedMatches(parsedMatches, datesQuery: datesQuery)
 
                 DispatchQueue.main.async {
-                    completion(.success(matches))
+                    completion(.success(filteredMatches))
                 }
             } catch {
                 DispatchQueue.main.async {
@@ -285,6 +319,63 @@ final class OddsService {
         formatter.locale = Locale(identifier: "it_IT")
         formatter.timeZone = .current
         formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+
+    private func filterParsedMatches(
+        _ parsedMatches: [(kickoff: Date, match: Match)],
+        datesQuery: String
+    ) -> [(kickoff: Date, match: Match)] {
+        guard let range = parseDatesQuery(datesQuery) else {
+            return parsedMatches
+        }
+
+        let calendar = Calendar.current
+        let startOfStartDate = calendar.startOfDay(for: range.start)
+        let startOfEndDate = calendar.startOfDay(for: range.end)
+        guard let endExclusive = calendar.date(byAdding: .day, value: 1, to: startOfEndDate) else {
+            return parsedMatches
+        }
+
+        return parsedMatches.filter { pair in
+            pair.kickoff >= startOfStartDate && pair.kickoff < endExclusive
+        }
+    }
+
+    private func parseDatesQuery(_ datesQuery: String) -> (start: Date, end: Date)? {
+        let chunks = datesQuery.split(separator: "-").map(String.init)
+        if chunks.isEmpty {
+            return nil
+        }
+
+        if chunks.count == 1, let date = scoreboardDate(from: chunks[0]) {
+            return (date, date)
+        }
+
+        if chunks.count == 2,
+           let start = scoreboardDate(from: chunks[0]),
+           let end = scoreboardDate(from: chunks[1]) {
+            return (min(start, end), max(start, end))
+        }
+
+        return nil
+    }
+
+    private func scoreboardDate(from value: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyyMMdd"
+        return formatter.date(from: value)
+    }
+
+    private func dayKey(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: date)
     }
 }

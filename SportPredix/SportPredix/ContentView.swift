@@ -241,8 +241,9 @@ final class BettingViewModel: ObservableObject {
     private let slipsKey = "savedSlips"
     private let matchesKey = "savedMatches"
     private let lastFetchKey = "lastBetstackFetch"
+    private let lastBundleFetchDayKey = "lastMatchesBundleFetchDay"
     private let matchesSourceVersionKey = "matchesSourceVersion"
-    private let matchesSourceVersion = 2
+    private let matchesSourceVersion = 3
     // Sostituisci con la raw URL del JSON nella tua repository esterna.
     private let promoCodesURLString = "https://raw.githubusercontent.com/SportPredix/Code/refs/heads/main/code.json"
     private var cancellables = Set<AnyCancellable>()
@@ -250,7 +251,7 @@ final class BettingViewModel: ObservableObject {
     private var betStatsSyncTask: DispatchWorkItem?
     private var isLoadingRemoteBalance = false
     private var isLoadingPromoCodes = false
-    private var loadingDateKeys = Set<String>()
+    private var isFetchingMatchesBundle = false
     
     init() {
         let savedBalance = UserDefaults.standard.double(forKey: "balance")
@@ -360,31 +361,17 @@ final class BettingViewModel: ObservableObject {
     }
     
     private func loadMatchesForAllDays() {
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-        let today = Date()
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
-        
-        let dates = [yesterday, today, tomorrow]
-        let dateKeys = dates.map { keyForDate($0) }
-        
-        for dateKey in dateKeys {
-            if dailyMatches[dateKey] == nil {
-                generateMatchesForDate(key: dateKey)
-            }
+        let selectedDate = dateForIndex(selectedDayIndex)
+        let selectedKey = keyForDate(selectedDate)
+        if dailyMatches[selectedKey] == nil {
+            generateMatchesForDate(key: selectedKey)
         }
     }
     
     private func reloadMatchesForAllDays() {
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-        let today = Date()
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
-        
-        let dates = [yesterday, today, tomorrow]
-        let dateKeys = dates.map { keyForDate($0) }
-        
-        for dateKey in dateKeys {
-            generateMatchesForDate(key: dateKey)
-        }
+        let selectedDate = dateForIndex(selectedDayIndex)
+        let selectedKey = keyForDate(selectedDate)
+        generateMatchesForDate(key: selectedKey)
         
         saveMatches()
         objectWillChange.send()
@@ -410,19 +397,13 @@ final class BettingViewModel: ObservableObject {
         guard selectedSport == "Calcio" else { return }
 
         let dateKey = keyForDate(date)
-        let isToday = Calendar.current.isDateInToday(date)
-        let existingMatches = dailyMatches[dateKey]
-        let hasLikelySimulatedData = existingMatches.map { looksLikeSimulatedMatches($0, for: date) } ?? false
-
-        let shouldFetch: Bool
-        if isToday {
-            shouldFetch = dailyMatches[dateKey] == nil ||
-                hasLikelySimulatedData ||
-                lastUpdateTime == nil ||
-                Date().timeIntervalSince(lastUpdateTime!) > 3600
-        } else {
-            shouldFetch = dailyMatches[dateKey] == nil || hasLikelySimulatedData
+        let bundleKeys = bundleDateKeys()
+        let missingBundleData = bundleKeys.contains { dailyMatches[$0] == nil }
+        let hasLikelySimulatedData = bundleKeys.contains { key in
+            guard let matches = dailyMatches[key], let keyDate = dateFromKey(key) else { return false }
+            return looksLikeSimulatedMatches(matches, for: keyDate)
         }
+        let shouldFetch = !hasFetchedBundleToday() || missingBundleData || hasLikelySimulatedData
 
         if shouldFetch {
             fetchMatchesFromBetstack(for: date)
@@ -436,46 +417,44 @@ final class BettingViewModel: ObservableObject {
         fetchMatchesFromBetstack(for: Date())
     }
 
-    func fetchMatchesFromBetstack(for date: Date) {
+    func fetchMatchesFromBetstack(for _: Date) {
         guard selectedSport == "Calcio" else { return }
+        guard !isFetchingMatchesBundle else { return }
+        let anchorDate = Date()
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: anchorDate) ?? anchorDate
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: anchorDate) ?? anchorDate
 
-        let dateKey = keyForDate(date)
-        guard !loadingDateKeys.contains(dateKey) else { return }
-        loadingDateKeys.insert(dateKey)
+        isFetchingMatchesBundle = true
+        isLoading = true
 
-        if Calendar.current.isDateInToday(date) {
-            isLoading = true
-        }
-
-        OddsService.shared.fetchSerieAOdths(for: date) { [weak self] result in
+        OddsService.shared.fetchSerieAMatchesByDateRange(from: yesterday, to: tomorrow) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-
-                self.loadingDateKeys.remove(dateKey)
-                if Calendar.current.isDateInToday(date) {
-                    self.isLoading = false
-                }
+                self.isFetchingMatchesBundle = false
+                self.isLoading = false
 
                 switch result {
-                case .success(let matches):
-                    print("Real matches fetched for \(dateKey): \(matches.count)")
-                    self.dailyMatches[dateKey] = matches
-
-                    if Calendar.current.isDateInToday(date) {
-                        self.lastUpdateTime = Date()
-                        UserDefaults.standard.set(self.lastUpdateTime, forKey: self.lastFetchKey)
+                case .success(let groupedMatches):
+                    let keys = self.bundleDateKeys()
+                    for key in keys where self.dailyMatches[key] == nil {
+                        self.dailyMatches[key] = []
                     }
+                    for (key, matches) in groupedMatches {
+                        self.dailyMatches[key] = matches
+                    }
+
+                    self.lastUpdateTime = Date()
+                    UserDefaults.standard.set(self.lastUpdateTime, forKey: self.lastFetchKey)
+                    self.markBundleFetchedToday()
 
                     self.saveMatches()
                     self.objectWillChange.send()
 
                 case .failure(let error):
-                    print("Matches API failed for \(dateKey): \(error.localizedDescription)")
-
-                    if self.dailyMatches[dateKey] == nil {
-                        self.dailyMatches[dateKey] = []
+                    print("Matches bundle API failed: \(error.localizedDescription)")
+                    for key in self.bundleDateKeys() where self.dailyMatches[key] == nil {
+                        self.dailyMatches[key] = []
                     }
-
                     self.saveMatches()
                     self.objectWillChange.send()
                 }
@@ -507,6 +486,21 @@ final class BettingViewModel: ObservableObject {
         return false
     }
 
+    private func bundleDateKeys() -> [String] {
+        let anchorDate = Date()
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: anchorDate) ?? anchorDate
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: anchorDate) ?? anchorDate
+        return [yesterday, anchorDate, tomorrow].map { keyForDate($0) }
+    }
+
+    private func hasFetchedBundleToday() -> Bool {
+        UserDefaults.standard.string(forKey: lastBundleFetchDayKey) == keyForDate(Date())
+    }
+
+    private func markBundleFetchedToday() {
+        UserDefaults.standard.set(keyForDate(Date()), forKey: lastBundleFetchDayKey)
+    }
+
     private func migrateMatchesCacheIfNeeded() {
         let storedVersion = UserDefaults.standard.integer(forKey: matchesSourceVersionKey)
         guard storedVersion < matchesSourceVersion else { return }
@@ -515,6 +509,7 @@ final class BettingViewModel: ObservableObject {
         lastUpdateTime = nil
         UserDefaults.standard.removeObject(forKey: matchesKey)
         UserDefaults.standard.removeObject(forKey: lastFetchKey)
+        UserDefaults.standard.removeObject(forKey: lastBundleFetchDayKey)
         UserDefaults.standard.set(matchesSourceVersion, forKey: matchesSourceVersionKey)
     }
 
