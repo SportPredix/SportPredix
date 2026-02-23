@@ -248,6 +248,7 @@ final class BettingViewModel: ObservableObject {
     private var betStatsSyncTask: DispatchWorkItem?
     private var isLoadingRemoteBalance = false
     private var isLoadingPromoCodes = false
+    private var loadingDateKeys = Set<String>()
     
     init() {
         let savedBalance = UserDefaults.standard.double(forKey: "balance")
@@ -390,62 +391,99 @@ final class BettingViewModel: ObservableObject {
         if selectedSport == "Tennis" {
             dailyMatches[key] = generateTennisMatches()
         } else {
-            if key == keyForDate(Date()) {
-                checkAndFetchMatchesForToday()
+            if let date = dateFromKey(key) {
+                checkAndFetchMatches(for: date)
             } else {
-                dailyMatches[key] = generateFootballMatches()
+                dailyMatches[key] = []
             }
         }
     }
     
     func checkAndFetchMatchesForToday() {
+        checkAndFetchMatches(for: Date())
+    }
+
+    private func checkAndFetchMatches(for date: Date) {
         guard selectedSport == "Calcio" else { return }
-        
-        let todayKey = keyForDate(Date())
-        
-        let shouldFetch = dailyMatches[todayKey] == nil ||
-                         lastUpdateTime == nil ||
-                         Date().timeIntervalSince(lastUpdateTime!) > 3600
-        
+
+        let dateKey = keyForDate(date)
+        let isToday = Calendar.current.isDateInToday(date)
+
+        let shouldFetch: Bool
+        if isToday {
+            shouldFetch = dailyMatches[dateKey] == nil ||
+                lastUpdateTime == nil ||
+                Date().timeIntervalSince(lastUpdateTime!) > 3600
+        } else {
+            shouldFetch = dailyMatches[dateKey] == nil
+        }
+
         if shouldFetch {
-            fetchMatchesFromBetstack()
-        } else if dailyMatches[todayKey] == nil {
-            dailyMatches[todayKey] = generateFootballMatches()
+            fetchMatchesFromBetstack(for: date)
+        } else if dailyMatches[dateKey] == nil {
+            dailyMatches[dateKey] = []
             saveMatches()
         }
     }
     
     func fetchMatchesFromBetstack() {
-        guard !isLoading, selectedSport == "Calcio" else { return }
-        
-        isLoading = true
-        
-        OddsService.shared.fetchSerieAOdths { [weak self] result in
+        fetchMatchesFromBetstack(for: Date())
+    }
+
+    func fetchMatchesFromBetstack(for date: Date) {
+        guard selectedSport == "Calcio" else { return }
+
+        let dateKey = keyForDate(date)
+        guard !loadingDateKeys.contains(dateKey) else { return }
+        loadingDateKeys.insert(dateKey)
+
+        if Calendar.current.isDateInToday(date) {
+            isLoading = true
+        }
+
+        OddsService.shared.fetchSerieAOdths(for: date) { [weak self] result in
             DispatchQueue.main.async {
-                self?.isLoading = false
-                
+                guard let self = self else { return }
+
+                self.loadingDateKeys.remove(dateKey)
+                if Calendar.current.isDateInToday(date) {
+                    self.isLoading = false
+                }
+
                 switch result {
                 case .success(let matches):
-                    print("✅ Betstack matches fetched successfully: \(matches.count) matches")
-                    
-                    let todayKey = self?.keyForDate(Date()) ?? ""
-                    self?.dailyMatches[todayKey] = matches
-                    self?.lastUpdateTime = Date()
-                    
-                    self?.saveMatches()
-                    UserDefaults.standard.set(self?.lastUpdateTime, forKey: self?.lastFetchKey ?? "lastBetstackFetch")
-                    
-                    self?.objectWillChange.send()
-                    
+                    print("Real matches fetched for \(dateKey): \(matches.count)")
+                    self.dailyMatches[dateKey] = matches
+
+                    if Calendar.current.isDateInToday(date) {
+                        self.lastUpdateTime = Date()
+                        UserDefaults.standard.set(self.lastUpdateTime, forKey: self.lastFetchKey)
+                    }
+
+                    self.saveMatches()
+                    self.objectWillChange.send()
+
                 case .failure(let error):
-                    print("❌ Betstack fetch failed: \(error.localizedDescription)")
-                    let todayKey = self?.keyForDate(Date()) ?? ""
-                    self?.dailyMatches[todayKey] = self?.generateFootballMatches()
-                    self?.saveMatches()
-                    self?.objectWillChange.send()
+                    print("Matches API failed for \(dateKey): \(error.localizedDescription)")
+
+                    if self.dailyMatches[dateKey] == nil {
+                        self.dailyMatches[dateKey] = []
+                    }
+
+                    self.saveMatches()
+                    self.objectWillChange.send()
                 }
             }
         }
+    }
+
+    private func dateFromKey(_ key: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: key)
     }
     
     func dateForIndex(_ index: Int) -> Date {
@@ -1261,7 +1299,7 @@ struct ContentView: View {
                 .foregroundColor(.accentCyan)
                 .font(.headline)
             
-            Text("Sto recuperando le quote più recenti")
+            Text("Sto recuperando le partite reali")
                 .foregroundColor(.gray)
                 .font(.caption)
             
