@@ -138,8 +138,7 @@ final class OddsService {
             }
 
             do {
-                let decoder = JSONDecoder()
-                let response = try decoder.decode(ESPNScoreboardResponse.self, from: data)
+                let response = try self.decodeScoreboardResponse(from: data)
                 let competitionName = response.leagues.first?.name ?? "Serie A"
 
                 let parsedMatches = response.events
@@ -155,6 +154,28 @@ final class OddsService {
                 }
             }
         }.resume()
+    }
+
+    private func decodeScoreboardResponse(from data: Data) throws -> ESPNScoreboardResponse {
+        let decoder = JSONDecoder()
+        do {
+            return try decoder.decode(ESPNScoreboardResponse.self, from: data)
+        } catch {
+            let fallbackEncodings: [String.Encoding] = [.isoLatin1, .windowsCP1252]
+
+            for encoding in fallbackEncodings {
+                guard let text = String(data: data, encoding: encoding),
+                      let normalizedData = text.data(using: .utf8) else {
+                    continue
+                }
+
+                if let decoded = try? decoder.decode(ESPNScoreboardResponse.self, from: normalizedData) {
+                    return decoded
+                }
+            }
+
+            throw error
+        }
     }
 
     private func convertESPNEvent(

@@ -363,9 +363,7 @@ final class BettingViewModel: ObservableObject {
     private func loadMatchesForAllDays() {
         let selectedDate = dateForIndex(selectedDayIndex)
         let selectedKey = keyForDate(selectedDate)
-        if dailyMatches[selectedKey] == nil {
-            generateMatchesForDate(key: selectedKey)
-        }
+        generateMatchesForDate(key: selectedKey)
     }
     
     private func reloadMatchesForAllDays() {
