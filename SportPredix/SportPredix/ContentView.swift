@@ -1225,47 +1225,43 @@ struct ContentView: View {
     }
     
     private var tabContainer: some View {
-            ZStack {
-                TabView(selection: $vm.selectedTab) {
-                    sportTab
-                        .tag(0)
-                        .tabItem {
-                            Image(systemName: "trophy.fill")
-                            Text("Sport")
-                        }
-                    
-                    casinoTab
-                        .tag(1)
-                        .tabItem {
-                            Image(systemName: "dice.fill")
-                            Text("Casino")
-                        }
-                    
-                    legaTab
-                        .tag(2)
-                        .tabItem {
-                            Image(systemName: "list.number")
-                            Text("Lega")
-                        }
-                    
-                    storicoTab
-                        .tag(3)
-                        .tabItem {
-                            Image(systemName: "clock.fill")
-                            Text("Storico")
-                        }
-                    
-                    profiloTab
-                        .tag(4)
-                        .tabItem {
-                            Image(systemName: "person.crop.circle.fill")
-                            Text("Profilo")
-                        }
+        TabView(selection: $vm.selectedTab) {
+            sportTab
+                .tag(0)
+                .tabItem {
+                    Image(systemName: "trophy.fill")
+                    Text("Sport")
                 }
-                .tint(.accentCyan)
-                
-                floatingButtonView
+
+            casinoTab
+                .tag(1)
+                .tabItem {
+                    Image(systemName: "dice.fill")
+                    Text("Casino")
+                }
+
+            legaTab
+                .tag(2)
+                .tabItem {
+                    Image(systemName: "list.number")
+                    Text("Lega")
+                }
+
+            storicoTab
+                .tag(3)
+                .tabItem {
+                    Image(systemName: "clock.fill")
+                    Text("Storico")
+                }
+
+            profiloTab
+                .tag(4)
+                .tabItem {
+                    Image(systemName: "person.crop.circle.fill")
+                    Text("Profilo")
+                }
             }
+            .tint(.accentCyan)
             .sheet(isPresented: $vm.showSheet) {
                 BetSheet(
                     picks: $vm.currentPicks,
@@ -1289,6 +1285,8 @@ struct ContentView: View {
                 )
                 
                 calendarBarView
+                myPredictionBarView
+                    .animation(.easeInOut(duration: 0.2), value: vm.currentPicks.count)
                 
                 if vm.isLoading {
                     loadingView
@@ -1396,6 +1394,51 @@ struct ContentView: View {
             .padding(.horizontal)
         }
         .padding(.vertical, 12)
+    }
+
+    private var myPredictionBarView: some View {
+        Group {
+            if !vm.currentPicks.isEmpty {
+                Button {
+                    vm.showSheet = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "checklist")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.black)
+
+                        Text("Il mio pronostico")
+                            .font(.subheadline.bold())
+                            .foregroundColor(.black)
+
+                        Spacer()
+
+                        Text("\(vm.currentPicks.count)")
+                            .font(.caption.bold())
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.black.opacity(0.75))
+                            .clipShape(Capsule())
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 46)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.accentCyan)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                            )
+                    )
+                    .shadow(color: Color.accentCyan.opacity(0.35), radius: 10, x: 0, y: 6)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
     }
     
     // MARK: LOADING VIEW
@@ -1633,39 +1676,6 @@ struct ContentView: View {
         }
     }
     
-    // MARK: - FLOATING BUTTON PER SCHEDINE
-    private var floatingButtonView: some View {
-        Group {
-            if !vm.currentPicks.isEmpty && vm.selectedTab != 4 {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        ZStack(alignment: .topTrailing) {
-                            Button { vm.showSheet = true } label: {
-                                Image(systemName: "rectangle.stack.fill")
-                                    .foregroundColor(.black)
-                                    .padding(16)
-                                    .background(Color.accentCyan)
-                                    .clipShape(Circle())
-                                    .shadow(radius: 10)
-                            }
-                            
-                            Text("\(vm.currentPicks.count)")
-                                .font(.caption2.bold())
-                                .padding(4)
-                                .background(Color.red)
-                                .clipShape(Circle())
-                                .foregroundColor(.white)
-                                .offset(x: 8, y: -8)
-                        }
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 110)
-                    }
-                }
-            }
-        }
-    }
 }
 
 // MARK: - CASINO FULL VIEW (FIXATO)

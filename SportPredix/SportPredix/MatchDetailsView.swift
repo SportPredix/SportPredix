@@ -102,35 +102,6 @@ struct MatchDetailView: View {
                 }
             }
             
-            // FLOATING BUTTON (SOLO QUI, PIÙ IN BASSO)
-            if !vm.currentPicks.isEmpty {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        ZStack(alignment: .topTrailing) {
-                            Button { vm.showSheet = true } label: {
-                                Image(systemName: "rectangle.stack.fill")
-                                    .foregroundColor(.black)
-                                    .padding(16)
-                                    .background(Color.accentCyan)
-                                    .clipShape(Circle())
-                                    .shadow(radius: 10)
-                            }
-                            
-                            Text("\(vm.currentPicks.count)")
-                                .font(.caption2.bold())
-                                .padding(4)
-                                .background(Color.red)
-                                .clipShape(Circle())
-                                .foregroundColor(.white)
-                                .offset(x: 8, y: -8)
-                        }
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 20) // POSIZIONE PIÙ IN BASSO SULLA TOOLBAR
-                    }
-                }
-            }
         }
         .navigationBarBackButtonHidden(true)
         .navigationBarHidden(true)
