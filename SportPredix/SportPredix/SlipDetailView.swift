@@ -87,6 +87,14 @@ struct SlipDetailView: View {
                                         .foregroundColor(won ? .green : .red)
                                         .bold()
                                 }
+                            } else {
+                                HStack {
+                                    Text("Esito schedina:")
+                                    Spacer()
+                                    Text("IN SOSPESO")
+                                        .foregroundColor(.orange)
+                                        .bold()
+                                }
                             }
                         }
                         .font(.body)

@@ -449,6 +449,7 @@ final class BettingViewModel: ObservableObject {
                     self.markBundleFetchedToday()
 
                     self.saveMatches()
+                    self.evaluateAllSlips()
                     self.objectWillChange.send()
 
                 case .failure(let error):
@@ -866,50 +867,124 @@ final class BettingViewModel: ObservableObject {
               let decoded = try? JSONDecoder().decode([BetSlip].self, from: data) else { return [] }
         return decoded
     }
-    
-    func evaluateSlip(_ slip: BetSlip) -> BetSlip {
-        var updatedSlip = slip
-        
-        if slip.isEvaluated { return slip }
-        
-        let allCorrect = slip.picks.allSatisfy { pick in
-            switch pick.outcome {
-            case .home, .draw, .away:
-                return pick.match.result == pick.outcome
-            case .homeDraw:
-                return pick.match.result == .home || pick.match.result == .draw
-            case .homeAway:
-                return pick.match.result == .home || pick.match.result == .away
-            case .drawAway:
-                return pick.match.result == .draw || pick.match.result == .away
-            case .over05:
-                return (pick.match.goals ?? 0) > 0
-            case .under05:
-                return (pick.match.goals ?? 0) == 0
-            case .over15:
-                return (pick.match.goals ?? 0) > 1
-            case .under15:
-                return (pick.match.goals ?? 0) <= 1
-            case .over25:
-                return (pick.match.goals ?? 0) > 2
-            case .under25:
-                return (pick.match.goals ?? 0) <= 2
-            case .over35:
-                return (pick.match.goals ?? 0) > 3
-            case .under35:
-                return (pick.match.goals ?? 0) <= 3
-            case .over45:
-                return (pick.match.goals ?? 0) > 4
-            case .under45:
-                return (pick.match.goals ?? 0) <= 4
+
+    private enum PickSettlement: Equatable {
+        case pending
+        case won
+        case lost
+    }
+
+    private func latestMatch(for baseMatch: Match) -> Match {
+        for matches in dailyMatches.values {
+            if let updatedMatch = matches.first(where: { $0.id == baseMatch.id }) {
+                return updatedMatch
             }
         }
-        
+        return baseMatch
+    }
+
+    private func refreshedPicks(for picks: [BetPick]) -> [BetPick] {
+        picks.map { pick in
+            let updatedMatch = latestMatch(for: pick.match)
+            return BetPick(
+                id: pick.id,
+                match: updatedMatch,
+                outcome: pick.outcome,
+                odd: pick.odd
+            )
+        }
+    }
+
+    private func settlement(for pick: BetPick) -> PickSettlement {
+        guard pick.match.status == "FINISHED" else { return .pending }
+
+        switch pick.outcome {
+        case .home, .draw, .away:
+            guard let result = pick.match.result else { return .pending }
+            return result == pick.outcome ? .won : .lost
+
+        case .homeDraw:
+            guard let result = pick.match.result else { return .pending }
+            return (result == .home || result == .draw) ? .won : .lost
+
+        case .homeAway:
+            guard let result = pick.match.result else { return .pending }
+            return (result == .home || result == .away) ? .won : .lost
+
+        case .drawAway:
+            guard let result = pick.match.result else { return .pending }
+            return (result == .draw || result == .away) ? .won : .lost
+
+        case .over05:
+            guard let goals = pick.match.goals else { return .pending }
+            return goals > 0 ? .won : .lost
+
+        case .under05:
+            guard let goals = pick.match.goals else { return .pending }
+            return goals == 0 ? .won : .lost
+
+        case .over15:
+            guard let goals = pick.match.goals else { return .pending }
+            return goals > 1 ? .won : .lost
+
+        case .under15:
+            guard let goals = pick.match.goals else { return .pending }
+            return goals <= 1 ? .won : .lost
+
+        case .over25:
+            guard let goals = pick.match.goals else { return .pending }
+            return goals > 2 ? .won : .lost
+
+        case .under25:
+            guard let goals = pick.match.goals else { return .pending }
+            return goals <= 2 ? .won : .lost
+
+        case .over35:
+            guard let goals = pick.match.goals else { return .pending }
+            return goals > 3 ? .won : .lost
+
+        case .under35:
+            guard let goals = pick.match.goals else { return .pending }
+            return goals <= 3 ? .won : .lost
+
+        case .over45:
+            guard let goals = pick.match.goals else { return .pending }
+            return goals > 4 ? .won : .lost
+
+        case .under45:
+            guard let goals = pick.match.goals else { return .pending }
+            return goals <= 4 ? .won : .lost
+        }
+    }
+    
+    func evaluateSlip(_ slip: BetSlip) -> BetSlip {
+        if slip.isEvaluated { return slip }
+
+        let picksWithLatestMatches = refreshedPicks(for: slip.picks)
+        var updatedSlip = BetSlip(
+            id: slip.id,
+            picks: picksWithLatestMatches,
+            stake: slip.stake,
+            totalOdd: slip.totalOdd,
+            potentialWin: slip.potentialWin,
+            date: slip.date,
+            isWon: slip.isWon,
+            isEvaluated: slip.isEvaluated
+        )
+
+        let settlements = picksWithLatestMatches.map { settlement(for: $0) }
+        if settlements.contains(.pending) {
+            updatedSlip.isWon = nil
+            updatedSlip.isEvaluated = false
+            return updatedSlip
+        }
+
+        let allCorrect = settlements.allSatisfy { $0 == .won }
         updatedSlip.isWon = allCorrect
         updatedSlip.isEvaluated = true
         
         if allCorrect {
-            balance += slip.potentialWin
+            balance += updatedSlip.potentialWin
         }
         
         return updatedSlip
@@ -1515,6 +1590,10 @@ struct ContentView: View {
                                 if let won = slip.isWon {
                                     Text(won ? "ESITO: VINTA" : "ESITO: PERSA")
                                         .foregroundColor(won ? .green : .red)
+                                        .font(.headline)
+                                } else {
+                                    Text("ESITO: IN SOSPESO")
+                                        .foregroundColor(.orange)
                                         .font(.headline)
                                 }
                             }
