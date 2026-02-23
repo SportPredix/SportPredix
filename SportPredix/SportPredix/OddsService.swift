@@ -272,6 +272,9 @@ final class OddsService {
         let line25 = goalLineOdds(for: 2.5, in: totals, fallback: (over: fallback.over25, under: fallback.under25))
         let line35 = goalLineOdds(for: 3.5, in: totals, fallback: (over: fallback.over35, under: fallback.under35))
         let line45 = goalLineOdds(for: 4.5, in: totals, fallback: (over: fallback.over45, under: fallback.under45))
+        let pointSpread = extractPointSpread(from: entries)
+        let mainTotal = extractMainTotal(from: entries)
+        let providerName = normalizedProviderName(entries.first?.provider?.name)
 
         return Odds(
             home: roundToTwoDecimals(homeOdd),
@@ -289,8 +292,24 @@ final class OddsService {
             over35: line35.over,
             under35: line35.under,
             over45: line45.over,
-            under45: line45.under
+            under45: line45.under,
+            apiProvider: providerName,
+            apiMainTotalLine: mainTotal.line,
+            apiMainOver: mainTotal.overOdd,
+            apiMainUnder: mainTotal.underOdd,
+            handicapHome: pointSpread.homeOdd,
+            handicapAway: pointSpread.awayOdd,
+            handicapHomeLine: pointSpread.homeLine,
+            handicapAwayLine: pointSpread.awayLine
         )
+    }
+
+    private func normalizedProviderName(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+
+        return value
     }
 
     private func preferredOddsEntries(from entries: [ESPNCompetitionOdds?]?) -> [ESPNCompetitionOdds] {
@@ -339,6 +358,82 @@ final class OddsService {
             home: sanitizeOdd(home),
             draw: sanitizeOdd(draw),
             away: sanitizeOdd(away)
+        )
+    }
+
+    private func extractPointSpread(
+        from entries: [ESPNCompetitionOdds]
+    ) -> (homeOdd: Double?, awayOdd: Double?, homeLine: Double?, awayLine: Double?) {
+        var homeOdd: Double?
+        var awayOdd: Double?
+        var homeLine: Double?
+        var awayLine: Double?
+
+        for entry in entries {
+            if homeOdd == nil {
+                homeOdd = sanitizeOdd(decimalOdd(from: entry.pointSpread?.home))
+            }
+
+            if awayOdd == nil {
+                awayOdd = sanitizeOdd(decimalOdd(from: entry.pointSpread?.away))
+            }
+
+            if homeLine == nil {
+                homeLine = parseGoalLine(from: entry.pointSpread?.home?.close?.line)
+                    ?? parseGoalLine(from: entry.pointSpread?.home?.open?.line)
+            }
+
+            if awayLine == nil {
+                awayLine = parseGoalLine(from: entry.pointSpread?.away?.close?.line)
+                    ?? parseGoalLine(from: entry.pointSpread?.away?.open?.line)
+            }
+
+            if homeOdd != nil, awayOdd != nil, homeLine != nil, awayLine != nil {
+                break
+            }
+        }
+
+        return (
+            homeOdd: homeOdd,
+            awayOdd: awayOdd,
+            homeLine: homeLine,
+            awayLine: awayLine
+        )
+    }
+
+    private func extractMainTotal(
+        from entries: [ESPNCompetitionOdds]
+    ) -> (line: Double?, overOdd: Double?, underOdd: Double?) {
+        var line: Double?
+        var overOdd: Double?
+        var underOdd: Double?
+
+        for entry in entries {
+            if line == nil {
+                line = parseGoalLine(from: entry.total?.over?.close?.line)
+                    ?? parseGoalLine(from: entry.total?.over?.open?.line)
+                    ?? parseGoalLine(from: entry.total?.under?.close?.line)
+                    ?? parseGoalLine(from: entry.total?.under?.open?.line)
+                    ?? entry.overUnder.map { normalizeGoalLine($0) }
+            }
+
+            if overOdd == nil {
+                overOdd = sanitizeOdd(decimalOdd(from: entry.total?.over))
+            }
+
+            if underOdd == nil {
+                underOdd = sanitizeOdd(decimalOdd(from: entry.total?.under))
+            }
+
+            if line != nil, overOdd != nil, underOdd != nil {
+                break
+            }
+        }
+
+        return (
+            line: line,
+            overOdd: overOdd,
+            underOdd: underOdd
         )
     }
 
@@ -829,6 +924,7 @@ private struct ESPNCompetitionOdds: Decodable {
     let drawOdds: ESPNDrawOdds?
     let total: ESPNTotalOddsMarket?
     let moneyline: ESPNMoneylineOddsMarket?
+    let pointSpread: ESPNPointSpreadMarket?
 
     enum CodingKeys: String, CodingKey {
         case provider
@@ -836,6 +932,7 @@ private struct ESPNCompetitionOdds: Decodable {
         case drawOdds
         case total
         case moneyline
+        case pointSpread
     }
 
     init(from decoder: Decoder) throws {
@@ -844,6 +941,7 @@ private struct ESPNCompetitionOdds: Decodable {
         drawOdds = try container.decodeIfPresent(ESPNDrawOdds.self, forKey: .drawOdds)
         total = try container.decodeIfPresent(ESPNTotalOddsMarket.self, forKey: .total)
         moneyline = try container.decodeIfPresent(ESPNMoneylineOddsMarket.self, forKey: .moneyline)
+        pointSpread = try container.decodeIfPresent(ESPNPointSpreadMarket.self, forKey: .pointSpread)
 
         if let value = try? container.decode(Double.self, forKey: .overUnder) {
             overUnder = value
@@ -908,6 +1006,11 @@ private struct ESPNTotalOddsMarket: Decodable {
 private struct ESPNMoneylineOddsMarket: Decodable {
     let home: ESPNBetMarketSide?
     let draw: ESPNBetMarketSide?
+    let away: ESPNBetMarketSide?
+}
+
+private struct ESPNPointSpreadMarket: Decodable {
+    let home: ESPNBetMarketSide?
     let away: ESPNBetMarketSide?
 }
 

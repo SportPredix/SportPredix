@@ -10,98 +10,46 @@ import SwiftUI
 struct MatchDetailView: View {
     let match: Match
     @ObservedObject var vm: BettingViewModel
-    
-    @Environment(\.presentationMode) var presentationMode
+
+    @Environment(\.presentationMode) private var presentationMode
     @State private var selectedTab = 0
-    
-    let tabOptions = ["Tutti", "1X2", "Doppia chance", "U/O", "1X2 Hard"]
-    
+
+    private let tabOptions = ["Tutte", "1X2", "Doppia", "Over/Under", "Handicap", "API"]
+
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
-            
-            VStack(spacing: 0) {
-                // HEADER
-                VStack(spacing: 12) {
-                    HStack {
-                        Button(action: {
-                            presentationMode.wrappedValue.dismiss()
-                        }) {
-                            Image(systemName: "chevron.left")
-                                .foregroundColor(.accentCyan)
-                                .font(.system(size: 20, weight: .semibold))
-                        }
-                        
-                        Spacer()
-                        
-                        Text(match.time)
-                            .font(.subheadline)
-                            .foregroundColor(.accentCyan)
-                        
-                        Spacer()
-                        
-                        // Spazio vuoto per bilanciare
-                        Color.clear.frame(width: 24, height: 24)
-                    }
-                    .padding(.horizontal)
-                    
-                    Text("\(match.home) - \(match.away)")
-                        .font(.largeTitle.bold())
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                    
-                    // TAB BAR ORIZZONTALE
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 20) {
-                            ForEach(0..<tabOptions.count, id: \.self) { index in
-                                VStack(spacing: 8) {
-                                    Text(tabOptions[index])
-                                        .font(.subheadline)
-                                        .foregroundColor(selectedTab == index ? .accentCyan : .gray)
-                                    
-                                    if selectedTab == index {
-                                        Rectangle()
-                                            .fill(Color.accentCyan)
-                                            .frame(height: 2)
-                                            .frame(width: 60)
-                                    }
-                                }
-                                .padding(.vertical, 8)
-                                .onTapGesture {
-                                    withAnimation {
-                                        selectedTab = index
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-                    .padding(.top, 8)
-                }
-                .padding(.top)
-                
-                // CONTENUTO BASATO SUL TAB SELEZIONATO
-                ScrollView {
-                    VStack(spacing: 20) {
-                        if selectedTab == 0 { // Tutti
+            background
+
+            VStack(spacing: 12) {
+                headerCard
+                tabBar
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 14) {
+                        if selectedTab == 0 {
                             odds1X2Section
                             oddsDoubleChanceSection
                             oddsOverUnderSection
-                        } else if selectedTab == 1 { // 1X2
+                            apiSnapshotSection
+                            handicapSection
+                        } else if selectedTab == 1 {
                             odds1X2Section
-                        } else if selectedTab == 2 { // Doppia chance
+                        } else if selectedTab == 2 {
                             oddsDoubleChanceSection
-                        } else if selectedTab == 3 { // U/O
+                        } else if selectedTab == 3 {
                             oddsOverUnderSection
-                        } else if selectedTab == 4 { // 1X2 Hard
-                            odds1X2HardSection
+                        } else if selectedTab == 4 {
+                            handicapSection
+                        } else {
+                            apiSnapshotSection
+                            handicapSection
                         }
                     }
-                    .padding()
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
                 }
             }
-            
+            .padding(.top, 6)
         }
         .navigationBarBackButtonHidden(true)
         .navigationBarHidden(true)
@@ -114,127 +62,353 @@ struct MatchDetailView: View {
                 }
         )
     }
-    
-    // MARK: - SEZIONI QUOTE
-    
-    private var odds1X2Section: some View {
+
+    private var background: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color.black, Color(red: 0.05, green: 0.08, blue: 0.11), Color.black],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            RadialGradient(
+                gradient: Gradient(colors: [Color.accentCyan.opacity(0.18), Color.clear]),
+                center: .topTrailing,
+                startRadius: 20,
+                endRadius: 320
+            )
+            .ignoresSafeArea()
+        }
+    }
+
+    private var headerCard: some View {
         VStack(spacing: 12) {
-            Text("1X2")
-                .font(.headline)
+            HStack {
+                Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.accentCyan)
+                        .frame(width: 32, height: 32)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                Text(match.time)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.accentCyan)
+
+                Spacer()
+
+                Color.clear.frame(width: 32, height: 32)
+            }
+
+            Text("\(match.home) - \(match.away)")
+                .font(.title2.bold())
                 .foregroundColor(.white)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 4)
-            
+                .multilineTextAlignment(.center)
+
+            HStack(spacing: 8) {
+                badge(text: match.competition.uppercased(), color: .accentCyan, textColor: .black)
+                badge(text: match.status, color: statusColor, textColor: .white)
+
+                if let provider = match.odds.apiProvider {
+                    badge(text: provider, color: .white.opacity(0.12), textColor: .white)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(14)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                )
+                .padding(.horizontal, 16)
+        )
+    }
+
+    private var tabBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(tabOptions.indices, id: \.self) { index in
+                    let selected = selectedTab == index
+                    Text(tabOptions[index])
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(selected ? .black : .white)
+                        .padding(.horizontal, 12)
+                        .frame(height: 34)
+                        .background(selected ? Color.accentCyan : Color.white.opacity(0.08))
+                        .clipShape(Capsule())
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                selectedTab = index
+                            }
+                        }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private var odds1X2Section: some View {
+        marketCard(title: "1X2") {
             HStack(spacing: 10) {
                 oddButton("1", .home, match.odds.home)
                 oddButton("X", .draw, match.odds.draw)
                 oddButton("2", .away, match.odds.away)
             }
         }
-        .padding()
-        .background(Color.white.opacity(0.06))
-        .cornerRadius(14)
     }
-    
+
     private var oddsDoubleChanceSection: some View {
-        VStack(spacing: 12) {
-            Text("Doppia Chance")
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 4)
-            
+        marketCard(title: "Doppia Chance", subtitle: "Quote calcolate dal mercato 1X2") {
             HStack(spacing: 10) {
                 oddButton("1X", .homeDraw, match.odds.homeDraw)
                 oddButton("X2", .drawAway, match.odds.drawAway)
                 oddButton("12", .homeAway, match.odds.homeAway)
             }
         }
-        .padding()
-        .background(Color.white.opacity(0.06))
-        .cornerRadius(14)
     }
-    
+
     private var oddsOverUnderSection: some View {
-        VStack(spacing: 16) {
-            Text("Over/Under")
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 4)
-            
+        let subtitle = match.odds.apiMainTotalLine.map {
+            "Linea API principale: \($0.formatted(.number.precision(.fractionLength(1))))"
+        }
+
+        return marketCard(title: "Over / Under", subtitle: subtitle) {
             VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    oddButton("U 0.5", .under05, match.odds.under05)
-                    oddButton("O 0.5", .over05, match.odds.over05)
+                overUnderRow(line: "0.5", underOdd: match.odds.under05, overOdd: match.odds.over05, underOutcome: .under05, overOutcome: .over05)
+                overUnderRow(line: "1.5", underOdd: match.odds.under15, overOdd: match.odds.over15, underOutcome: .under15, overOutcome: .over15)
+                overUnderRow(line: "2.5", underOdd: match.odds.under25, overOdd: match.odds.over25, underOutcome: .under25, overOutcome: .over25)
+                overUnderRow(line: "3.5", underOdd: match.odds.under35, overOdd: match.odds.over35, underOutcome: .under35, overOutcome: .over35)
+                overUnderRow(line: "4.5", underOdd: match.odds.under45, overOdd: match.odds.over45, underOutcome: .under45, overOutcome: .over45)
+            }
+        }
+    }
+
+    private var apiSnapshotSection: some View {
+        marketCard(
+            title: "Mercati API Diretti",
+            subtitle: "Quote originali del feed bookmaker"
+        ) {
+            VStack(spacing: 10) {
+                if let line = match.odds.apiMainTotalLine,
+                   let overOdd = match.odds.apiMainOver,
+                   let underOdd = match.odds.apiMainUnder {
+                    if let underOutcome = underOutcome(for: line),
+                       let overOutcome = overOutcome(for: line) {
+                        HStack(spacing: 10) {
+                            oddButton("U \(formattedGoalLine(line))", underOutcome, underOdd)
+                            oddButton("O \(formattedGoalLine(line))", overOutcome, overOdd)
+                        }
+                    } else {
+                        HStack(spacing: 10) {
+                            infoOddCard(label: "U \(formattedGoalLine(line))", odd: underOdd)
+                            infoOddCard(label: "O \(formattedGoalLine(line))", odd: overOdd)
+                        }
+                    }
+                } else {
+                    Text("Nessun mercato totale diretto disponibile per questa partita.")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                
-                HStack(spacing: 10) {
-                    oddButton("U 1.5", .under15, match.odds.under15)
-                    oddButton("O 1.5", .over15, match.odds.over15)
-                }
-                
-                HStack(spacing: 10) {
-                    oddButton("U 2.5", .under25, match.odds.under25)
-                    oddButton("O 2.5", .over25, match.odds.over25)
-                }
-                
-                HStack(spacing: 10) {
-                    oddButton("U 3.5", .under35, match.odds.under35)
-                    oddButton("O 3.5", .over35, match.odds.over35)
-                }
-                
-                HStack(spacing: 10) {
-                    oddButton("U 4.5", .under45, match.odds.under45)
-                    oddButton("O 4.5", .over45, match.odds.over45)
+
+                if let provider = match.odds.apiProvider {
+                    HStack {
+                        Text("Bookmaker")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        Spacer()
+                        Text(provider)
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.white)
+                    }
                 }
             }
         }
-        .padding()
-        .background(Color.white.opacity(0.06))
-        .cornerRadius(14)
     }
-    
-    private var odds1X2HardSection: some View {
-        VStack(spacing: 16) {
-            Text("1X2 Hard")
+
+    private var handicapSection: some View {
+        marketCard(
+            title: "Handicap (API)",
+            subtitle: "Quote dal mercato point spread"
+        ) {
+            if let homeOdd = match.odds.handicapHome, let awayOdd = match.odds.handicapAway {
+                HStack(spacing: 10) {
+                    infoOddCard(
+                        label: "1 \(formattedSignedLine(match.odds.handicapHomeLine))",
+                        odd: homeOdd
+                    )
+                    infoOddCard(
+                        label: "2 \(formattedSignedLine(match.odds.handicapAwayLine))",
+                        odd: awayOdd
+                    )
+                }
+            } else {
+                Text("Mercato handicap non disponibile per questa partita.")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private func marketCard<Content: View>(
+        title: String,
+        subtitle: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
                 .font(.headline)
                 .foregroundColor(.white)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 4)
-            
-            Text("Disponibile a breve")
-                .font(.subheadline)
-                .foregroundColor(.gray)
-                .padding()
+
+            if let subtitle {
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+
+            content()
         }
-        .padding()
-        .background(Color.white.opacity(0.06))
-        .cornerRadius(14)
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                )
+        )
     }
-    
+
+    private func overUnderRow(
+        line: String,
+        underOdd: Double,
+        overOdd: Double,
+        underOutcome: MatchOutcome,
+        overOutcome: MatchOutcome
+    ) -> some View {
+        HStack(spacing: 10) {
+            oddButton("U \(line)", underOutcome, underOdd)
+            oddButton("O \(line)", overOutcome, overOdd)
+        }
+    }
+
     private func oddButton(_ label: String, _ outcome: MatchOutcome, _ odd: Double) -> some View {
         let isSelected = vm.currentPicks.contains { $0.match.id == match.id && $0.outcome == outcome }
-        
+
         return Button {
             vm.addPick(match: match, outcome: outcome, odd: odd)
         } label: {
             VStack(spacing: 4) {
                 Text(label)
-                    .font(.system(size: 16, weight: .bold))
-                Text(String(format: "%.2f", odd))
-                    .font(.system(size: 14))
+                    .font(.system(size: 14, weight: .bold))
+                Text(odd.formatted(.number.precision(.fractionLength(2))))
+                    .font(.system(size: 14, weight: .medium))
+                    .monospacedDigit()
             }
-            .foregroundColor(isSelected ? .accentCyan : .white)
+            .foregroundColor(isSelected ? .black : .white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(Color.clear)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.accentCyan : Color.white.opacity(0.2), lineWidth: 2)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(isSelected ? Color.accentCyan : Color.white.opacity(0.04))
             )
-            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSelected ? Color.accentCyan : Color.white.opacity(0.16), lineWidth: 1.5)
+            )
         }
-        .animation(.easeInOut(duration: 0.2), value: isSelected)
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.18), value: isSelected)
+    }
+
+    private func infoOddCard(label: String, odd: Double) -> some View {
+        VStack(spacing: 4) {
+            Text(label)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.white)
+            Text(odd.formatted(.number.precision(.fractionLength(2))))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.accentCyan)
+                .monospacedDigit()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.04))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.white.opacity(0.16), lineWidth: 1.5)
+                )
+        )
+    }
+
+    private func badge(text: String, color: Color, textColor: Color) -> some View {
+        Text(text)
+            .font(.caption2.bold())
+            .foregroundColor(textColor)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(color)
+            .clipShape(Capsule())
+    }
+
+    private var statusColor: Color {
+        switch match.status {
+        case "FINISHED":
+            return .green.opacity(0.85)
+        case "LIVE":
+            return .red.opacity(0.85)
+        default:
+            return .orange.opacity(0.85)
+        }
+    }
+
+    private func formattedSignedLine(_ line: Double?) -> String {
+        guard let line else { return "" }
+        return line >= 0
+            ? "+\(line.formatted(.number.precision(.fractionLength(1))))"
+            : line.formatted(.number.precision(.fractionLength(1)))
+    }
+
+    private func formattedGoalLine(_ line: Double) -> String {
+        line.formatted(.number.precision(.fractionLength(1)))
+    }
+
+    private func underOutcome(for line: Double) -> MatchOutcome? {
+        switch normalizedLine(line) {
+        case 0.5: return .under05
+        case 1.5: return .under15
+        case 2.5: return .under25
+        case 3.5: return .under35
+        case 4.5: return .under45
+        default: return nil
+        }
+    }
+
+    private func overOutcome(for line: Double) -> MatchOutcome? {
+        switch normalizedLine(line) {
+        case 0.5: return .over05
+        case 1.5: return .over15
+        case 2.5: return .over25
+        case 3.5: return .over35
+        case 4.5: return .over45
+        default: return nil
+        }
+    }
+
+    private func normalizedLine(_ line: Double) -> Double {
+        (line * 10).rounded() / 10
     }
 }

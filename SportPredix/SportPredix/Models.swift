@@ -83,6 +83,14 @@ struct Odds: Codable {
     let under35: Double
     let over45: Double
     let under45: Double
+    let apiProvider: String?
+    let apiMainTotalLine: Double?
+    let apiMainOver: Double?
+    let apiMainUnder: Double?
+    let handicapHome: Double?
+    let handicapAway: Double?
+    let handicapHomeLine: Double?
+    let handicapAwayLine: Double?
     
     enum CodingKeys: String, CodingKey {
         case home, draw, away
@@ -99,6 +107,66 @@ struct Odds: Codable {
         case under35 = "under_35"
         case over45 = "over_45"
         case under45 = "under_45"
+        case apiProvider = "api_provider"
+        case apiMainTotalLine = "api_main_total_line"
+        case apiMainOver = "api_main_over"
+        case apiMainUnder = "api_main_under"
+        case handicapHome = "handicap_home"
+        case handicapAway = "handicap_away"
+        case handicapHomeLine = "handicap_home_line"
+        case handicapAwayLine = "handicap_away_line"
+    }
+
+    init(
+        home: Double,
+        draw: Double,
+        away: Double,
+        homeDraw: Double,
+        homeAway: Double,
+        drawAway: Double,
+        over05: Double,
+        under05: Double,
+        over15: Double,
+        under15: Double,
+        over25: Double,
+        under25: Double,
+        over35: Double,
+        under35: Double,
+        over45: Double,
+        under45: Double,
+        apiProvider: String? = nil,
+        apiMainTotalLine: Double? = nil,
+        apiMainOver: Double? = nil,
+        apiMainUnder: Double? = nil,
+        handicapHome: Double? = nil,
+        handicapAway: Double? = nil,
+        handicapHomeLine: Double? = nil,
+        handicapAwayLine: Double? = nil
+    ) {
+        self.home = home
+        self.draw = draw
+        self.away = away
+        self.homeDraw = homeDraw
+        self.homeAway = homeAway
+        self.drawAway = drawAway
+        self.over05 = over05
+        self.under05 = under05
+        self.over15 = over15
+        self.under15 = under15
+        self.over25 = over25
+        self.under25 = under25
+        self.over35 = over35
+        self.under35 = under35
+        self.over45 = over45
+        self.under45 = under45
+        self.apiProvider = apiProvider
+        self.apiMainTotalLine = apiMainTotalLine
+        self.apiMainOver = apiMainOver
+        self.apiMainUnder = apiMainUnder
+        self.handicapHome = handicapHome
+        self.handicapAway = handicapAway
+        self.handicapHomeLine = handicapHomeLine
+        self.handicapAwayLine = handicapAwayLine
     }
 }
 
