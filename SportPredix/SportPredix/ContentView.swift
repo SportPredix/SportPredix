@@ -243,7 +243,7 @@ final class BettingViewModel: ObservableObject {
     private let lastFetchKey = "lastBetstackFetch"
     private let lastBundleFetchDayKey = "lastMatchesBundleFetchDay"
     private let matchesSourceVersionKey = "matchesSourceVersion"
-    private let matchesSourceVersion = 4
+    private let matchesSourceVersion = 5
     // Sostituisci con la raw URL del JSON nella tua repository esterna.
     private let promoCodesURLString = "https://raw.githubusercontent.com/SportPredix/Code/refs/heads/main/code.json"
     private var cancellables = Set<AnyCancellable>()
@@ -397,11 +397,14 @@ final class BettingViewModel: ObservableObject {
         let dateKey = keyForDate(date)
         let bundleKeys = bundleDateKeys()
         let missingBundleData = bundleKeys.contains { dailyMatches[$0] == nil }
+        let hasOnlyEmptyBundleData = bundleKeys.allSatisfy { key in
+            (dailyMatches[key] ?? []).isEmpty
+        }
         let hasLikelySimulatedData = bundleKeys.contains { key in
             guard let matches = dailyMatches[key], let keyDate = dateFromKey(key) else { return false }
             return looksLikeSimulatedMatches(matches, for: keyDate)
         }
-        let shouldFetch = !hasFetchedBundleToday() || missingBundleData || hasLikelySimulatedData
+        let shouldFetch = !hasFetchedBundleToday() || missingBundleData || hasOnlyEmptyBundleData || hasLikelySimulatedData
 
         if shouldFetch {
             fetchMatchesFromBetstack(for: date)

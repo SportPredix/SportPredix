@@ -144,6 +144,7 @@ final class OddsService {
                 let parsedMatches = response.events
                     .compactMap { self.convertESPNEvent($0, competitionName: competitionName) }
                 let filteredMatches = self.filterParsedMatches(parsedMatches, datesQuery: datesQuery)
+                print("Scoreboard parsed events=\(response.events.count), matchesAfterFilter=\(filteredMatches.count), datesQuery=\(datesQuery)")
 
                 DispatchQueue.main.async {
                     completion(.success(filteredMatches))
@@ -170,6 +171,7 @@ final class OddsService {
                 }
 
                 if let decoded = try? decoder.decode(ESPNScoreboardResponse.self, from: normalizedData) {
+                    print("Scoreboard decoded with fallback encoding: \(encoding.rawValue)")
                     return decoded
                 }
             }
@@ -692,7 +694,28 @@ final class OddsService {
         fallback.locale = Locale(identifier: "en_US_POSIX")
         fallback.timeZone = TimeZone(secondsFromGMT: 0)
         fallback.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-        return fallback.date(from: value)
+        if let date = fallback.date(from: value) {
+            return date
+        }
+
+        let minutePrecisionFormatter = DateFormatter()
+        minutePrecisionFormatter.locale = Locale(identifier: "en_US_POSIX")
+        minutePrecisionFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+        minutePrecisionFormatter.dateFormat = "yyyy-MM-dd'T'HH:mmZ"
+        if let date = minutePrecisionFormatter.date(from: value) {
+            return date
+        }
+
+        let offsetFormatter = DateFormatter()
+        offsetFormatter.locale = Locale(identifier: "en_US_POSIX")
+        offsetFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+        offsetFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
+        if let date = offsetFormatter.date(from: value) {
+            return date
+        }
+
+        offsetFormatter.dateFormat = "yyyy-MM-dd'T'HH:mmXXXXX"
+        return offsetFormatter.date(from: value)
     }
 
     private func scoreboardDateString(from date: Date) -> String {
