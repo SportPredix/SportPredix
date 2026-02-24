@@ -12,6 +12,7 @@ final class OddsService {
         case laLiga = "esp.1"
         case bundesliga = "ger.1"
         case ligue1 = "fra.1"
+        case championsLeague = "uefa.champions"
 
         var displayName: String {
             switch self {
@@ -25,6 +26,8 @@ final class OddsService {
                 return "Bundesliga"
             case .ligue1:
                 return "Ligue 1"
+            case .championsLeague:
+                return "UEFA Champions League"
             }
         }
     }
@@ -35,7 +38,8 @@ final class OddsService {
         .premierLeague,
         .laLiga,
         .bundesliga,
-        .ligue1
+        .ligue1,
+        .championsLeague
     ]
     private init() {}
 

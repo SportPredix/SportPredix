@@ -14,7 +14,8 @@ struct BetSheet: View {
     let onConfirm: (Double) -> Void
 
     @State private var stakeText: String = "10"
-    @Environment(\.presentationMode) private var presentationMode
+    @FocusState private var isStakeFieldFocused: Bool
+    @Environment(\.dismiss) private var dismiss
 
     private var stake: Double {
         Double(stakeText.replacingOccurrences(of: ",", with: ".")) ?? 0
@@ -29,7 +30,7 @@ struct BetSheet: View {
     }
 
     private var quickStakeOptions: [Double] {
-        [5, 10, 20, 50]
+        [5, 10, 20, 50, 100]
     }
 
     var body: some View {
@@ -42,7 +43,7 @@ struct BetSheet: View {
                     .frame(width: 44, height: 5)
                     .padding(.top, 8)
 
-                header
+                headerCard
 
                 if picks.isEmpty {
                     emptyState
@@ -56,11 +57,14 @@ struct BetSheet: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
         }
+        .onTapGesture {
+            isStakeFieldFocused = false
+        }
         .gesture(
             DragGesture()
                 .onEnded { value in
                     if value.translation.width > 100 {
-                        presentationMode.wrappedValue.dismiss()
+                        dismiss()
                     }
                 }
         )
@@ -69,29 +73,48 @@ struct BetSheet: View {
     private var background: some View {
         ZStack {
             LinearGradient(
-                colors: [Color.black, Color(red: 0.05, green: 0.08, blue: 0.11), Color.black],
+                colors: [Color.black, Color(red: 0.04, green: 0.07, blue: 0.10), Color.black],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
 
             RadialGradient(
-                gradient: Gradient(colors: [Color.accentCyan.opacity(0.20), Color.clear]),
+                gradient: Gradient(colors: [Color.accentCyan.opacity(0.26), Color.clear]),
                 center: .topTrailing,
                 startRadius: 20,
-                endRadius: 320
+                endRadius: 340
+            )
+            .ignoresSafeArea()
+
+            RadialGradient(
+                gradient: Gradient(colors: [Color.blue.opacity(0.12), Color.clear]),
+                center: .bottomLeading,
+                startRadius: 10,
+                endRadius: 300
             )
             .ignoresSafeArea()
         }
     }
 
-    private var header: some View {
+    private var headerCard: some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentCyan.opacity(0.22))
+                    .frame(width: 36, height: 36)
+
+                Image(systemName: "checklist")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.accentCyan)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
                 Text("Il mio pronostico")
-                    .font(.title3.bold())
+                    .font(.headline.weight(.semibold))
                     .foregroundColor(.white)
-                Text("\(picks.count) selezioni")
+
+                Text(picks.count == 1 ? "1 selezione" : "\(picks.count) selezioni")
                     .font(.caption)
                     .foregroundColor(.gray)
             }
@@ -99,7 +122,7 @@ struct BetSheet: View {
             Spacer()
 
             Button {
-                presentationMode.wrappedValue.dismiss()
+                dismiss()
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 12, weight: .bold))
@@ -110,29 +133,31 @@ struct BetSheet: View {
             }
             .buttonStyle(.plain)
         }
+        .padding(14)
+        .background(glassCard(stroke: Color.accentCyan.opacity(0.28)))
     }
 
     private var emptyState: some View {
         VStack(spacing: 14) {
-            Spacer(minLength: 30)
+            Spacer(minLength: 28)
 
             Image(systemName: "checklist.unchecked")
-                .font(.system(size: 38, weight: .semibold))
+                .font(.system(size: 40, weight: .semibold))
                 .foregroundColor(.accentCyan)
 
             Text("Nessun pronostico selezionato")
                 .font(.headline)
                 .foregroundColor(.white)
 
-            Text("Torna alle partite e seleziona almeno un esito.")
+            Text("Torna alle partite e aggiungi almeno una selezione.")
                 .font(.subheadline)
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
 
             Button {
-                presentationMode.wrappedValue.dismiss()
+                dismiss()
             } label: {
-                Text("Chiudi")
+                Text("Vai alle partite")
                     .font(.subheadline.bold())
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)
@@ -146,116 +171,134 @@ struct BetSheet: View {
             Spacer()
         }
         .padding(16)
-        .background(cardBackground(stroke: Color.accentCyan.opacity(0.20)))
+        .background(glassCard(stroke: Color.accentCyan.opacity(0.26)))
         .padding(.top, 8)
     }
 
     private var picksList: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 10) {
+            LazyVStack(spacing: 10) {
                 ForEach(picks) { pick in
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .top, spacing: 10) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("\(pick.match.home) - \(pick.match.away)")
-                                    .font(.subheadline.bold())
-                                    .foregroundColor(.white)
-                                    .lineLimit(2)
-
-                                Text("\(pick.match.competition)  |  \(pick.match.time)")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
-                            }
-
-                            Spacer()
-
-                            Button {
-                                picks.removeAll { $0.id == pick.id }
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.red.opacity(0.95))
-                                    .frame(width: 28, height: 28)
-                                    .background(Color.red.opacity(0.14))
-                                    .clipShape(Circle())
-                            }
-                            .buttonStyle(.plain)
-                        }
-
-                        HStack(spacing: 8) {
-                            Text(pick.outcome.rawValue)
-                                .font(.caption.bold())
-                                .foregroundColor(.black)
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 4)
-                                .background(Color.accentCyan)
-                                .clipShape(Capsule())
-
-                            Text("Quota \(pick.odd, specifier: "%.2f")")
-                                .font(.caption.bold())
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 4)
-                                .background(Color.white.opacity(0.12))
-                                .clipShape(Capsule())
-                        }
-                    }
-                    .padding(12)
-                    .background(cardBackground(stroke: Color.white.opacity(0.08)))
+                    pickCard(pick)
                 }
             }
             .padding(.top, 2)
         }
+        .frame(maxHeight: 320)
+    }
+
+    private func pickCard(_ pick: BetPick) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(pick.match.home) - \(pick.match.away)")
+                        .font(.subheadline.bold())
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+
+                    HStack(spacing: 8) {
+                        Label(pick.match.competition, systemImage: "trophy.fill")
+                            .font(.caption2)
+                            .foregroundColor(.accentCyan.opacity(0.95))
+                            .lineLimit(1)
+
+                        Text(pick.match.time)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundColor(.gray)
+                    }
+                }
+
+                Spacer()
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        picks.removeAll { $0.id == pick.id }
+                    }
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.red.opacity(0.92))
+                }
+                .buttonStyle(.plain)
+            }
+
+            HStack(spacing: 8) {
+                chip(text: pick.outcome.rawValue, foreground: .black, background: .accentCyan)
+                chip(
+                    text: "Quota \(pick.odd.formatted(.number.precision(.fractionLength(2))))",
+                    foreground: .white,
+                    background: Color.white.opacity(0.12)
+                )
+            }
+        }
+        .padding(12)
+        .background(glassCard(stroke: Color.white.opacity(0.10)))
     }
 
     private var summaryCard: some View {
         VStack(spacing: 12) {
-            HStack {
-                summaryLabel("Quota totale")
-                Spacer()
-                summaryValue(
-                    totalOdd.formatted(.number.precision(.fractionLength(2))),
-                    color: .accentCyan
+            HStack(spacing: 10) {
+                statTile(
+                    title: "Quota totale",
+                    value: totalOdd.formatted(.number.precision(.fractionLength(2))),
+                    valueColor: .accentCyan
+                )
+
+                statTile(
+                    title: "Saldo",
+                    value: balance.formatted(.currency(code: "EUR")),
+                    valueColor: .white
                 )
             }
 
-            HStack {
-                summaryLabel("Saldo disponibile")
-                Spacer()
-                summaryValue(balance.formatted(.currency(code: "EUR")), color: .white)
-            }
-
             VStack(alignment: .leading, spacing: 8) {
-                Text("Importo")
+                Text("Importo puntata")
                     .font(.caption.bold())
                     .foregroundColor(.gray)
 
-                TextField("Inserisci importo", text: $stakeText)
-                    .keyboardType(.decimalPad)
-                    .padding(.horizontal, 12)
-                    .frame(height: 44)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.white.opacity(0.08))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                            )
-                    )
-                    .foregroundColor(.white)
+                HStack(spacing: 10) {
+                    Text("EUR")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.accentCyan)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(Color.accentCyan.opacity(0.14))
+                        .clipShape(Capsule())
 
-                HStack(spacing: 8) {
+                    TextField("Inserisci importo", text: $stakeText)
+                        .keyboardType(.decimalPad)
+                        .focused($isStakeFieldFocused)
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 12)
+                .frame(height: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white.opacity(0.07))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(
+                                    isStakeFieldFocused ? Color.accentCyan.opacity(0.5) : Color.white.opacity(0.14),
+                                    lineWidth: 1
+                                )
+                        )
+                )
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                     ForEach(quickStakeOptions, id: \.self) { amount in
+                        let selected = abs(stake - amount) < 0.001
                         Button {
                             stakeText = amount.cleanNumberString
                         } label: {
                             Text(amount.formatted(.currency(code: "EUR")))
                                 .font(.caption.bold())
-                                .foregroundColor(.white.opacity(0.95))
+                                .foregroundColor(selected ? .black : .white)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 34)
-                                .background(Color.white.opacity(0.08))
-                                .cornerRadius(9)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                        .fill(selected ? Color.accentCyan : Color.white.opacity(0.09))
+                                )
                         }
                         .buttonStyle(.plain)
                     }
@@ -263,52 +306,95 @@ struct BetSheet: View {
             }
 
             HStack {
-                summaryLabel("Vincita potenziale")
+                Text("Vincita potenziale")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+
                 Spacer()
-                summaryValue(
-                    potentialWin.formatted(.currency(code: "EUR")),
-                    color: canConfirm ? .green : .gray
-                )
+
+                Text(potentialWin.formatted(.currency(code: "EUR")))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(canConfirm ? .green : .gray)
+                    .monospacedDigit()
+            }
+
+            if stake > balance {
+                Text("Saldo insufficiente per confermare questo importo.")
+                    .font(.caption)
+                    .foregroundColor(.red.opacity(0.9))
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             Button {
                 guard canConfirm else { return }
                 onConfirm(stake)
-                presentationMode.wrappedValue.dismiss()
+                dismiss()
             } label: {
-                Text("Conferma pronostico")
-                    .font(.subheadline.bold())
-                    .foregroundColor(.black)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(canConfirm ? Color.accentCyan : Color.gray.opacity(0.35))
-                    .cornerRadius(12)
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("Conferma pronostico")
+                        .font(.subheadline.bold())
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(canConfirm ? Color.accentCyan : Color.gray.opacity(0.35))
+                .cornerRadius(12)
             }
             .buttonStyle(.plain)
             .disabled(!canConfirm)
         }
         .padding(14)
-        .background(cardBackground(stroke: Color.accentCyan.opacity(0.20)))
+        .background(glassCard(stroke: Color.accentCyan.opacity(0.25)))
     }
 
-    private func summaryLabel(_ text: String) -> some View {
+    private func chip(text: String, foreground: Color, background: Color) -> some View {
         Text(text)
-            .font(.subheadline)
-            .foregroundColor(.gray)
+            .font(.caption.bold())
+            .foregroundColor(foreground)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(background)
+            .clipShape(Capsule())
     }
 
-    private func summaryValue(_ text: String, color: Color) -> some View {
-        Text(text)
-            .font(.subheadline.weight(.semibold))
-            .foregroundColor(color)
-            .monospacedDigit()
+    private func statTile(title: String, value: String, valueColor: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.gray)
+
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(valueColor)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.white.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+        )
     }
 
-    private func cardBackground(stroke: Color) -> some View {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(Color.white.opacity(0.06))
+    private func glassCard(stroke: Color) -> some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(Color.white.opacity(0.05))
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .opacity(0.28)
+            )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(stroke, lineWidth: 1)
             )
     }
