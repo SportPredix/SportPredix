@@ -395,7 +395,7 @@ final class BettingViewModel: ObservableObject {
         guard selectedSport == "Calcio" else { return }
 
         let dateKey = keyForDate(date)
-        let bundleKeys = bundleDateKeys()
+        let bundleKeys = bundleDateKeys(anchorDate: date)
         let missingBundleData = bundleKeys.contains { dailyMatches[$0] == nil }
         let hasOnlyEmptyBundleData = bundleKeys.allSatisfy { key in
             (dailyMatches[key] ?? []).isEmpty
@@ -404,7 +404,7 @@ final class BettingViewModel: ObservableObject {
             guard let matches = dailyMatches[key], let keyDate = dateFromKey(key) else { return false }
             return looksLikeSimulatedMatches(matches, for: keyDate)
         }
-        let shouldFetch = !hasFetchedBundleToday() || missingBundleData || hasOnlyEmptyBundleData || hasLikelySimulatedData
+        let shouldFetch = !hasFetchedBundle(for: date) || missingBundleData || hasOnlyEmptyBundleData || hasLikelySimulatedData
 
         if shouldFetch {
             fetchMatchesFromBetstack(for: date)
@@ -418,10 +418,9 @@ final class BettingViewModel: ObservableObject {
         fetchMatchesFromBetstack(for: Date())
     }
 
-    func fetchMatchesFromBetstack(for _: Date) {
+    func fetchMatchesFromBetstack(for anchorDate: Date) {
         guard selectedSport == "Calcio" else { return }
         guard !isFetchingMatchesBundle else { return }
-        let anchorDate = Date()
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: anchorDate) ?? anchorDate
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: anchorDate) ?? anchorDate
 
@@ -440,7 +439,7 @@ final class BettingViewModel: ObservableObject {
 
                 switch result {
                 case .success(let groupedMatches):
-                    let keys = self.bundleDateKeys()
+                    let keys = self.bundleDateKeys(anchorDate: anchorDate)
                     for key in keys where self.dailyMatches[key] == nil {
                         self.dailyMatches[key] = []
                     }
@@ -450,7 +449,7 @@ final class BettingViewModel: ObservableObject {
 
                     self.lastUpdateTime = Date()
                     UserDefaults.standard.set(self.lastUpdateTime, forKey: self.lastFetchKey)
-                    self.markBundleFetchedToday()
+                    self.markBundleFetched(for: anchorDate)
 
                     self.saveMatches()
                     self.evaluateAllSlips()
@@ -458,7 +457,7 @@ final class BettingViewModel: ObservableObject {
 
                 case .failure(let error):
                     print("Matches bundle API failed: \(error.localizedDescription)")
-                    for key in self.bundleDateKeys() where self.dailyMatches[key] == nil {
+                    for key in self.bundleDateKeys(anchorDate: anchorDate) where self.dailyMatches[key] == nil {
                         self.dailyMatches[key] = []
                     }
                     self.saveMatches()
@@ -480,19 +479,18 @@ final class BettingViewModel: ObservableObject {
         return false
     }
 
-    private func bundleDateKeys() -> [String] {
-        let anchorDate = Date()
+    private func bundleDateKeys(anchorDate: Date) -> [String] {
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: anchorDate) ?? anchorDate
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: anchorDate) ?? anchorDate
         return [yesterday, anchorDate, tomorrow].map { keyForDate($0) }
     }
 
-    private func hasFetchedBundleToday() -> Bool {
-        UserDefaults.standard.string(forKey: lastBundleFetchDayKey) == keyForDate(Date())
+    private func hasFetchedBundle(for anchorDate: Date) -> Bool {
+        UserDefaults.standard.string(forKey: lastBundleFetchDayKey) == keyForDate(anchorDate)
     }
 
-    private func markBundleFetchedToday() {
-        UserDefaults.standard.set(keyForDate(Date()), forKey: lastBundleFetchDayKey)
+    private func markBundleFetched(for anchorDate: Date) {
+        UserDefaults.standard.set(keyForDate(anchorDate), forKey: lastBundleFetchDayKey)
     }
 
     private func migrateMatchesCacheIfNeeded() {
