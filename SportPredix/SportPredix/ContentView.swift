@@ -243,7 +243,7 @@ final class BettingViewModel: ObservableObject {
     private let lastFetchKey = "lastBetstackFetch"
     private let lastBundleFetchDayKey = "lastMatchesBundleFetchDay"
     private let matchesSourceVersionKey = "matchesSourceVersion"
-    private let matchesSourceVersion = 5
+    private let matchesSourceVersion = 6
     // Sostituisci con la raw URL del JSON nella tua repository esterna.
     private let promoCodesURLString = "https://raw.githubusercontent.com/SportPredix/Code/refs/heads/main/code.json"
     private var cancellables = Set<AnyCancellable>()
@@ -428,7 +428,11 @@ final class BettingViewModel: ObservableObject {
         isFetchingMatchesBundle = true
         isLoading = true
 
-        OddsService.shared.fetchSerieAMatchesByDateRange(from: yesterday, to: tomorrow) { [weak self] result in
+        OddsService.shared.fetchMatchesByDateRange(
+            from: yesterday,
+            to: tomorrow,
+            leagues: OddsService.supportedSoccerLeagues
+        ) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 self.isFetchingMatchesBundle = false
@@ -466,18 +470,6 @@ final class BettingViewModel: ObservableObject {
 
     private func looksLikeSimulatedMatches(_ matches: [Match], for date: Date) -> Bool {
         guard !matches.isEmpty else { return false }
-
-        let loweredCompetitions = matches.map { $0.competition.lowercased() }
-        let hasMultiLeagueSyntheticData = loweredCompetitions.contains { competition in
-            competition.contains("premier") ||
-            competition.contains("liga") ||
-            competition.contains("bundesliga") ||
-            competition.contains("ligue")
-        }
-
-        if hasMultiLeagueSyntheticData {
-            return true
-        }
 
         let notYesterday = !Calendar.current.isDateInYesterday(date)
         let allFinishedWithResult = matches.allSatisfy { $0.status == "FINISHED" && $0.actualResult != nil }

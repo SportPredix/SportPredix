@@ -6,7 +6,37 @@
 import Foundation
 
 final class OddsService {
+    enum SoccerLeague: String, CaseIterable {
+        case serieA = "ita.1"
+        case premierLeague = "eng.1"
+        case laLiga = "esp.1"
+        case bundesliga = "ger.1"
+        case ligue1 = "fra.1"
+
+        var displayName: String {
+            switch self {
+            case .serieA:
+                return "Serie A"
+            case .premierLeague:
+                return "Premier League"
+            case .laLiga:
+                return "La Liga"
+            case .bundesliga:
+                return "Bundesliga"
+            case .ligue1:
+                return "Ligue 1"
+            }
+        }
+    }
+
     static let shared = OddsService()
+    static let supportedSoccerLeagues: [SoccerLeague] = [
+        .serieA,
+        .premierLeague,
+        .laLiga,
+        .bundesliga,
+        .ligue1
+    ]
     private init() {}
 
     private typealias GoalLineOdds = (over: Double, under: Double)
@@ -21,11 +51,27 @@ final class OddsService {
         let overround: Double
     }
 
-    private let cachedScoreboardURL = "https://raw.githubusercontent.com/SportPredix/SportPredix/refs/heads/main/data/serie_a_scoreboard.json"
+    private let espnSoccerBaseURL = "https://site.api.espn.com/apis/site/v2/sports/soccer"
     private let trackedGoalLines: [Double] = [0.5, 1.5, 2.5, 3.5, 4.5]
 
     func fetchSerieAOdths(for date: Date = Date(), completion: @escaping (Result<[Match], Error>) -> Void) {
-        fetchSerieAMatchesByDateRange(from: date, to: date) { [weak self] result in
+        fetchOdds(for: date, league: .serieA, completion: completion)
+    }
+
+    func fetchSerieAMatchesByDateRange(
+        from startDate: Date,
+        to endDate: Date,
+        completion: @escaping (Result<[String: [Match]], Error>) -> Void
+    ) {
+        fetchMatchesByDateRange(from: startDate, to: endDate, league: .serieA, completion: completion)
+    }
+
+    func fetchOdds(
+        for date: Date = Date(),
+        league: SoccerLeague = .serieA,
+        completion: @escaping (Result<[Match], Error>) -> Void
+    ) {
+        fetchMatchesByDateRange(from: date, to: date, league: league) { [weak self] result in
             guard let self else { return }
 
             switch result {
@@ -39,52 +85,102 @@ final class OddsService {
         }
     }
 
-    func fetchSerieAMatchesByDateRange(
+    func fetchMatchesByDateRange(
         from startDate: Date,
         to endDate: Date,
+        league: SoccerLeague = .serieA,
         completion: @escaping (Result<[String: [Match]], Error>) -> Void
     ) {
+        fetchMatchesByDateRange(from: startDate, to: endDate, leagues: [league], completion: completion)
+    }
+
+    func fetchMatchesByDateRange(
+        from startDate: Date,
+        to endDate: Date,
+        leagues: [SoccerLeague],
+        completion: @escaping (Result<[String: [Match]], Error>) -> Void
+    ) {
+        let uniqueLeagues = leagues.reduce(into: [SoccerLeague]()) { partialResult, league in
+            if !partialResult.contains(league) {
+                partialResult.append(league)
+            }
+        }
+
+        guard !uniqueLeagues.isEmpty else {
+            completion(.success([:]))
+            return
+        }
+
         let start = min(startDate, endDate)
         let end = max(startDate, endDate)
         let startString = scoreboardDateString(from: start)
         let endString = scoreboardDateString(from: end)
         let datesQuery = startString == endString ? startString : "\(startString)-\(endString)"
 
-        fetchScoreboard(datesQuery: datesQuery) { [weak self] result in
+        let aggregateQueue = DispatchQueue(label: "OddsService.aggregateQueue")
+        let group = DispatchGroup()
+        var mergedPairs: [(kickoff: Date, match: Match)] = []
+        var failures: [Error] = []
+
+        for league in uniqueLeagues {
+            group.enter()
+            fetchScoreboard(league: league, datesQuery: datesQuery) { result in
+                aggregateQueue.async {
+                    switch result {
+                    case .success(let parsed):
+                        mergedPairs.append(contentsOf: parsed)
+                    case .failure(let error):
+                        failures.append(error)
+                    }
+                    group.leave()
+                }
+            }
+        }
+
+        group.notify(queue: aggregateQueue) { [weak self] in
             guard let self else { return }
 
-            switch result {
-            case .success(let parsed):
-                let groupedPairs = Dictionary(grouping: parsed) { pair in
-                    self.dayKey(from: pair.kickoff)
+            let grouped = self.groupMatchesByDay(mergedPairs)
+            DispatchQueue.main.async {
+                if !grouped.isEmpty {
+                    completion(.success(grouped))
+                } else if let firstError = failures.first {
+                    completion(.failure(firstError))
+                } else {
+                    completion(.success([:]))
                 }
-                let groupedMatches = groupedPairs.mapValues { pairs in
-                    pairs
-                        .sorted { $0.kickoff < $1.kickoff }
-                        .map { $0.match }
-                }
-                completion(.success(groupedMatches))
-            case .failure(let error):
-                completion(.failure(error))
             }
         }
     }
 
+    private func groupMatchesByDay(_ parsed: [(kickoff: Date, match: Match)]) -> [String: [Match]] {
+        let groupedPairs = Dictionary(grouping: parsed) { pair in
+            dayKey(from: pair.kickoff)
+        }
+
+        return groupedPairs.mapValues { pairs in
+            pairs
+                .sorted { $0.kickoff < $1.kickoff }
+                .map { $0.match }
+        }
+    }
+
     private func fetchScoreboard(
+        league: SoccerLeague,
         datesQuery: String,
         completion: @escaping (Result<[(kickoff: Date, match: Match)], Error>) -> Void
     ) {
-        guard let url = URL(string: cachedScoreboardURL) else {
+        guard let url = scoreboardURL(for: league, datesQuery: datesQuery) else {
             let error = NSError(
                 domain: "Matches API",
                 code: 400,
-                userInfo: [NSLocalizedDescriptionKey: "URL cache non valida"]
+                userInfo: [NSLocalizedDescriptionKey: "URL API non valida"]
             )
             completion(.failure(error))
             return
         }
 
-        print("Fetching shared cached matches: \(url.absoluteString)")
+        print("Fetching \(league.displayName) matches: \(url.absoluteString)")
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -139,12 +235,12 @@ final class OddsService {
 
             do {
                 let response = try self.decodeScoreboardResponse(from: data)
-                let competitionName = response.leagues.first?.name ?? "Serie A"
+                let competitionName = response.leagues.first?.name ?? league.displayName
 
                 let parsedMatches = response.events
                     .compactMap { self.convertESPNEvent($0, competitionName: competitionName) }
                 let filteredMatches = self.filterParsedMatches(parsedMatches, datesQuery: datesQuery)
-                print("Scoreboard parsed events=\(response.events.count), matchesAfterFilter=\(filteredMatches.count), datesQuery=\(datesQuery)")
+                print("\(league.displayName) parsed events=\(response.events.count), matchesAfterFilter=\(filteredMatches.count), datesQuery=\(datesQuery)")
 
                 DispatchQueue.main.async {
                     completion(.success(filteredMatches))
@@ -155,6 +251,14 @@ final class OddsService {
                 }
             }
         }.resume()
+    }
+
+    private func scoreboardURL(for league: SoccerLeague, datesQuery: String) -> URL? {
+        var components = URLComponents(string: "\(espnSoccerBaseURL)/\(league.rawValue)/scoreboard")
+        components?.queryItems = [
+            URLQueryItem(name: "dates", value: datesQuery)
+        ]
+        return components?.url
     }
 
     private func decodeScoreboardResponse(from data: Data) throws -> ESPNScoreboardResponse {
