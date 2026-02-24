@@ -536,6 +536,13 @@ final class BettingViewModel: ObservableObject {
         f.dateFormat = "MMM"
         return f.string(from: date).capitalized
     }
+
+    func formattedWeekday(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "it_IT")
+        f.dateFormat = "EEE"
+        return f.string(from: date).capitalized
+    }
     
     func isYesterday(_ date: Date) -> Bool {
         Calendar.current.isDateInYesterday(date)
@@ -547,6 +554,11 @@ final class BettingViewModel: ObservableObject {
     
     func isTomorrow(_ date: Date) -> Bool {
         Calendar.current.isDateInTomorrow(date)
+    }
+
+    func isPast(_ date: Date) -> Bool {
+        let calendar = Calendar.current
+        return calendar.startOfDay(for: date) < calendar.startOfDay(for: Date())
     }
     
     func generateFootballMatches() -> [Match] {
@@ -797,8 +809,8 @@ final class BettingViewModel: ObservableObject {
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
     
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
-        let matchDate = Calendar.current.date(byAdding: .day, value: -(selectedDayIndex - 1), to: Date())!
-        if isYesterday(matchDate) {
+        let selectedDate = dateForIndex(selectedDayIndex)
+        if isPast(selectedDate) {
             return
         }
         
@@ -1183,6 +1195,8 @@ struct ContentView: View {
     @State private var refreshID = UUID()
     @State private var showProfileSettings = false
     @AppStorage("profileSelectedTheme") private var selectedTheme = "Sistema"
+    private let calendarPastDays = 7
+    private let calendarFutureDays = 21
     
     var body: some View {
         NavigationView {
@@ -1358,30 +1372,67 @@ struct ContentView: View {
     
     // MARK: - CALENDAR BAR
     private var calendarBarView: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 16) {
-                ForEach(0..<3) { index in
-                    let date = vm.dateForIndex(index)
-                    
-                    VStack(spacing: 4) {
-                        Text(vm.formattedDay(date))
-                            .font(.title2.bold())
-                        Text(vm.formattedMonth(date))
-                            .font(.caption)
+        ScrollViewReader { proxy in
+            VStack(spacing: 10) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(calendarDayIndices, id: \.self) { index in
+                            let date = vm.dateForIndex(index)
+                            let isSelected = vm.selectedDayIndex == index
+                            let isToday = vm.isToday(date)
+
+                            VStack(spacing: 3) {
+                                Text(vm.formattedWeekday(date))
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundColor(isSelected ? .black : .gray)
+                                    .lineLimit(1)
+
+                                Text(vm.formattedDay(date))
+                                    .font(.title3.bold())
+                                    .foregroundColor(isSelected ? .black : .white)
+
+                                Text(vm.formattedMonth(date))
+                                    .font(.caption2)
+                                    .foregroundColor(isSelected ? .black.opacity(0.85) : (isToday ? .accentCyan : .gray))
+                                    .lineLimit(1)
+                            }
+                            .frame(width: 74, height: 72)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(isSelected ? Color.accentCyan : Color.white.opacity(isToday ? 0.12 : 0.06))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .stroke(
+                                                isSelected ? Color.accentCyan : (isToday ? Color.accentCyan.opacity(0.4) : Color.white.opacity(0.18)),
+                                                lineWidth: isSelected ? 2 : 1
+                                            )
+                                    )
+                            )
+                            .contentShape(Rectangle())
+                            .id(index)
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    vm.selectedDayIndex = index
+                                    proxy.scrollTo(index, anchor: .center)
+                                }
+                            }
+                        }
                     }
-                    .foregroundColor(.white)
-                    .frame(width: 90, height: 70)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(vm.selectedDayIndex == index ? Color.accentCyan : Color.white.opacity(0.2), lineWidth: 3)
-                    )
-                    .onTapGesture { vm.selectedDayIndex = index }
-                    .animation(.easeInOut, value: vm.selectedDayIndex)
+                    .padding(.horizontal, 16)
                 }
             }
-            .padding(.horizontal)
+            .padding(.vertical, 12)
+            .onAppear {
+                DispatchQueue.main.async {
+                    proxy.scrollTo(vm.selectedDayIndex, anchor: .center)
+                }
+            }
+            .onChange(of: vm.selectedDayIndex) { newValue in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    proxy.scrollTo(newValue, anchor: .center)
+                }
+            }
         }
-        .padding(.vertical, 12)
     }
 
     private var myPredictionBarView: some View {
@@ -1454,7 +1505,8 @@ struct ContentView: View {
     // MARK: MATCH LIST
     private var matchListView: some View {
         let groupedMatches = vm.matchesForSelectedDay()
-        let isYesterday = vm.selectedDayIndex == 0
+        let selectedDate = vm.dateForIndex(vm.selectedDayIndex)
+        let isPastDay = vm.isPast(selectedDate)
         
         return ScrollView {
             VStack(spacing: 16) {
@@ -1473,9 +1525,9 @@ struct ContentView: View {
                             
                             ForEach(groupedMatches[time]!) { match in
                                 NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
-                                    matchCardView(match: match, disabled: isYesterday)
+                                    matchCardView(match: match, disabled: isPastDay)
                                 }
-                                .disabled(isYesterday)
+                                .disabled(isPastDay)
                             }
                         }
                     }
@@ -1486,6 +1538,10 @@ struct ContentView: View {
         }
         .id("\(vm.selectedDayIndex)-\(vm.selectedSport)")
         .transition(.opacity)
+    }
+
+    private var calendarDayIndices: [Int] {
+        Array((1 - calendarPastDays)...(1 + calendarFutureDays))
     }
     
     private var emptyMatchesView: some View {
