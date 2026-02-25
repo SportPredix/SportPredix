@@ -243,7 +243,7 @@ final class BettingViewModel: ObservableObject {
     private let lastFetchKey = "lastBetstackFetch"
     private let lastBundleFetchDayKey = "lastMatchesBundleFetchDay"
     private let matchesSourceVersionKey = "matchesSourceVersion"
-    private let matchesSourceVersion = 6
+    private let matchesSourceVersion = 7
     // Sostituisci con la raw URL del JSON nella tua repository esterna.
     private let promoCodesURLString = "https://raw.githubusercontent.com/SportPredix/Code/refs/heads/main/code.json"
     private var cancellables = Set<AnyCancellable>()
