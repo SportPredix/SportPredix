@@ -1384,27 +1384,27 @@ struct ContentView: View {
                             VStack(spacing: 3) {
                                 Text(vm.formattedWeekday(date))
                                     .font(.caption2.weight(.semibold))
-                                    .foregroundColor(isSelected ? .black : .gray)
+                                    .foregroundColor(isToday ? .accentCyan : .gray)
                                     .lineLimit(1)
 
                                 Text(vm.formattedDay(date))
-                                    .font(.title3.bold())
-                                    .foregroundColor(isSelected ? .black : .white)
+                                    .font(.title2.bold())
+                                    .foregroundColor(.white)
 
                                 Text(vm.formattedMonth(date))
                                     .font(.caption2)
-                                    .foregroundColor(isSelected ? .black.opacity(0.85) : (isToday ? .accentCyan : .gray))
+                                    .foregroundColor(isToday ? .accentCyan : .gray)
                                     .lineLimit(1)
                             }
-                            .frame(width: 74, height: 72)
+                            .frame(width: 86, height: 72)
                             .background(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(isSelected ? Color.accentCyan : Color.white.opacity(isToday ? 0.12 : 0.06))
+                                    .fill(Color.white.opacity(0.04))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                                             .stroke(
-                                                isSelected ? Color.accentCyan : (isToday ? Color.accentCyan.opacity(0.4) : Color.white.opacity(0.18)),
-                                                lineWidth: isSelected ? 2 : 1
+                                                isSelected ? Color.accentCyan : Color.white.opacity(0.24),
+                                                lineWidth: isSelected ? 3 : 1.2
                                             )
                                     )
                             )
