@@ -18,6 +18,7 @@ struct FloatingHeader: View {
     let title: String
     let balance: Double
     @Binding var showSportPicker: Bool
+    var sportLabel: String? = nil
     var showsBalance: Bool = true
     var trailingSystemImage: String = "gearshape.fill"
     var trailingAction: (() -> Void)? = nil
@@ -25,22 +26,37 @@ struct FloatingHeader: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                // Titolo
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Text(title)
                         .font(.title2.bold())
                         .foregroundColor(.white)
-                    
-                    if title == "Sport" {
+
+                    if title == "Sport", let sportLabel {
+                        Text(sportLabel)
+                            .font(.caption.bold())
+                            .foregroundColor(.accentCyan)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule()
+                                    .fill(Color.accentCyan.opacity(0.12))
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(Color.accentCyan.opacity(0.4), lineWidth: 1)
+                                    )
+                            )
+
                         Image(systemName: "chevron.down")
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.accentCyan)
                             .rotationEffect(.degrees(showSportPicker ? 180 : 0))
-                            .onTapGesture {
-                                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                                    showSportPicker.toggle()
-                                }
-                            }
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    guard title == "Sport" else { return }
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                        showSportPicker.toggle()
                     }
                 }
                 
@@ -197,6 +213,7 @@ final class BettingViewModel: ObservableObject {
     
     @Published var selectedTab = 0
     @Published var selectedDayIndex = 1
+    let availableSports = ["Calcio", "Tennis"]
     @Published var selectedSport: String {
         didSet {
             UserDefaults.standard.set(selectedSport, forKey: "selectedSport")
@@ -376,15 +393,17 @@ final class BettingViewModel: ObservableObject {
     }
     
     private func generateMatchesForDate(key: String) {
-        if selectedSport == "Tennis" {
-            dailyMatches[key] = generateTennisMatches()
-        } else {
-            if let date = dateFromKey(key) {
-                checkAndFetchMatches(for: date)
-            } else {
-                dailyMatches[key] = []
-            }
+        guard let date = dateFromKey(key) else {
+            dailyMatches[key] = []
+            return
         }
+
+        if selectedSport == "Tennis" {
+            dailyMatches[key] = generateTennisMatches(for: date)
+            return
+        }
+
+        checkAndFetchMatches(for: date)
     }
     
     func checkAndFetchMatchesForToday() {
@@ -465,6 +484,20 @@ final class BettingViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    func refreshSelectedDayMatches() {
+        let selectedDate = dateForIndex(selectedDayIndex)
+
+        if selectedSport == "Calcio" {
+            fetchMatchesFromBetstack(for: selectedDate)
+            return
+        }
+
+        let key = keyForDate(selectedDate)
+        dailyMatches[key] = generateTennisMatches(for: selectedDate)
+        saveMatches()
+        objectWillChange.send()
     }
 
     private func looksLikeSimulatedMatches(_ matches: [Match], for date: Date) -> Bool {
@@ -607,7 +640,7 @@ final class BettingViewModel: ObservableObject {
         return matches.shuffled()
     }
     
-    func generateTennisMatches() -> [Match] {
+    func generateTennisMatches(for date: Date) -> [Match] {
         let tournaments = [
             ("ATP Australian Open", ["Djokovic", "Alcaraz", "Sinner", "Medvedev", "Zverev", "Rublev"]),
             ("ATP French Open", ["Nadal", "Djokovic", "Alcaraz", "Tsitsipas", "Ruud", "Rune"]),
@@ -615,6 +648,12 @@ final class BettingViewModel: ObservableObject {
             ("US Open", ["Djokovic", "Alcaraz", "Medvedev", "Sinner", "Fritz", "Tiafoe"]),
             ("ATP Masters 1000", ["Djokovic", "Alcaraz", "Sinner", "Medvedev", "Zverev", "Tsitsipas"])
         ]
+
+        let calendar = Calendar.current
+        let startOfRequestedDay = calendar.startOfDay(for: date)
+        let startOfToday = calendar.startOfDay(for: Date())
+        let isPastDay = startOfRequestedDay < startOfToday
+        let isToday = calendar.isDateInToday(date)
         
         var matches: [Match] = []
         
@@ -626,12 +665,36 @@ final class BettingViewModel: ObservableObject {
                 
                 let hour = Int.random(in: 10...22)
                 let minute = ["00", "15", "30", "45"].randomElement()!
+                let minuteValue = Int(minute) ?? 0
                 let time = "\(hour):\(minute)"
+                let kickoffDate = calendar.date(
+                    bySettingHour: hour,
+                    minute: minuteValue,
+                    second: 0,
+                    of: date
+                ) ?? date
+
+                let status: String
+                if isPastDay {
+                    status = "FINISHED"
+                } else if isToday, kickoffDate <= Date() {
+                    status = "LIVE"
+                } else {
+                    status = "SCHEDULED"
+                }
                 
                 let (homeOdd, _, awayOdd) = generateRealisticTennisOdds(player1: player1, player2: player2)
                 let odds = createTennisOdds(home: homeOdd, away: awayOdd)
-                
-                let (result, sets) = generateTennisResult(homeOdd: homeOdd, awayOdd: awayOdd)
+
+                let (result, sets) = status == "FINISHED"
+                    ? generateTennisResult(homeOdd: homeOdd, awayOdd: awayOdd)
+                    : (nil, nil)
+                let actualResult: String?
+                if status == "FINISHED" {
+                    actualResult = result == .home ? "2-0" : result == .away ? "0-2" : "1-1"
+                } else {
+                    actualResult = nil
+                }
                 
                 let match = Match(
                     id: UUID(),
@@ -642,8 +705,8 @@ final class BettingViewModel: ObservableObject {
                     result: result,
                     goals: sets,
                     competition: tournament,
-                    status: "FINISHED",
-                    actualResult: result == .home ? "3-1" : result == .away ? "2-3" : "N/A"
+                    status: status,
+                    actualResult: actualResult
                 )
                 
                 matches.append(match)
@@ -805,12 +868,54 @@ final class BettingViewModel: ObservableObject {
         }
         return decoded
     }
+
+    func isMatchBettable(_ match: Match, on selectedDate: Date? = nil) -> Bool {
+        let date = selectedDate ?? dateForIndex(selectedDayIndex)
+        let now = Date()
+        let normalizedStatus = match.status.uppercased()
+
+        if normalizedStatus == "LIVE" || normalizedStatus == "FINISHED" {
+            return false
+        }
+
+        let calendar = Calendar.current
+        let startOfMatchDay = calendar.startOfDay(for: date)
+        let startOfToday = calendar.startOfDay(for: now)
+
+        if startOfMatchDay < startOfToday {
+            return false
+        }
+
+        guard let kickoff = kickoffDate(for: match, on: date) else {
+            return startOfMatchDay > startOfToday
+        }
+
+        return now < kickoff
+    }
+
+    private func kickoffDate(for match: Match, on date: Date) -> Date? {
+        let chunks = match.time.split(separator: ":")
+        guard chunks.count == 2,
+              let hour = Int(chunks[0]),
+              let minute = Int(chunks[1]),
+              (0...23).contains(hour),
+              (0...59).contains(minute) else {
+            return nil
+        }
+
+        return Calendar.current.date(
+            bySettingHour: hour,
+            minute: minute,
+            second: 0,
+            of: date
+        )
+    }
     
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
     
-    func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
-        let selectedDate = dateForIndex(selectedDayIndex)
-        if isPast(selectedDate) {
+    func addPick(match: Match, outcome: MatchOutcome, odd: Double, matchDate: Date? = nil) {
+        let selectedDate = matchDate ?? dateForIndex(selectedDayIndex)
+        guard isMatchBettable(match, on: selectedDate) else {
             return
         }
         
@@ -840,13 +945,21 @@ final class BettingViewModel: ObservableObject {
     
     func confirmSlip(stake: Double) {
         guard stake > 0, stake <= balance else { return }
+
+        let refreshed = refreshedPicks(for: currentPicks)
+        let validPicks = refreshed.filter { isPickStillBettable($0) }
+        guard !validPicks.isEmpty, validPicks.count == refreshed.count else {
+            currentPicks = validPicks
+            return
+        }
+        let validatedTotalOdd = validPicks.map { $0.odd }.reduce(1, *)
         
         let slip = BetSlip(
             id: UUID(),
-            picks: currentPicks,
+            picks: validPicks,
             stake: stake,
-            totalOdd: totalOdd,
-            potentialWin: stake * totalOdd,
+            totalOdd: validatedTotalOdd,
+            potentialWin: stake * validatedTotalOdd,
             date: Date(),
             isWon: nil,
             isEvaluated: false
@@ -868,6 +981,19 @@ final class BettingViewModel: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: slipsKey),
               let decoded = try? JSONDecoder().decode([BetSlip].self, from: data) else { return [] }
         return decoded
+    }
+
+    private func matchDate(for matchID: UUID) -> Date? {
+        for (key, matches) in dailyMatches where matches.contains(where: { $0.id == matchID }) {
+            return dateFromKey(key)
+        }
+        return nil
+    }
+
+    private func isPickStillBettable(_ pick: BetPick) -> Bool {
+        let latest = latestMatch(for: pick.match)
+        let date = matchDate(for: latest.id) ?? dateForIndex(selectedDayIndex)
+        return isMatchBettable(latest, on: date)
     }
 
     private enum PickSettlement: Equatable {
@@ -1277,21 +1403,27 @@ struct ContentView: View {
     }
     
     private var sportTab: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            
+        ZStack(alignment: .topLeading) {
+            LinearGradient(
+                colors: [
+                    Color.black,
+                    Color(red: 0.03, green: 0.06, blue: 0.11),
+                    Color(red: 0.01, green: 0.03, blue: 0.06)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
             VStack(spacing: 0) {
                 FloatingHeader(
                     title: "Sport",
                     balance: vm.balance,
                     showSportPicker: $vm.showSportPicker,
+                    sportLabel: vm.selectedSport,
                     showsBalance: true
                 )
-                
-                calendarBarView
-                myPredictionBarView
-                    .animation(.easeInOut(duration: 0.2), value: vm.currentPicks.count)
-                
+
                 if vm.isLoading {
                     loadingView
                 } else {
@@ -1299,6 +1431,23 @@ struct ContentView: View {
                 }
             }
             .id(refreshID)
+
+            if vm.showSportPicker {
+                Color.black.opacity(0.32)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        vm.hideSportPicker()
+                    }
+
+                sportPickerDropdown
+                    .padding(.top, 64)
+                    .padding(.leading, 16)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            myPredictionBarView
+                .animation(.easeInOut(duration: 0.2), value: vm.currentPicks.count)
         }
     }
     
@@ -1373,7 +1522,39 @@ struct ContentView: View {
     // MARK: - CALENDAR BAR
     private var calendarBarView: some View {
         ScrollViewReader { proxy in
-            VStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Pronostici \(vm.selectedSport)")
+                            .font(.headline.weight(.semibold))
+                            .foregroundColor(.white)
+
+                        Text(selectedDateLabel)
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        vm.refreshSelectedDayMatches()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.accentCyan)
+                            .frame(width: 34, height: 34)
+                            .background(
+                                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                    .fill(Color.white.opacity(0.07))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                            .stroke(Color.accentCyan.opacity(0.45), lineWidth: 1)
+                                    )
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(calendarDayIndices, id: \.self) { index in
@@ -1381,47 +1562,89 @@ struct ContentView: View {
                             let isSelected = vm.selectedDayIndex == index
                             let isToday = vm.isToday(date)
 
-                            VStack(spacing: 3) {
-                                Text(vm.formattedWeekday(date))
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundColor(isToday ? .accentCyan : .gray)
-                                    .lineLimit(1)
-
-                                Text(vm.formattedDay(date))
-                                    .font(.title2.bold())
-                                    .foregroundColor(.white)
-
-                                Text(vm.formattedMonth(date))
-                                    .font(.caption2)
-                                    .foregroundColor(isToday ? .accentCyan : .gray)
-                                    .lineLimit(1)
-                            }
-                            .frame(width: 86, height: 72)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(Color.white.opacity(0.04))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .stroke(
-                                                isSelected ? Color.accentCyan : Color.white.opacity(0.24),
-                                                lineWidth: 2
-                                            )
-                                    )
-                            )
-                            .contentShape(Rectangle())
-                            .id(index)
-                            .onTapGesture {
+                            Button {
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     vm.selectedDayIndex = index
                                     proxy.scrollTo(index, anchor: .center)
                                 }
+                            } label: {
+                                VStack(spacing: 8) {
+                                    Text(vm.formattedWeekday(date).uppercased())
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundColor(isSelected ? .black : (isToday ? .accentCyan : .gray))
+                                        .lineLimit(1)
+
+                                    ZStack {
+                                        Circle()
+                                            .fill(isSelected ? Color.black.opacity(0.85) : Color.white.opacity(0.08))
+                                            .frame(width: 42, height: 42)
+                                            .overlay(
+                                                Circle()
+                                                    .stroke(
+                                                        isSelected ? Color.black.opacity(0.75) : Color.white.opacity(0.22),
+                                                        lineWidth: 1
+                                                    )
+                                            )
+
+                                        Text(vm.formattedDay(date))
+                                            .font(.headline.weight(.bold))
+                                            .foregroundColor(isSelected ? .accentCyan : .white)
+                                    }
+
+                                    Text(vm.formattedMonth(date))
+                                        .font(.caption2.weight(.medium))
+                                        .foregroundColor(isSelected ? .black.opacity(0.82) : .gray)
+                                        .lineLimit(1)
+                                }
+                                .frame(width: 80, height: 112)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .fill(
+                                            isSelected
+                                                ? LinearGradient(
+                                                    colors: [Color.accentCyan, Color(red: 0.53, green: 0.89, blue: 0.85)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                                : LinearGradient(
+                                                    colors: [Color.white.opacity(0.06), Color.white.opacity(0.03)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                .stroke(
+                                                    isSelected ? Color.accentCyan.opacity(0.7) : Color.white.opacity(0.12),
+                                                    lineWidth: 1.5
+                                                )
+                                        )
+                                )
+                                .shadow(
+                                    color: isSelected ? Color.accentCyan.opacity(0.24) : .clear,
+                                    radius: 12,
+                                    x: 0,
+                                    y: 8
+                                )
                             }
+                            .buttonStyle(.plain)
+                            .id(index)
                         }
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 2)
                 }
             }
-            .padding(.vertical, 12)
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
             .onAppear {
                 DispatchQueue.main.async {
                     proxy.scrollTo(vm.selectedDayIndex, anchor: .center)
@@ -1442,13 +1665,26 @@ struct ContentView: View {
                     vm.showSheet = true
                 } label: {
                     HStack(spacing: 10) {
-                        Image(systemName: "checklist")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.black)
+                        ZStack {
+                            Circle()
+                                .fill(Color.black.opacity(0.18))
+                                .frame(width: 30, height: 30)
 
-                        Text("Il mio pronostico")
-                            .font(.subheadline.bold())
-                            .foregroundColor(.black)
+                            Image(systemName: "ticket.fill")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.black)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Il mio pronostico")
+                                .font(.subheadline.bold())
+                                .foregroundColor(.black)
+
+                            Text("Quota totale \(vm.totalOdd, specifier: "%.2f")")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundColor(.black.opacity(0.7))
+                                .monospacedDigit()
+                        }
 
                         Spacer()
 
@@ -1457,84 +1693,120 @@ struct ContentView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Color.black.opacity(0.75))
+                            .background(Color.black.opacity(0.72))
                             .clipShape(Capsule())
                     }
                     .padding(.horizontal, 14)
-                    .frame(height: 46)
+                    .frame(height: 56)
                     .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .fill(Color.accentCyan)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(Color.white.opacity(0.24), lineWidth: 1.2)
                             )
                     )
-                    .shadow(color: Color.accentCyan.opacity(0.35), radius: 10, x: 0, y: 6)
+                    .shadow(color: Color.accentCyan.opacity(0.32), radius: 14, x: 0, y: 8)
                 }
                 .buttonStyle(.plain)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color.black.opacity(0.5).background(.ultraThinMaterial.opacity(0.75)))
             }
         }
     }
     
     // MARK: LOADING VIEW
     private var loadingView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 14) {
             Spacer()
             
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: .accentCyan))
-                .scaleEffect(1.5)
+                .scaleEffect(1.4)
             
-            Text("Caricamento partite...")
-                .foregroundColor(.accentCyan)
+            Text("Aggiornamento pronostici...")
+                .foregroundColor(.white)
                 .font(.headline)
             
-            Text("Sto recuperando le partite reali")
+            Text(vm.selectedSport == "Calcio" ? "Recupero quote e partite in tempo reale" : "Preparazione tabellone tennis")
                 .foregroundColor(.gray)
                 .font(.caption)
             
             Spacer()
         }
-        .padding(.bottom, 100)
+        .padding(.bottom, 80)
     }
     
     // MARK: MATCH LIST
     private var matchListView: some View {
-        let groupedMatches = vm.matchesForSelectedDay()
         let selectedDate = vm.dateForIndex(vm.selectedDayIndex)
-        let isPastDay = vm.isPast(selectedDate)
+        let allMatches = vm.matchesForSelectedDay()
+            .values
+            .flatMap { $0 }
+            .sorted { lhs, rhs in
+                matchTimeSortValue(lhs.time) < matchTimeSortValue(rhs.time)
+            }
+        let groupedByCompetition = Dictionary(grouping: allMatches, by: \.competition)
+        let orderedCompetitions = groupedByCompetition.keys.sorted()
         
-        return ScrollView {
+        return ScrollView(showsIndicators: false) {
             VStack(spacing: 16) {
-                if groupedMatches.isEmpty && !vm.isLoading {
+                calendarBarView
+
+                HStack(spacing: 12) {
+                    summaryTile(title: "Eventi", value: "\(allMatches.count)", accent: .accentCyan)
+                    summaryTile(title: "Schedina", value: "\(vm.currentPicks.count)", accent: .orange)
+                }
+                .padding(.horizontal, 16)
+
+                if allMatches.isEmpty && !vm.isLoading {
                     emptyMatchesView
                 } else {
-                    ForEach(groupedMatches.keys.sorted(), id: \.self) { time in
-                        VStack(spacing: 10) {
-                            HStack {
-                                Text(time)
-                                    .font(.headline)
-                                    .foregroundColor(.accentCyan)
-                                Spacer()
+                    ForEach(orderedCompetitions, id: \.self) { competition in
+                        let competitionMatches = (groupedByCompetition[competition] ?? [])
+                            .sorted { lhs, rhs in
+                                matchTimeSortValue(lhs.time) < matchTimeSortValue(rhs.time)
                             }
-                            .padding(.horizontal, 4)
-                            
-                            ForEach(groupedMatches[time]!) { match in
-                                NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
-                                    matchCardView(match: match, disabled: isPastDay)
-                                }
-                                .disabled(isPastDay)
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text(competition)
+                                    .font(.headline.weight(.semibold))
+                                    .foregroundColor(.white)
+
+                                Spacer()
+
+                                Text("\(competitionMatches.count)")
+                                    .font(.caption.bold())
+                                    .foregroundColor(.accentCyan)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 5)
+                                    .background(Color.accentCyan.opacity(0.12))
+                                    .clipShape(Capsule())
+                            }
+
+                            ForEach(competitionMatches) { match in
+                                matchCardView(
+                                    match: match,
+                                    disabled: !vm.isMatchBettable(match, on: selectedDate)
+                                )
                             }
                         }
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color.white.opacity(0.05))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                )
+                        )
+                        .padding(.horizontal, 16)
                     }
                 }
             }
-            .padding()
-            .padding(.bottom, 100)
+            .padding(.bottom, 130)
         }
         .id("\(vm.selectedDayIndex)-\(vm.selectedSport)")
         .transition(.opacity)
@@ -1543,119 +1815,340 @@ struct ContentView: View {
     private var calendarDayIndices: [Int] {
         Array((1 - calendarPastDays)...(1 + calendarFutureDays))
     }
-    
-    private var emptyMatchesView: some View {
-        VStack(spacing: 20) {
-            Spacer()
-                .frame(height: 50)
-            
-            Image(systemName: vm.selectedSport == "Calcio" ? "soccerball" : "tennis.racket")
-                .font(.system(size: 60))
-                .foregroundColor(.accentCyan)
-            
-            Text("Nessuna partita disponibile")
-                .font(.title2)
-                .foregroundColor(.white)
-            
-            Text("Torna più tardi per vedere nuove partite")
-                .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-            
-            Spacer()
-        }
+
+    private var selectedDateLabel: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "it_IT")
+        formatter.dateFormat = "EEEE d MMMM"
+        return formatter.string(from: vm.dateForIndex(vm.selectedDayIndex)).capitalized
     }
-    
-    private func matchCardView(match: Match, disabled: Bool) -> some View {
-        VStack(spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(match.home)
-                        .font(.headline)
-                        .foregroundColor(disabled ? .gray : .white)
-                        .lineLimit(1)
-                    
-                    Text(match.competition)
-                        .font(.caption2)
-                        .foregroundColor(.accentCyan)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(match.away)
-                        .font(.headline)
-                        .foregroundColor(disabled ? .gray : .white)
-                        .lineLimit(1)
-                    
-                    if let actualResult = match.actualResult {
-                        Text(actualResult)
-                            .font(.caption2)
-                            .foregroundColor(.green)
-                    } else {
-                        Text(match.status)
-                            .font(.caption2)
-                            .foregroundColor(match.status == "FINISHED" ? .green : 
-                                           match.status == "LIVE" ? .red : .orange)
+
+    private var sportPickerDropdown: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Seleziona sport")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.gray)
+
+            ForEach(vm.availableSports, id: \.self) { sport in
+                let isSelected = vm.selectedSport == sport
+
+                Button {
+                    if vm.selectedSport != sport {
+                        vm.selectedSport = sport
                     }
-                }
-            }
-            
-            HStack(spacing: 0) {
-                VStack(spacing: 4) {
-                    Text("1")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Text("\(match.odds.home, specifier: "%.2f")")
-                        .font(.system(.body, design: .monospaced).bold())
-                        .foregroundColor(.white)
-                }
-                .frame(maxWidth: .infinity)
-                
-                if vm.selectedSport == "Calcio" {
-                    Divider()
-                        .frame(height: 30)
-                        .background(Color.gray.opacity(0.3))
-                    
-                    VStack(spacing: 4) {
-                        Text("X")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        Text("\(match.odds.draw, specifier: "%.2f")")
-                            .font(.system(.body, design: .monospaced).bold())
-                            .foregroundColor(.white)
+                    vm.hideSportPicker()
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: sport == "Calcio" ? "soccerball" : "tennis.racket")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(isSelected ? .black : .accentCyan)
+                            .frame(width: 26, height: 26)
+                            .background(
+                                Circle()
+                                    .fill(isSelected ? Color.black.opacity(0.18) : Color.accentCyan.opacity(0.14))
+                            )
+
+                        Text(sport)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(isSelected ? .black : .white)
+
+                        Spacer()
+
+                        if isSelected {
+                            Image(systemName: "checkmark")
+                                .font(.caption.bold())
+                                .foregroundColor(.black)
                         }
-                    .frame(maxWidth: .infinity)
+                    }
+                    .padding(.horizontal, 10)
+                    .frame(height: 42)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(isSelected ? Color.accentCyan : Color.white.opacity(0.06))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(isSelected ? Color.accentCyan : Color.white.opacity(0.16), lineWidth: 1)
+                            )
+                    )
                 }
-                
-                Divider()
-                    .frame(height: 30)
-                    .background(Color.gray.opacity(0.3))
-                
-                VStack(spacing: 4) {
-                    Text("2")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Text("\(match.odds.away, specifier: "%.2f")")
-                        .font(.system(.body, design: .monospaced).bold())
-                        .foregroundColor(.white)
-                }
-                .frame(maxWidth: .infinity)
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 10)
         }
-        .padding()
+        .padding(12)
+        .frame(width: 220, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(disabled ? Color.gray.opacity(0.1) : Color.white.opacity(0.06))
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.black.opacity(0.9))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(disabled ? Color.gray.opacity(0.2) : Color.white.opacity(0.1), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
                 )
         )
-        .opacity(disabled ? 0.6 : 1.0)
+        .shadow(color: Color.black.opacity(0.35), radius: 16, x: 0, y: 10)
     }
     
+    private var emptyMatchesView: some View {
+        VStack(spacing: 14) {
+            Image(systemName: vm.selectedSport == "Calcio" ? "soccerball" : "tennis.racket")
+                .font(.system(size: 54))
+                .foregroundColor(.accentCyan)
+
+            Text("Nessun evento disponibile")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.white)
+
+            Text("Prova a cambiare data dal calendario o aggiorna il feed.")
+                .font(.subheadline)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 22)
+
+            Button {
+                vm.refreshSelectedDayMatches()
+            } label: {
+                Text("Aggiorna")
+                    .font(.subheadline.bold())
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(Color.accentCyan)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 36)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(0.04))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal, 16)
+    }
+
+    private func matchCardView(match: Match, disabled: Bool) -> some View {
+        let selectedDate = vm.dateForIndex(vm.selectedDayIndex)
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(match.home)
+                        .font(.headline.weight(.semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+
+                    Text(match.away)
+                        .font(.headline.weight(.semibold))
+                        .foregroundColor(.white.opacity(0.88))
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 5) {
+                    Text(match.time)
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.accentCyan)
+                        .monospacedDigit()
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.accentCyan.opacity(0.12))
+                        .clipShape(Capsule())
+
+                    Text(lockAwareStatusText(for: match, locked: disabled))
+                        .font(.caption2.bold())
+                        .foregroundColor(lockAwareStatusColor(for: match, locked: disabled))
+                }
+            }
+
+            if disabled {
+                Text("Puntate chiuse: orario di inizio superato.")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+            }
+
+            HStack(spacing: 8) {
+                selectionOddButton(
+                    match: match,
+                    label: "1",
+                    outcome: .home,
+                    odd: match.odds.home,
+                    disabled: disabled,
+                    matchDate: selectedDate
+                )
+
+                if vm.selectedSport == "Calcio" {
+                    selectionOddButton(
+                        match: match,
+                        label: "X",
+                        outcome: .draw,
+                        odd: match.odds.draw,
+                        disabled: disabled,
+                        matchDate: selectedDate
+                    )
+                }
+
+                selectionOddButton(
+                    match: match,
+                    label: "2",
+                    outcome: .away,
+                    odd: match.odds.away,
+                    disabled: disabled,
+                    matchDate: selectedDate
+                )
+            }
+
+            if vm.selectedSport == "Calcio" {
+                NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
+                    HStack {
+                        Text("Mercati avanzati")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.accentCyan)
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption.bold())
+                            .foregroundColor(.accentCyan.opacity(0.9))
+                    }
+                    .padding(.horizontal, 10)
+                    .frame(height: 34)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.white.opacity(0.04))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(Color.accentCyan.opacity(0.3), lineWidth: 1)
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.04))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(disabled ? Color.orange.opacity(0.3) : Color.white.opacity(0.12), lineWidth: 1)
+                )
+        )
+    }
+
+    private func selectionOddButton(
+        match: Match,
+        label: String,
+        outcome: MatchOutcome,
+        odd: Double,
+        disabled: Bool,
+        matchDate: Date
+    ) -> some View {
+        let isSelected = vm.currentPicks.contains { $0.match.id == match.id && $0.outcome == outcome }
+
+        return Button {
+            vm.addPick(match: match, outcome: outcome, odd: odd, matchDate: matchDate)
+        } label: {
+            VStack(spacing: 4) {
+                Text(label)
+                    .font(.caption.bold())
+
+                Text(odd.formatted(.number.precision(.fractionLength(2))))
+                    .font(.system(.body, design: .monospaced).weight(.semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .foregroundColor(isSelected ? .black : .white)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(
+                        isSelected
+                            ? Color.accentCyan
+                            : disabled ? Color.white.opacity(0.03) : Color.white.opacity(0.08)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(
+                        isSelected ? Color.accentCyan : Color.white.opacity(disabled ? 0.1 : 0.22),
+                        lineWidth: 1
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.55 : 1)
+    }
+
+    private func lockAwareStatusText(for match: Match, locked: Bool) -> String {
+        if let actualResult = match.actualResult, !actualResult.isEmpty {
+            return actualResult
+        }
+
+        if locked, match.status.uppercased() == "SCHEDULED" {
+            return "CHIUSA"
+        }
+
+        return match.status
+    }
+
+    private func lockAwareStatusColor(for match: Match, locked: Bool) -> Color {
+        if match.actualResult != nil {
+            return .green
+        }
+
+        if locked {
+            return .orange
+        }
+
+        switch match.status.uppercased() {
+        case "FINISHED":
+            return .green
+        case "LIVE":
+            return .red
+        default:
+            return .accentCyan
+        }
+    }
+
+    private func matchTimeSortValue(_ value: String) -> Int {
+        let chunks = value.split(separator: ":")
+        guard chunks.count == 2,
+              let hour = Int(chunks[0]),
+              let minute = Int(chunks[1]) else {
+            return Int.max
+        }
+
+        return (hour * 60) + minute
+    }
+
+    private func summaryTile(title: String, value: String, accent: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.gray)
+
+            Text(value)
+                .font(.headline.weight(.semibold))
+                .foregroundColor(accent)
+                .monospacedDigit()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+        )
+    }
+
     // MARK: PLACED BETS
     private var placedBetsView: some View {
         ScrollView {
