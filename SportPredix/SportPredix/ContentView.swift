@@ -427,10 +427,9 @@ final class BettingViewModel: ObservableObject {
         isFetchingMatchesBundle = true
         isLoading = true
 
-        OddsService.shared.fetchMatchesByDateRange(
+        OddsService.shared.fetchMatchesByDateRangeAcrossAllLeagues(
             from: yesterday,
-            to: tomorrow,
-            leagues: OddsService.supportedSoccerLeagues
+            to: tomorrow
         ) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }

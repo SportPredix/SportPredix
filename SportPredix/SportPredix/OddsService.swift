@@ -59,7 +59,13 @@ final class OddsService {
         let overround: Double
     }
 
+    private struct LeagueTarget: Hashable {
+        let key: String
+        let displayName: String?
+    }
+
     private let espnSoccerBaseURL = "https://site.api.espn.com/apis/site/v2/sports/soccer"
+    private let espnCoreSoccerLeaguesURL = "https://sports.core.api.espn.com/v2/sports/soccer/leagues?limit=1000"
     private let trackedGoalLines: [Double] = [0.5, 1.5, 2.5, 3.5, 4.5]
 
     func fetchSerieAOdths(for date: Date = Date(), completion: @escaping (Result<[Match], Error>) -> Void) {
@@ -108,13 +114,54 @@ final class OddsService {
         leagues: [SoccerLeague],
         completion: @escaping (Result<[String: [Match]], Error>) -> Void
     ) {
-        let uniqueLeagues = leagues.reduce(into: [SoccerLeague]()) { partialResult, league in
-            if !partialResult.contains(league) {
-                partialResult.append(league)
+        let leagueTargets = leagues.map { LeagueTarget(key: $0.rawValue, displayName: $0.displayName) }
+        fetchMatchesByDateRange(from: startDate, to: endDate, leagueTargets: leagueTargets, completion: completion)
+    }
+
+    func fetchMatchesByDateRangeAcrossAllLeagues(
+        from startDate: Date,
+        to endDate: Date,
+        completion: @escaping (Result<[String: [Match]], Error>) -> Void
+    ) {
+        fetchDiscoveredSoccerLeagueTargets { [weak self] result in
+            guard let self else { return }
+
+            switch result {
+            case .success(let discoveredTargets):
+                let configuredTargets = Self.supportedSoccerLeagues.map {
+                    LeagueTarget(key: $0.rawValue, displayName: $0.displayName)
+                }
+                let mergedTargets = self.mergedLeagueTargets(configuredTargets + discoveredTargets)
+                self.fetchMatchesByDateRange(
+                    from: startDate,
+                    to: endDate,
+                    leagueTargets: mergedTargets,
+                    completion: completion
+                )
+            case .failure(let error):
+                print("League discovery failed, fallback to configured leagues: \(error.localizedDescription)")
+                let fallbackTargets = Self.supportedSoccerLeagues.map {
+                    LeagueTarget(key: $0.rawValue, displayName: $0.displayName)
+                }
+                self.fetchMatchesByDateRange(
+                    from: startDate,
+                    to: endDate,
+                    leagueTargets: fallbackTargets,
+                    completion: completion
+                )
             }
         }
+    }
 
-        guard !uniqueLeagues.isEmpty else {
+    private func fetchMatchesByDateRange(
+        from startDate: Date,
+        to endDate: Date,
+        leagueTargets: [LeagueTarget],
+        completion: @escaping (Result<[String: [Match]], Error>) -> Void
+    ) {
+        let uniqueTargets = mergedLeagueTargets(leagueTargets)
+
+        guard !uniqueTargets.isEmpty else {
             completion(.success([:]))
             return
         }
@@ -130,9 +177,9 @@ final class OddsService {
         var mergedPairs: [(kickoff: Date, match: Match)] = []
         var failures: [Error] = []
 
-        for league in uniqueLeagues {
+        for target in uniqueTargets {
             group.enter()
-            fetchScoreboard(league: league, datesQuery: datesQuery) { result in
+            fetchScoreboard(leagueKey: target.key, fallbackDisplayName: target.displayName, datesQuery: datesQuery) { result in
                 aggregateQueue.async {
                     switch result {
                     case .success(let parsed):
@@ -161,6 +208,17 @@ final class OddsService {
         }
     }
 
+    private func mergedLeagueTargets(_ targets: [LeagueTarget]) -> [LeagueTarget] {
+        var seen = Set<String>()
+        return targets.compactMap { target in
+            guard !target.key.isEmpty else { return nil }
+            if seen.insert(target.key).inserted {
+                return target
+            }
+            return nil
+        }
+    }
+
     private func groupMatchesByDay(_ parsed: [(kickoff: Date, match: Match)]) -> [String: [Match]] {
         let groupedPairs = Dictionary(grouping: parsed) { pair in
             dayKey(from: pair.kickoff)
@@ -173,12 +231,104 @@ final class OddsService {
         }
     }
 
+    private func fetchDiscoveredSoccerLeagueTargets(
+        completion: @escaping (Result<[LeagueTarget], Error>) -> Void
+    ) {
+        guard let url = URL(string: espnCoreSoccerLeaguesURL) else {
+            let error = NSError(
+                domain: "Leagues API",
+                code: 400,
+                userInfo: [NSLocalizedDescriptionKey: "URL leghe non valida"]
+            )
+            completion(.failure(error))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 30
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                let error = NSError(
+                    domain: "Leagues API",
+                    code: 502,
+                    userInfo: [NSLocalizedDescriptionKey: "Risposta HTTP leghe non valida"]
+                )
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+                return
+            }
+
+            guard (200...299).contains(httpResponse.statusCode) else {
+                let error = NSError(
+                    domain: "Leagues API",
+                    code: httpResponse.statusCode,
+                    userInfo: [NSLocalizedDescriptionKey: "HTTP Status leghe: \(httpResponse.statusCode)"]
+                )
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+                return
+            }
+
+            guard let data else {
+                let error = NSError(
+                    domain: "Leagues API",
+                    code: 404,
+                    userInfo: [NSLocalizedDescriptionKey: "Nessun dato leghe ricevuto"]
+                )
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+                return
+            }
+
+            do {
+                let decoded = try JSONDecoder().decode(ESPNCoreLeaguesResponse.self, from: data)
+                let targets = decoded.items.compactMap { item -> LeagueTarget? in
+                    guard let slug = leagueSlug(fromReference: item.reference) else { return nil }
+                    return LeagueTarget(key: slug, displayName: nil)
+                }
+
+                DispatchQueue.main.async {
+                    completion(.success(targets))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            }
+        }.resume()
+    }
+
+    private func leagueSlug(fromReference reference: String) -> String? {
+        guard let components = URLComponents(string: reference) else { return nil }
+        let pathParts = components.path.split(separator: "/").map(String.init)
+        guard let leagueIndex = pathParts.firstIndex(of: "leagues"), leagueIndex + 1 < pathParts.count else {
+            return nil
+        }
+
+        let slug = pathParts[leagueIndex + 1]
+        return slug.isEmpty ? nil : slug
+    }
+
     private func fetchScoreboard(
-        league: SoccerLeague,
+        leagueKey: String,
+        fallbackDisplayName: String?,
         datesQuery: String,
         completion: @escaping (Result<[(kickoff: Date, match: Match)], Error>) -> Void
     ) {
-        guard let url = scoreboardURL(for: league, datesQuery: datesQuery) else {
+        guard let url = scoreboardURL(forLeagueKey: leagueKey, datesQuery: datesQuery) else {
             let error = NSError(
                 domain: "Matches API",
                 code: 400,
@@ -188,7 +338,7 @@ final class OddsService {
             return
         }
 
-        print("Fetching \(league.displayName) matches: \(url.absoluteString)")
+        print("Fetching \(leagueKey) matches: \(url.absoluteString)")
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -243,12 +393,12 @@ final class OddsService {
 
             do {
                 let response = try self.decodeScoreboardResponse(from: data)
-                let competitionName = response.leagues.first?.name ?? league.displayName
+                let competitionName = response.leagues.first?.name ?? fallbackDisplayName ?? leagueKey
 
                 let parsedMatches = response.events
                     .compactMap { self.convertESPNEvent($0, competitionName: competitionName) }
                 let filteredMatches = self.filterParsedMatches(parsedMatches, datesQuery: datesQuery)
-                print("\(league.displayName) parsed events=\(response.events.count), matchesAfterFilter=\(filteredMatches.count), datesQuery=\(datesQuery)")
+                print("\(leagueKey) parsed events=\(response.events.count), matchesAfterFilter=\(filteredMatches.count), datesQuery=\(datesQuery)")
 
                 DispatchQueue.main.async {
                     completion(.success(filteredMatches))
@@ -261,8 +411,8 @@ final class OddsService {
         }.resume()
     }
 
-    private func scoreboardURL(for league: SoccerLeague, datesQuery: String) -> URL? {
-        var components = URLComponents(string: "\(espnSoccerBaseURL)/\(league.rawValue)/scoreboard")
+    private func scoreboardURL(forLeagueKey leagueKey: String, datesQuery: String) -> URL? {
+        var components = URLComponents(string: "\(espnSoccerBaseURL)/\(leagueKey)/scoreboard")
         components?.queryItems = [
             URLQueryItem(name: "dates", value: datesQuery)
         ]
@@ -1004,6 +1154,18 @@ final class OddsService {
 private struct ESPNScoreboardResponse: Decodable {
     let leagues: [ESPNLeague]
     let events: [ESPNEvent]
+}
+
+private struct ESPNCoreLeaguesResponse: Decodable {
+    let items: [ESPNCoreLeagueItem]
+}
+
+private struct ESPNCoreLeagueItem: Decodable {
+    let reference: String
+
+    enum CodingKeys: String, CodingKey {
+        case reference = "$ref"
+    }
 }
 
 private struct ESPNLeague: Decodable {
