@@ -814,6 +814,26 @@ final class BettingViewModel: ObservableObject {
         return isMatchBettable(latest)
     }
 
+    func isOutcomeSelectable(match: Match, outcome: MatchOutcome) -> Bool {
+        let latest = latestMatch(for: match)
+        guard isMatchBettable(latest) else { return false }
+
+        let picksForMatch = currentPicks.filter { $0.match.id == latest.id }
+        let sameOutcomeAlreadySelected = picksForMatch.contains { $0.outcome == outcome }
+        if sameOutcomeAlreadySelected {
+            return true
+        }
+
+        if isDoubleChanceOutcome(outcome) {
+            let hasOneXTwoSelection = picksForMatch.contains { isOneXTwoOutcome($0.outcome) }
+            if hasOneXTwoSelection {
+                return false
+            }
+        }
+
+        return true
+    }
+
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
         let selectedDate = dateForIndex(selectedDayIndex)
         guard !isPast(selectedDate) else { return }
@@ -821,6 +841,22 @@ final class BettingViewModel: ObservableObject {
         pruneUnavailableCurrentPicks()
         let latestMatch = latestMatch(for: match)
         guard isMatchBettable(latestMatch) else { return }
+        let picksForMatch = currentPicks.filter { $0.match.id == latestMatch.id }
+
+        let sameOutcomeAlreadySelected = picksForMatch.contains { $0.outcome == outcome }
+        if sameOutcomeAlreadySelected {
+            currentPicks.removeAll { pick in
+                pick.match.id == latestMatch.id && pick.outcome == outcome
+            }
+            return
+        }
+
+        if isDoubleChanceOutcome(outcome) {
+            let hasOneXTwoSelection = picksForMatch.contains { isOneXTwoOutcome($0.outcome) }
+            if hasOneXTwoSelection {
+                return
+            }
+        }
         
         let selectedOutcomeSection = getSectionForOutcome(outcome)
         
@@ -877,6 +913,24 @@ final class BettingViewModel: ObservableObject {
             return "DoppiaChance"
         case .over05, .under05, .over15, .under15, .over25, .under25, .over35, .under35, .over45, .under45:
             return "OverUnder"
+        }
+    }
+
+    private func isOneXTwoOutcome(_ outcome: MatchOutcome) -> Bool {
+        switch outcome {
+        case .home, .draw, .away:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func isDoubleChanceOutcome(_ outcome: MatchOutcome) -> Bool {
+        switch outcome {
+        case .homeDraw, .homeAway, .drawAway:
+            return true
+        default:
+            return false
         }
     }
     
@@ -1340,7 +1394,7 @@ struct ContentView: View {
     }
     
     private var sportTab: some View {
-        ZStack {
+        ZStack(alignment: .topLeading) {
             Color.black.ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -1350,19 +1404,122 @@ struct ContentView: View {
                     showSportPicker: $vm.showSportPicker,
                     showsBalance: true
                 )
-                
-                calendarBarView
-                myPredictionBarView
-                    .animation(.easeInOut(duration: 0.2), value: vm.currentPicks.count)
-                
-                if vm.isLoading {
-                    loadingView
+
+                if vm.selectedSport == "Tennis" {
+                    tennisComingSoonView
                 } else {
-                    matchListView
+                    calendarBarView
+                    myPredictionBarView
+                        .animation(.easeInOut(duration: 0.2), value: vm.currentPicks.count)
+                    
+                    if vm.isLoading {
+                        loadingView
+                    } else {
+                        matchListView
+                    }
                 }
             }
             .id(refreshID)
+
+            if vm.showSportPicker {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        vm.hideSportPicker()
+                    }
+                    .transition(.opacity)
+                    .zIndex(1)
+
+                VStack(spacing: 0) {
+                    Spacer()
+                        .frame(height: 66)
+
+                    HStack {
+                        sportPickerMenu
+                        Spacer()
+                    }
+
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .zIndex(2)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
+    }
+
+    private var sportPickerMenu: some View {
+        VStack(spacing: 6) {
+            sportPickerButton(title: "Calcio", icon: "soccerball")
+            sportPickerButton(title: "Tennis", icon: "tennis.racket")
+        }
+        .padding(8)
+        .frame(width: 190, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.black.opacity(0.96))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+        )
+        .shadow(color: Color.black.opacity(0.45), radius: 10, x: 0, y: 8)
+    }
+
+    private func sportPickerButton(title: String, icon: String) -> some View {
+        let isSelected = vm.selectedSport == title
+
+        return Button {
+            vm.selectedSport = title
+            vm.hideSportPicker()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(isSelected ? .black : .accentCyan)
+                    .frame(width: 22, height: 22)
+                    .background(
+                        Circle()
+                            .fill(isSelected ? Color.accentCyan : Color.white.opacity(0.08))
+                    )
+
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(isSelected ? .black : .white)
+
+                Spacer()
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 36)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isSelected ? Color.accentCyan : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var tennisComingSoonView: some View {
+        VStack(spacing: 18) {
+            Spacer()
+
+            Image(systemName: "tennis.racket")
+                .font(.system(size: 58))
+                .foregroundColor(.accentCyan)
+
+            Text("Tennis")
+                .font(.title2.bold())
+                .foregroundColor(.white)
+
+            Text("In arrivo col prossimo aggiornamento...")
+                .font(.subheadline)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
     }
     
     private var casinoTab: some View {
@@ -1654,7 +1811,7 @@ struct ContentView: View {
                         .foregroundColor(disabled ? .gray : .white)
                         .lineLimit(1)
                     
-                    if let actualResult = match.actualResult {
+                    if match.status == "FINISHED", let actualResult = match.actualResult {
                         Text(actualResult)
                             .font(.caption2)
                             .foregroundColor(.green)

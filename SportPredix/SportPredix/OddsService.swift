@@ -317,9 +317,10 @@ final class OddsService {
 
         let homeScore = Int(home.score ?? "")
         let awayScore = Int(away.score ?? "")
+        let isFinished = status == "FINISHED"
         let goals: Int?
         let actualResult: String?
-        if let homeScore = homeScore, let awayScore = awayScore {
+        if isFinished, let homeScore = homeScore, let awayScore = awayScore {
             goals = homeScore + awayScore
             actualResult = "\(homeScore)-\(awayScore)"
         } else {
@@ -328,7 +329,7 @@ final class OddsService {
         }
 
         var result: MatchOutcome?
-        if status == "FINISHED", let homeScore = homeScore, let awayScore = awayScore {
+        if isFinished, let homeScore = homeScore, let awayScore = awayScore {
             if homeScore > awayScore {
                 result = .home
             } else if awayScore > homeScore {

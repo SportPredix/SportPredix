@@ -150,7 +150,7 @@ struct MatchDetailView: View {
 
             HStack(spacing: 8) {
                 tag(text: match.time, fill: Color.white.opacity(0.14), foreground: .white)
-                if let actualResult = match.actualResult {
+                if match.status == "FINISHED", let actualResult = match.actualResult {
                     tag(text: "Risultato \(actualResult)", fill: Color.green.opacity(0.24), foreground: .green)
                 }
             }
@@ -405,9 +405,11 @@ struct MatchDetailView: View {
 
     private func oddButton(label: String, outcome: MatchOutcome, odd: Double) -> some View {
         let isSelected = vm.currentPicks.contains { $0.match.id == match.id && $0.outcome == outcome }
+        let isSelectable = vm.isOutcomeSelectable(match: match, outcome: outcome)
+        let canTap = isBettingOpen && (isSelectable || isSelected)
 
         return Button {
-            guard isBettingOpen else { return }
+            guard canTap else { return }
             vm.addPick(match: match, outcome: outcome, odd: odd)
         } label: {
             VStack(spacing: 4) {
@@ -419,12 +421,16 @@ struct MatchDetailView: View {
             .foregroundColor(isSelected ? .black : .white)
             .frame(maxWidth: .infinity)
             .frame(height: 62)
-            .background(isSelected ? Color.accentCyan : Color.white.opacity(0.12))
+            .background(
+                isSelected
+                ? Color.accentCyan
+                : (canTap ? Color.white.opacity(0.12) : Color.white.opacity(0.06))
+            )
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
-        .disabled(!isBettingOpen)
-        .opacity(isBettingOpen ? 1.0 : 0.65)
+        .disabled(!canTap)
+        .opacity(canTap ? 1.0 : 0.5)
     }
 
     private func readonlyOddCard(label: String, odd: Double) -> some View {
