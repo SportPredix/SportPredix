@@ -1725,45 +1725,53 @@ struct ContentView: View {
     // MARK: MATCH LIST
     private var matchListView: some View {
         let groupedMatchesByTime = vm.matchesForSelectedDay()
-        let matches = groupedMatchesByTime.values.flatMap { $0 }
+        let orderedTimes = sortedTimeKeys(groupedMatchesByTime.keys)
+        let matches = orderedTimes.flatMap { groupedMatchesByTime[$0] ?? [] }
         let selectedDate = vm.dateForIndex(vm.selectedDayIndex)
         let isPastDay = vm.isPast(selectedDate)
         let matchesByCompetition = Dictionary(grouping: matches) { competitionKey(for: $0) }
-        let preferredCompetitions = preferredLeagueOrder.filter { matchesByCompetition[$0] != nil }
+        let preferredCompetitionKeys = orderedPreferredCompetitionKeys(from: matchesByCompetition)
+        let preferredCompetitionSet = Set(preferredCompetitionKeys)
+        let preferredMatches = preferredCompetitionKeys.flatMap { matchesByCompetition[$0] ?? [] }
         let otherCompetitions = matchesByCompetition.keys
-            .filter { !isPreferredCompetition($0) }
+            .filter { !preferredCompetitionSet.contains($0) }
             .sorted()
+        let otherMatches = otherCompetitions.flatMap { matchesByCompetition[$0] ?? [] }
         
         return ScrollView {
             VStack(spacing: 16) {
                 if matches.isEmpty && !vm.isLoading {
                     emptyMatchesView
                 } else {
-                    ForEach(preferredCompetitions, id: \.self) { competition in
-                        competitionSectionView(
-                            title: competition,
-                            matches: matchesByCompetition[competition] ?? [],
-                            isPastDay: isPastDay
-                        )
+                    ForEach(preferredMatches) { match in
+                        let isMatchClosed = !vm.canBet(on: match)
+                        let isDisabled = isPastDay || isMatchClosed
+
+                        NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
+                            matchCardView(match: match, disabled: isDisabled)
+                        }
+                        .disabled(isDisabled)
                     }
 
-                    if !otherCompetitions.isEmpty {
+                    if !otherMatches.isEmpty {
                         HStack {
                             Text("Altri campionati")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundColor(.gray)
                             Spacer()
                         }
-                        .padding(.top, preferredCompetitions.isEmpty ? 0 : 6)
+                        .padding(.top, preferredMatches.isEmpty ? 0 : 6)
                         .padding(.horizontal, 4)
                     }
 
-                    ForEach(otherCompetitions, id: \.self) { competition in
-                        competitionSectionView(
-                            title: competition,
-                            matches: matchesByCompetition[competition] ?? [],
-                            isPastDay: isPastDay
-                        )
+                    ForEach(otherMatches) { match in
+                        let isMatchClosed = !vm.canBet(on: match)
+                        let isDisabled = isPastDay || isMatchClosed
+
+                        NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
+                            matchCardView(match: match, disabled: isDisabled)
+                        }
+                        .disabled(isDisabled)
                     }
                 }
             }
@@ -1778,51 +1786,26 @@ struct ContentView: View {
         Array((1 - calendarPastDays)...(1 + calendarFutureDays))
     }
 
-    private func competitionSectionView(title: String, matches: [Match], isPastDay: Bool) -> some View {
-        let groupedMatches = Dictionary(grouping: matches) { $0.time }
-        let orderedTimes = sortedTimeKeys(groupedMatches.keys)
-
-        return VStack(spacing: 10) {
-            HStack {
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(.white)
-                Spacer()
-            }
-            .padding(.horizontal, 4)
-
-            ForEach(orderedTimes, id: \.self) { time in
-                VStack(spacing: 10) {
-                    HStack {
-                        Text(time)
-                            .font(.headline)
-                            .foregroundColor(.accentCyan)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 4)
-
-                    ForEach(groupedMatches[time] ?? []) { match in
-                        let isMatchClosed = !vm.canBet(on: match)
-                        let isDisabled = isPastDay || isMatchClosed
-
-                        NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
-                            matchCardView(match: match, disabled: isDisabled)
-                        }
-                        .disabled(isDisabled)
-                    }
-                }
-            }
-        }
-    }
-
     private func competitionKey(for match: Match) -> String {
         let value = match.competition.trimmingCharacters(in: .whitespacesAndNewlines)
         return value.isEmpty ? "Campionato" : value
     }
 
-    private func isPreferredCompetition(_ competition: String) -> Bool {
-        let normalized = normalizeCompetitionName(competition)
-        return preferredLeagueOrder.contains { normalizeCompetitionName($0) == normalized }
+    private func orderedPreferredCompetitionKeys(from matchesByCompetition: [String: [Match]]) -> [String] {
+        var remaining = Set(matchesByCompetition.keys)
+        var ordered: [String] = []
+
+        for preferredCompetition in preferredLeagueOrder {
+            let preferredNormalized = normalizeCompetitionName(preferredCompetition)
+            guard let key = remaining.first(where: { normalizeCompetitionName($0) == preferredNormalized }) else {
+                continue
+            }
+
+            ordered.append(key)
+            remaining.remove(key)
+        }
+
+        return ordered
     }
 
     private func normalizeCompetitionName(_ name: String) -> String {
