@@ -452,6 +452,7 @@ final class BettingViewModel: ObservableObject {
                     self.markBundleFetched(for: anchorDate)
 
                     self.saveMatches()
+                    self.pruneUnavailableCurrentPicks()
                     self.evaluateAllSlips()
                     self.objectWillChange.send()
 
@@ -807,20 +808,65 @@ final class BettingViewModel: ObservableObject {
     }
     
     var totalOdd: Double { currentPicks.map { $0.odd }.reduce(1, *) }
-    
+
+    func canBet(on match: Match) -> Bool {
+        let latest = latestMatch(for: match)
+        return isMatchBettable(latest)
+    }
+
     func addPick(match: Match, outcome: MatchOutcome, odd: Double) {
         let selectedDate = dateForIndex(selectedDayIndex)
-        if isPast(selectedDate) {
-            return
-        }
+        guard !isPast(selectedDate) else { return }
+
+        pruneUnavailableCurrentPicks()
+        let latestMatch = latestMatch(for: match)
+        guard isMatchBettable(latestMatch) else { return }
         
         let selectedOutcomeSection = getSectionForOutcome(outcome)
         
         currentPicks.removeAll { pick in
-            pick.match.id == match.id && getSectionForOutcome(pick.outcome) == selectedOutcomeSection
+            pick.match.id == latestMatch.id && getSectionForOutcome(pick.outcome) == selectedOutcomeSection
         }
         
-        currentPicks.append(BetPick(id: UUID(), match: match, outcome: outcome, odd: odd))
+        currentPicks.append(BetPick(id: UUID(), match: latestMatch, outcome: outcome, odd: odd))
+    }
+
+    private func isMatchBettable(_ match: Match) -> Bool {
+        guard match.status.uppercased() == "SCHEDULED" else { return false }
+
+        if let kickoff = kickoffDate(for: match) {
+            return kickoff > Date()
+        }
+
+        return true
+    }
+
+    private func pruneUnavailableCurrentPicks() {
+        guard !currentPicks.isEmpty else { return }
+        let refreshedSelection = refreshedPicks(for: currentPicks)
+        currentPicks = refreshedSelection.filter { isMatchBettable($0.match) }
+    }
+
+    private func kickoffDate(for match: Match) -> Date? {
+        guard let dateKey = dailyMatches.first(where: { element in
+            element.value.contains { $0.id == match.id }
+        })?.key else {
+            return nil
+        }
+
+        return kickoffDate(dateKey: dateKey, time: match.time)
+    }
+
+    private func kickoffDate(dateKey: String, time: String) -> Date? {
+        let trimmedTime = time.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedTime.contains(":"), trimmedTime.count == 5 else { return nil }
+
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter.date(from: "\(dateKey) \(trimmedTime)")
     }
     
     private func getSectionForOutcome(_ outcome: MatchOutcome) -> String {
@@ -838,15 +884,31 @@ final class BettingViewModel: ObservableObject {
         currentPicks.removeAll { $0.id == pick.id }
     }
     
-    func confirmSlip(stake: Double) {
-        guard stake > 0, stake <= balance else { return }
+    @discardableResult
+    func confirmSlip(stake: Double) -> Bool {
+        guard stake > 0, stake <= balance else { return false }
+
+        let refreshedSelection = refreshedPicks(for: currentPicks)
+        let openSelection = refreshedSelection.filter { isMatchBettable($0.match) }
+
+        guard !openSelection.isEmpty else {
+            currentPicks.removeAll()
+            return false
+        }
+
+        guard openSelection.count == refreshedSelection.count else {
+            currentPicks = openSelection
+            return false
+        }
+
+        let slipTotalOdd = openSelection.map { $0.odd }.reduce(1, *)
         
         let slip = BetSlip(
             id: UUID(),
-            picks: currentPicks,
+            picks: openSelection,
             stake: stake,
-            totalOdd: totalOdd,
-            potentialWin: stake * totalOdd,
+            totalOdd: slipTotalOdd,
+            potentialWin: stake * slipTotalOdd,
             date: Date(),
             isWon: nil,
             isEvaluated: false
@@ -855,6 +917,7 @@ final class BettingViewModel: ObservableObject {
         currentPicks.removeAll()
         slips.insert(slip, at: 0)
         saveSlips()
+        return true
     }
     
     private func saveSlips() {

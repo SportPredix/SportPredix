@@ -20,6 +20,10 @@ struct MatchDetailView: View {
         vm.currentPicks.filter { $0.match.id == match.id }.count
     }
 
+    private var isBettingOpen: Bool {
+        vm.canBet(on: match)
+    }
+
     var body: some View {
         ZStack {
             background
@@ -135,6 +139,16 @@ struct MatchDetailView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(Color.green.opacity(0.14))
+                    .clipShape(Capsule())
+            }
+
+            if !isBettingOpen {
+                Text("Scommesse chiuse: partita iniziata")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.orange.opacity(0.14))
                     .clipShape(Capsule())
             }
 
@@ -443,8 +457,10 @@ struct MatchDetailView: View {
 
     private func oddSelectionCard(label: String, outcome: MatchOutcome, odd: Double) -> some View {
         let isSelected = vm.currentPicks.contains { $0.match.id == match.id && $0.outcome == outcome }
+        let bettingOpen = isBettingOpen
 
         return Button {
+            guard bettingOpen else { return }
             vm.addPick(match: match, outcome: outcome, odd: odd)
         } label: {
             VStack(spacing: 5) {
@@ -454,20 +470,35 @@ struct MatchDetailView: View {
                     .font(.system(size: 15, weight: .medium))
                     .monospacedDigit()
             }
-            .foregroundColor(isSelected ? .black : .white)
+            .foregroundColor(
+                bettingOpen
+                ? (isSelected ? .black : .white)
+                : .gray
+            )
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(isSelected ? Color.accentCyan : Color.white.opacity(0.04))
+                    .fill(
+                        bettingOpen
+                        ? (isSelected ? Color.accentCyan : Color.white.opacity(0.04))
+                        : Color.white.opacity(0.02)
+                    )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(isSelected ? Color.accentCyan : Color.white.opacity(0.20), lineWidth: 1.5)
+                    .stroke(
+                        bettingOpen
+                        ? (isSelected ? Color.accentCyan : Color.white.opacity(0.20))
+                        : Color.white.opacity(0.10),
+                        lineWidth: 1.5
+                    )
             )
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.18), value: isSelected)
+        .disabled(!bettingOpen)
+        .opacity(bettingOpen ? 1.0 : 0.55)
     }
 
     private func readonlyOddCard(label: String, odd: Double) -> some View {
