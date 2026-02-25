@@ -1313,6 +1313,7 @@ struct ContentView: View {
     @AppStorage("profileSelectedTheme") private var selectedTheme = "Sistema"
     private let calendarPastDays = 7
     private let calendarFutureDays = 21
+    private let preferredLeagueOrder = OddsService.supportedSoccerLeagues.map(\.displayName)
     
     var body: some View {
         NavigationView {
@@ -1723,35 +1724,46 @@ struct ContentView: View {
     
     // MARK: MATCH LIST
     private var matchListView: some View {
-        let groupedMatches = vm.matchesForSelectedDay()
+        let groupedMatchesByTime = vm.matchesForSelectedDay()
+        let matches = groupedMatchesByTime.values.flatMap { $0 }
         let selectedDate = vm.dateForIndex(vm.selectedDayIndex)
         let isPastDay = vm.isPast(selectedDate)
+        let matchesByCompetition = Dictionary(grouping: matches) { competitionKey(for: $0) }
+        let preferredCompetitions = preferredLeagueOrder.filter { matchesByCompetition[$0] != nil }
+        let otherCompetitions = matchesByCompetition.keys
+            .filter { !isPreferredCompetition($0) }
+            .sorted()
         
         return ScrollView {
             VStack(spacing: 16) {
-                if groupedMatches.isEmpty && !vm.isLoading {
+                if matches.isEmpty && !vm.isLoading {
                     emptyMatchesView
                 } else {
-                    ForEach(groupedMatches.keys.sorted(), id: \.self) { time in
-                        VStack(spacing: 10) {
-                            HStack {
-                                Text(time)
-                                    .font(.headline)
-                                    .foregroundColor(.accentCyan)
-                                Spacer()
-                            }
-                            .padding(.horizontal, 4)
-                            
-                            ForEach(groupedMatches[time]!) { match in
-                                let isMatchClosed = !vm.canBet(on: match)
-                                let isDisabled = isPastDay || isMatchClosed
+                    ForEach(preferredCompetitions, id: \.self) { competition in
+                        competitionSectionView(
+                            title: competition,
+                            matches: matchesByCompetition[competition] ?? [],
+                            isPastDay: isPastDay
+                        )
+                    }
 
-                                NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
-                                    matchCardView(match: match, disabled: isDisabled)
-                                }
-                                .disabled(isDisabled)
-                            }
+                    if !otherCompetitions.isEmpty {
+                        HStack {
+                            Text("Altri campionati")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(.gray)
+                            Spacer()
                         }
+                        .padding(.top, preferredCompetitions.isEmpty ? 0 : 6)
+                        .padding(.horizontal, 4)
+                    }
+
+                    ForEach(otherCompetitions, id: \.self) { competition in
+                        competitionSectionView(
+                            title: competition,
+                            matches: matchesByCompetition[competition] ?? [],
+                            isPastDay: isPastDay
+                        )
                     }
                 }
             }
@@ -1764,6 +1776,82 @@ struct ContentView: View {
 
     private var calendarDayIndices: [Int] {
         Array((1 - calendarPastDays)...(1 + calendarFutureDays))
+    }
+
+    private func competitionSectionView(title: String, matches: [Match], isPastDay: Bool) -> some View {
+        let groupedMatches = Dictionary(grouping: matches) { $0.time }
+        let orderedTimes = sortedTimeKeys(groupedMatches.keys)
+
+        return VStack(spacing: 10) {
+            HStack {
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+
+            ForEach(orderedTimes, id: \.self) { time in
+                VStack(spacing: 10) {
+                    HStack {
+                        Text(time)
+                            .font(.headline)
+                            .foregroundColor(.accentCyan)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 4)
+
+                    ForEach(groupedMatches[time] ?? []) { match in
+                        let isMatchClosed = !vm.canBet(on: match)
+                        let isDisabled = isPastDay || isMatchClosed
+
+                        NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
+                            matchCardView(match: match, disabled: isDisabled)
+                        }
+                        .disabled(isDisabled)
+                    }
+                }
+            }
+        }
+    }
+
+    private func competitionKey(for match: Match) -> String {
+        let value = match.competition.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? "Campionato" : value
+    }
+
+    private func isPreferredCompetition(_ competition: String) -> Bool {
+        let normalized = normalizeCompetitionName(competition)
+        return preferredLeagueOrder.contains { normalizeCompetitionName($0) == normalized }
+    }
+
+    private func normalizeCompetitionName(_ name: String) -> String {
+        name
+            .lowercased()
+            .folding(options: .diacriticInsensitive, locale: Locale(identifier: "it_IT"))
+            .replacingOccurrences(of: " ", with: "")
+    }
+
+    private func sortedTimeKeys<S: Sequence>(_ keys: S) -> [String] where S.Element == String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "HH:mm"
+
+        return keys.sorted { lhs, rhs in
+            let left = formatter.date(from: lhs)
+            let right = formatter.date(from: rhs)
+
+            switch (left, right) {
+            case let (leftDate?, rightDate?):
+                return leftDate < rightDate
+            case (_?, nil):
+                return true
+            case (nil, _?):
+                return false
+            case (nil, nil):
+                return lhs < rhs
+            }
+        }
     }
     
     private var emptyMatchesView: some View {

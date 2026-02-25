@@ -12,6 +12,12 @@ final class OddsService {
         case laLiga = "esp.1"
         case bundesliga = "ger.1"
         case ligue1 = "fra.1"
+        case coppaItalia = "ita.coppa_italia"
+        case copaDelRey = "esp.copa_del_rey"
+        case coupeDeFrance = "fra.coupe_de_france"
+        case faCup = "eng.fa"
+        case worldCup = "fifa.world"
+        case womensWorldCup = "fifa.wwc"
         case championsLeague = "uefa.champions"
         case europaLeague = "uefa.europa"
 
@@ -27,6 +33,18 @@ final class OddsService {
                 return "Bundesliga"
             case .ligue1:
                 return "Ligue 1"
+            case .coppaItalia:
+                return "Coppa Italia"
+            case .copaDelRey:
+                return "Copa del Rey"
+            case .coupeDeFrance:
+                return "Coupe de France"
+            case .faCup:
+                return "FA Cup"
+            case .worldCup:
+                return "Mondiali FIFA"
+            case .womensWorldCup:
+                return "Mondiali FIFA Femminili"
             case .championsLeague:
                 return "UEFA Champions League"
             case .europaLeague:
@@ -42,6 +60,11 @@ final class OddsService {
         .laLiga,
         .bundesliga,
         .ligue1,
+        .coppaItalia,
+        .copaDelRey,
+        .coupeDeFrance,
+        .faCup,
+        .worldCup,
         .championsLeague,
         .europaLeague
     ]
@@ -393,7 +416,7 @@ final class OddsService {
 
             do {
                 let response = try self.decodeScoreboardResponse(from: data)
-                let competitionName = response.leagues.first?.name ?? fallbackDisplayName ?? leagueKey
+                let competitionName = fallbackDisplayName ?? response.leagues.first?.name ?? leagueKey
 
                 let parsedMatches = response.events
                     .compactMap { self.convertESPNEvent($0, competitionName: competitionName) }
