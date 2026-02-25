@@ -1404,7 +1404,7 @@ struct ContentView: View {
                                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                                             .stroke(
                                                 isSelected ? Color.accentCyan : Color.white.opacity(0.24),
-                                                lineWidth: isSelected ? 3 : 1.2
+                                                lineWidth: 2
                                             )
                                     )
                             )
