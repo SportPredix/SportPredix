@@ -20,14 +20,6 @@ struct MatchDetailView: View {
         vm.currentPicks.filter { $0.match.id == match.id }.count
     }
 
-    private var selectedMatchDate: Date {
-        vm.dateForIndex(vm.selectedDayIndex)
-    }
-
-    private var isBettable: Bool {
-        vm.isMatchBettable(match, on: selectedMatchDate)
-    }
-
     var body: some View {
         ZStack {
             background
@@ -163,12 +155,6 @@ struct MatchDetailView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            if !isBettable {
-                Text("Quote chiuse: la partita e iniziata o e gia terminata.")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(.orange)
-            }
         }
         .padding(16)
         .background(panelBackground(stroke: Color.accentCyan.opacity(0.36)))
@@ -457,10 +443,9 @@ struct MatchDetailView: View {
 
     private func oddSelectionCard(label: String, outcome: MatchOutcome, odd: Double) -> some View {
         let isSelected = vm.currentPicks.contains { $0.match.id == match.id && $0.outcome == outcome }
-        let locked = !isBettable
 
         return Button {
-            vm.addPick(match: match, outcome: outcome, odd: odd, matchDate: selectedMatchDate)
+            vm.addPick(match: match, outcome: outcome, odd: odd)
         } label: {
             VStack(spacing: 5) {
                 Text(label)
@@ -469,21 +454,19 @@ struct MatchDetailView: View {
                     .font(.system(size: 15, weight: .medium))
                     .monospacedDigit()
             }
-            .foregroundColor(isSelected ? .black : locked ? .gray : .white)
+            .foregroundColor(isSelected ? .black : .white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(isSelected ? Color.accentCyan : locked ? Color.white.opacity(0.02) : Color.white.opacity(0.04))
+                    .fill(isSelected ? Color.accentCyan : Color.white.opacity(0.04))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(isSelected ? Color.accentCyan : locked ? Color.white.opacity(0.10) : Color.white.opacity(0.20), lineWidth: 1.5)
+                    .stroke(isSelected ? Color.accentCyan : Color.white.opacity(0.20), lineWidth: 1.5)
             )
         }
         .buttonStyle(.plain)
-        .disabled(locked)
-        .opacity(locked ? 0.65 : 1)
         .animation(.easeInOut(duration: 0.18), value: isSelected)
     }
 
