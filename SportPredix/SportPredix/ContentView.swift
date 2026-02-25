@@ -1325,7 +1325,7 @@ struct ContentView: View {
     private let calendarFutureDays = 21
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             #if compiler(>=6.0)
             if #available(iOS 26.0, tvOS 26.0, *) {
                 tabContainer
@@ -1509,13 +1509,11 @@ struct ContentView: View {
                 
                 ProfileView()
                     .environmentObject(vm)
-
-                NavigationLink(destination: ProfileSettingsView(vm: vm), isActive: $showProfileSettings) {
-                    EmptyView()
-                }
-                .hidden()
             }
             .id(refreshID)
+            .navigationDestination(isPresented: $showProfileSettings) {
+                ProfileSettingsView(vm: vm)
+            }
         }
     }
     
@@ -1559,75 +1557,17 @@ struct ContentView: View {
                     HStack(spacing: 10) {
                         ForEach(calendarDayIndices, id: \.self) { index in
                             let date = vm.dateForIndex(index)
-                            let isSelected = vm.selectedDayIndex == index
-                            let isToday = vm.isToday(date)
-
-                            Button {
+                            SportCalendarDayCard(
+                                weekday: vm.formattedWeekday(date).uppercased(),
+                                day: vm.formattedDay(date),
+                                month: vm.formattedMonth(date),
+                                isSelected: vm.selectedDayIndex == index,
+                                isToday: vm.isToday(date)
+                            ) {
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     vm.selectedDayIndex = index
-                                    proxy.scrollTo(index, anchor: .center)
                                 }
-                            } label: {
-                                VStack(spacing: 8) {
-                                    Text(vm.formattedWeekday(date).uppercased())
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundColor(isSelected ? .black : (isToday ? .accentCyan : .gray))
-                                        .lineLimit(1)
-
-                                    ZStack {
-                                        Circle()
-                                            .fill(isSelected ? Color.black.opacity(0.85) : Color.white.opacity(0.08))
-                                            .frame(width: 42, height: 42)
-                                            .overlay(
-                                                Circle()
-                                                    .stroke(
-                                                        isSelected ? Color.black.opacity(0.75) : Color.white.opacity(0.22),
-                                                        lineWidth: 1
-                                                    )
-                                            )
-
-                                        Text(vm.formattedDay(date))
-                                            .font(.headline.weight(.bold))
-                                            .foregroundColor(isSelected ? .accentCyan : .white)
-                                    }
-
-                                    Text(vm.formattedMonth(date))
-                                        .font(.caption2.weight(.medium))
-                                        .foregroundColor(isSelected ? .black.opacity(0.82) : .gray)
-                                        .lineLimit(1)
-                                }
-                                .frame(width: 80, height: 112)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .fill(
-                                            isSelected
-                                                ? LinearGradient(
-                                                    colors: [Color.accentCyan, Color(red: 0.53, green: 0.89, blue: 0.85)],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                                : LinearGradient(
-                                                    colors: [Color.white.opacity(0.06), Color.white.opacity(0.03)],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                        )
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                                .stroke(
-                                                    isSelected ? Color.accentCyan.opacity(0.7) : Color.white.opacity(0.12),
-                                                    lineWidth: 1.5
-                                                )
-                                        )
-                                )
-                                .shadow(
-                                    color: isSelected ? Color.accentCyan.opacity(0.24) : .clear,
-                                    radius: 12,
-                                    x: 0,
-                                    y: 8
-                                )
                             }
-                            .buttonStyle(.plain)
                             .id(index)
                         }
                     }
@@ -2212,7 +2152,67 @@ struct ContentView: View {
             Spacer()
         }
     }
-    
+
+}
+
+private struct SportCalendarDayCard: View {
+    let weekday: String
+    let day: String
+    let month: String
+    let isSelected: Bool
+    let isToday: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Text(weekday)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundColor(weekdayColor)
+                    .lineLimit(1)
+
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? Color.black.opacity(0.85) : Color.white.opacity(0.08))
+                        .frame(width: 42, height: 42)
+                        .overlay(
+                            Circle()
+                                .stroke(isSelected ? Color.black.opacity(0.75) : Color.white.opacity(0.22), lineWidth: 1)
+                        )
+
+                    Text(day)
+                        .font(.headline.weight(.bold))
+                        .foregroundColor(isSelected ? .accentCyan : .white)
+                }
+
+                Text(month)
+                    .font(.caption2.weight(.medium))
+                    .foregroundColor(isSelected ? .black.opacity(0.82) : .gray)
+                    .lineLimit(1)
+            }
+            .frame(width: 80, height: 112)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(isSelected ? Color.accentCyan : Color.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(isSelected ? Color.accentCyan.opacity(0.7) : Color.white.opacity(0.12), lineWidth: 1.5)
+                    )
+            )
+            .shadow(color: isSelected ? Color.accentCyan.opacity(0.24) : .clear, radius: 12, x: 0, y: 8)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var weekdayColor: Color {
+        if isSelected {
+            return .black
+        }
+        if isToday {
+            return .accentCyan
+        }
+        return .gray
+    }
 }
 
 // MARK: - CASINO FULL VIEW (FIXATO)
