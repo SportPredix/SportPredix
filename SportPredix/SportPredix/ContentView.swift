@@ -1791,7 +1791,7 @@ struct ContentView: View {
     
     private func matchCardView(match: Match, disabled: Bool) -> some View {
         VStack(spacing: 12) {
-            HStack {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(match.home)
                         .font(.headline)
@@ -1820,6 +1820,10 @@ struct ContentView: View {
                             .font(.caption2)
                             .foregroundColor(match.status == "FINISHED" ? .green : 
                                            match.status == "LIVE" ? .red : .orange)
+                    } else {
+                        Text(" ")
+                            .font(.caption2)
+                            .hidden()
                     }
                 }
             }
