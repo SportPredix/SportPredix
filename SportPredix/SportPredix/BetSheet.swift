@@ -102,11 +102,7 @@ struct BetSheet: View {
                 .padding(.vertical, 7)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(Color.accentCyan.opacity(0.30), lineWidth: 1)
-                        )
+                        .fill(Color.white.opacity(0.16))
                 )
 
                 Button {
@@ -118,11 +114,7 @@ struct BetSheet: View {
                         .frame(width: 32, height: 32)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(.ultraThinMaterial)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .stroke(Color.accentCyan.opacity(0.30), lineWidth: 1)
-                                )
+                                .fill(Color.white.opacity(0.16))
                         )
                 }
                 .buttonStyle(.plain)
@@ -130,8 +122,7 @@ struct BetSheet: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
             .background(
-                Color.black.opacity(0.3)
-                    .background(.ultraThinMaterial.opacity(0.7))
+                Color.black.opacity(0.88)
                     .ignoresSafeArea(edges: .top)
             )
 
@@ -262,10 +253,6 @@ struct BetSheet: View {
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(Color.accentCyan)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
-                            )
                     )
             }
             .buttonStyle(.plain)
@@ -273,7 +260,7 @@ struct BetSheet: View {
             Spacer()
         }
         .padding(16)
-        .background(cardBackground(stroke: Color.white.opacity(0.12)))
+        .background(cardBackground(fillOpacity: 0.10, stroke: Color.white.opacity(0.06)))
     }
 
     private var summaryCard: some View {
@@ -315,11 +302,11 @@ struct BetSheet: View {
                 .frame(height: 44)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.white.opacity(0.04))
+                        .fill(Color.white.opacity(0.10))
                         .overlay(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .stroke(
-                                    isStakeFieldFocused ? Color.accentCyan.opacity(0.5) : Color.white.opacity(0.24),
+                                    isStakeFieldFocused ? Color.accentCyan.opacity(0.40) : Color.white.opacity(0.10),
                                     lineWidth: 1
                                 )
                         )
@@ -338,14 +325,7 @@ struct BetSheet: View {
                                 .frame(height: 34)
                                 .background(
                                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(selected ? Color.accentCyan : Color.white.opacity(0.04))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                                .stroke(
-                                                    selected ? Color.accentCyan : Color.white.opacity(0.24),
-                                                    lineWidth: 1.2
-                                                )
-                                        )
+                                        .fill(selected ? Color.accentCyan : Color.white.opacity(0.10))
                                 )
                         }
                         .buttonStyle(.plain)
@@ -391,17 +371,13 @@ struct BetSheet: View {
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(canConfirm ? Color.accentCyan : Color.gray.opacity(0.35))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(Color.white.opacity(0.20), lineWidth: 1)
-                        )
                 )
             }
             .buttonStyle(.plain)
             .disabled(!canConfirm)
         }
         .padding(14)
-        .background(cardBackground(stroke: Color.white.opacity(0.12)))
+        .background(cardBackground(fillOpacity: 0.10, stroke: Color.white.opacity(0.06)))
     }
 
     private func summaryStat(title: String, value: String, color: Color) -> some View {
@@ -422,11 +398,7 @@ struct BetSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white.opacity(0.04))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.white.opacity(0.24), lineWidth: 1)
-                )
+                .fill(Color.white.opacity(0.10))
         )
     }
 
@@ -442,9 +414,9 @@ struct BetSheet: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func cardBackground(stroke: Color = Color.white.opacity(0.10)) -> some View {
+    private func cardBackground(fillOpacity: Double = 0.10, stroke: Color = Color.clear) -> some View {
         RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(Color.white.opacity(0.06))
+            .fill(Color.white.opacity(fillOpacity))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(stroke, lineWidth: 1)

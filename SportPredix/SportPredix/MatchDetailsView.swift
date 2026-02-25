@@ -108,7 +108,7 @@ struct MatchDetailView: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.accentCyan)
                         .frame(width: 34, height: 34)
-                        .background(Color.white.opacity(0.08))
+                        .background(Color.white.opacity(0.16))
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -126,7 +126,7 @@ struct MatchDetailView: View {
                     .foregroundColor(.gray)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.08))
+                    .background(Color.white.opacity(0.14))
                     .clipShape(Capsule())
 
                 teamBlock(name: match.away, side: "Trasferta", isLeading: false)
@@ -154,24 +154,24 @@ struct MatchDetailView: View {
 
             HStack(spacing: 8) {
                 infoBadge(text: match.competition.uppercased(), foreground: .black, background: .accentCyan)
-                infoBadge(text: match.time, foreground: .white, background: Color.white.opacity(0.10))
+                infoBadge(text: match.time, foreground: .white, background: Color.white.opacity(0.16))
 
                 if let provider = match.odds.apiProvider {
-                    infoBadge(text: provider, foreground: .white, background: Color.white.opacity(0.10))
+                    infoBadge(text: provider, foreground: .white, background: Color.white.opacity(0.16))
                 }
 
                 if selectedPicksCount > 0 {
                     infoBadge(
                         text: "\(selectedPicksCount) selezioni",
                         foreground: .white,
-                        background: Color.accentCyan.opacity(0.22)
+                        background: Color.accentCyan.opacity(0.36)
                     )
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(16)
-        .background(panelBackground(stroke: Color.accentCyan.opacity(0.36)))
+        .background(panelBackground(fillOpacity: 0.10, stroke: Color.accentCyan.opacity(0.14)))
         .padding(.horizontal, 16)
     }
 
@@ -203,11 +203,7 @@ struct MatchDetailView: View {
                         .frame(height: 34)
                         .background(
                             Capsule()
-                                .fill(selected ? Color.accentCyan : Color.white.opacity(0.08))
-                                .overlay(
-                                    Capsule()
-                                        .stroke(selected ? Color.accentCyan : Color.white.opacity(0.18), lineWidth: 1.4)
-                                )
+                                .fill(selected ? Color.accentCyan : Color.white.opacity(0.15))
                         )
                         .onTapGesture {
                             withAnimation(.easeInOut(duration: 0.2)) {
@@ -405,7 +401,7 @@ struct MatchDetailView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.accentCyan)
                     .frame(width: 26, height: 26)
-                    .background(Color.accentCyan.opacity(0.14))
+                    .background(Color.accentCyan.opacity(0.24))
                     .clipShape(Circle())
 
                 Text(title)
@@ -424,7 +420,7 @@ struct MatchDetailView: View {
             content()
         }
         .padding(14)
-        .background(panelBackground(stroke: Color.white.opacity(0.18)))
+        .background(panelBackground(fillOpacity: 0.10))
     }
 
     private func overUnderLinePanel(
@@ -447,11 +443,7 @@ struct MatchDetailView: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white.opacity(0.04))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.white.opacity(0.16), lineWidth: 1)
-                )
+                .fill(Color.white.opacity(0.10))
         )
     }
 
@@ -481,24 +473,15 @@ struct MatchDetailView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(
                         bettingOpen
-                        ? (isSelected ? Color.accentCyan : Color.white.opacity(0.04))
-                        : Color.white.opacity(0.02)
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(
-                        bettingOpen
-                        ? (isSelected ? Color.accentCyan : Color.white.opacity(0.20))
-                        : Color.white.opacity(0.10),
-                        lineWidth: 1.5
+                        ? (isSelected ? Color.accentCyan : Color.white.opacity(0.12))
+                        : Color.white.opacity(0.08)
                     )
             )
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.18), value: isSelected)
         .disabled(!bettingOpen)
-        .opacity(bettingOpen ? 1.0 : 0.55)
+        .opacity(bettingOpen ? 1.0 : 0.65)
     }
 
     private func readonlyOddCard(label: String, odd: Double) -> some View {
@@ -515,11 +498,7 @@ struct MatchDetailView: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white.opacity(0.04))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.white.opacity(0.20), lineWidth: 1.5)
-                )
+                .fill(Color.white.opacity(0.10))
         )
     }
 
@@ -543,12 +522,12 @@ struct MatchDetailView: View {
             .clipShape(Capsule())
     }
 
-    private func panelBackground(stroke: Color) -> some View {
+    private func panelBackground(fillOpacity: Double = 0.10, stroke: Color? = nil) -> some View {
         RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(Color.white.opacity(0.06))
+            .fill(Color.white.opacity(fillOpacity))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(stroke, lineWidth: 1.2)
+                    .stroke(stroke ?? .clear, lineWidth: stroke == nil ? 0 : 1)
             )
     }
 
