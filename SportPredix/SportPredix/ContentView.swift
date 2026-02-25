@@ -1199,7 +1199,7 @@ struct ContentView: View {
     private let calendarFutureDays = 21
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             #if compiler(>=6.0)
             if #available(iOS 26.0, tvOS 26.0, *) {
                 tabContainer
@@ -1360,11 +1360,13 @@ struct ContentView: View {
                 
                 ProfileView()
                     .environmentObject(vm)
+
+                NavigationLink(destination: ProfileSettingsView(vm: vm), isActive: $showProfileSettings) {
+                    EmptyView()
+                }
+                .hidden()
             }
             .id(refreshID)
-            .navigationDestination(isPresented: $showProfileSettings) {
-                ProfileSettingsView(vm: vm)
-            }
         }
     }
     
