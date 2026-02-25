@@ -296,7 +296,7 @@ final class OddsService {
             do {
                 let decoded = try JSONDecoder().decode(ESPNCoreLeaguesResponse.self, from: data)
                 let targets = decoded.items.compactMap { item -> LeagueTarget? in
-                    guard let slug = leagueSlug(fromReference: item.reference) else { return nil }
+                    guard let slug = self.leagueSlug(fromReference: item.reference) else { return nil }
                     return LeagueTarget(key: slug, displayName: nil)
                 }
 
