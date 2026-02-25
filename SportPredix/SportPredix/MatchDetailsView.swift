@@ -20,7 +20,7 @@ struct MatchDetailView: View {
         ("Doppia", "square.grid.2x2"),
         ("O/U", "chart.line.uptrend.xyaxis"),
         ("Handicap", "arrow.left.and.right"),
-        ("API", "network")
+        ("Extra", "ellipsis.circle")
     ]
 
     private var selectedPicksCount: Int {
@@ -33,7 +33,7 @@ struct MatchDetailView: View {
 
     var body: some View {
         ZStack {
-            backgroundLayer
+            Color.black.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 topBar
@@ -83,32 +83,8 @@ struct MatchDetailView: View {
         case 4:
             handicapPanel
         default:
-            apiPanel
+            extraPanel
             handicapPanel
-        }
-    }
-
-    private var backgroundLayer: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.03, green: 0.04, blue: 0.05),
-                    Color(red: 0.06, green: 0.08, blue: 0.10),
-                    Color.black
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                Rectangle()
-                    .fill(Color.accentCyan.opacity(0.10))
-                    .frame(height: 140)
-                    .blur(radius: 50)
-                Spacer()
-            }
-            .ignoresSafeArea()
         }
     }
 
@@ -128,10 +104,10 @@ struct MatchDetailView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Quote Partita")
-                    .font(.custom("AvenirNextCondensed-Bold", size: 23))
+                    .font(.title3.weight(.bold))
                     .foregroundColor(.white)
                 Text(match.competition)
-                    .font(.custom("AvenirNext-Medium", size: 13))
+                    .font(.caption)
                     .foregroundColor(.gray)
             }
 
@@ -141,7 +117,7 @@ struct MatchDetailView: View {
                 Image(systemName: "checklist")
                     .font(.system(size: 12, weight: .bold))
                 Text("\(selectedPicksCount)")
-                    .font(.custom("AvenirNext-Bold", size: 13))
+                    .font(.subheadline.weight(.semibold))
             }
             .foregroundColor(.accentCyan)
             .padding(.horizontal, 10)
@@ -151,32 +127,29 @@ struct MatchDetailView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color.black.opacity(0.78).ignoresSafeArea(edges: .top))
+        .background(Color.black.opacity(0.8).ignoresSafeArea(edges: .top))
     }
 
     private var heroCard: some View {
         VStack(spacing: 12) {
             HStack(alignment: .center) {
-                teamPill(name: match.home, side: "Casa", alignLeading: true)
+                teamBlock(name: match.home, side: "Casa", alignLeading: true)
 
                 VStack(spacing: 6) {
                     Text("VS")
-                        .font(.custom("AvenirNextCondensed-Bold", size: 16))
+                        .font(.caption.weight(.bold))
                         .foregroundColor(.accentCyan)
                     statusTag
                 }
                 .frame(width: 70)
 
-                teamPill(name: match.away, side: "Trasferta", alignLeading: false)
+                teamBlock(name: match.away, side: "Trasferta", alignLeading: false)
             }
 
             HStack(spacing: 8) {
-                tinyTag(text: match.time, fill: Color.white.opacity(0.14), foreground: .white)
-                if let provider = match.odds.apiProvider {
-                    tinyTag(text: provider, fill: Color.white.opacity(0.14), foreground: .white)
-                }
+                tag(text: match.time, fill: Color.white.opacity(0.14), foreground: .white)
                 if let actualResult = match.actualResult {
-                    tinyTag(text: "Risultato \(actualResult)", fill: Color.green.opacity(0.24), foreground: .green)
+                    tag(text: "Risultato \(actualResult)", fill: Color.green.opacity(0.24), foreground: .green)
                 }
             }
         }
@@ -189,7 +162,7 @@ struct MatchDetailView: View {
             Image(systemName: "lock.fill")
                 .font(.system(size: 12, weight: .bold))
             Text("Scommesse chiuse: partita iniziata")
-                .font(.custom("AvenirNext-DemiBold", size: 13))
+                .font(.subheadline.weight(.semibold))
         }
         .foregroundColor(.orange)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -214,7 +187,7 @@ struct MatchDetailView: View {
                             Image(systemName: tab.icon)
                                 .font(.system(size: 12, weight: .semibold))
                             Text(tab.title)
-                                .font(.custom("AvenirNext-DemiBold", size: 13))
+                                .font(.subheadline.weight(.semibold))
                         }
                         .foregroundColor(selected ? .black : .white)
                         .padding(.horizontal, 12)
@@ -279,7 +252,7 @@ struct MatchDetailView: View {
 
     private var overUnderPanel: some View {
         let subtitle = match.odds.apiMainTotalLine.map {
-            "Linea API: \($0.formatted(.number.precision(.fractionLength(1))))"
+            "Linea principale: \($0.formatted(.number.precision(.fractionLength(1))))"
         }
 
         return marketPanel(
@@ -327,11 +300,11 @@ struct MatchDetailView: View {
         }
     }
 
-    private var apiPanel: some View {
+    private var extraPanel: some View {
         marketPanel(
-            title: "Mercati API",
-            subtitle: "Snapshot dal feed bookmaker",
-            icon: "network"
+            title: "Mercati extra",
+            subtitle: "Quote principali feed",
+            icon: "ellipsis.circle"
         ) {
             if let line = match.odds.apiMainTotalLine,
                let overOdd = match.odds.apiMainOver,
@@ -357,22 +330,11 @@ struct MatchDetailView: View {
                     }
                 }
             } else {
-                Text("Nessun mercato totale API disponibile.")
-                    .font(.custom("AvenirNext-Regular", size: 14))
+                Text("Nessun mercato totale disponibile.")
+                    .font(.subheadline)
                     .foregroundColor(.gray)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-
-            HStack {
-                Text("Bookmaker")
-                    .font(.custom("AvenirNext-Regular", size: 12))
-                    .foregroundColor(.gray)
-                Spacer()
-                Text(match.odds.apiProvider ?? "N/D")
-                    .font(.custom("AvenirNext-DemiBold", size: 13))
-                    .foregroundColor(.white)
-            }
-            .padding(.top, 2)
         }
     }
 
@@ -395,7 +357,7 @@ struct MatchDetailView: View {
                 }
             } else {
                 Text("Mercato handicap non disponibile.")
-                    .font(.custom("AvenirNext-Regular", size: 14))
+                    .font(.subheadline)
                     .foregroundColor(.gray)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -418,12 +380,12 @@ struct MatchDetailView: View {
                     .clipShape(Circle())
 
                 Text(title)
-                    .font(.custom("AvenirNextCondensed-Bold", size: 22))
+                    .font(.headline)
                     .foregroundColor(.white)
             }
 
             Text(subtitle)
-                .font(.custom("AvenirNext-Regular", size: 12))
+                .font(.caption)
                 .foregroundColor(.gray)
 
             content()
@@ -441,7 +403,7 @@ struct MatchDetailView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text("Linea \(line)")
-                .font(.custom("AvenirNext-DemiBold", size: 12))
+                .font(.caption.weight(.semibold))
                 .foregroundColor(.gray)
 
             HStack(spacing: 10) {
@@ -463,9 +425,9 @@ struct MatchDetailView: View {
         } label: {
             VStack(spacing: 4) {
                 Text(label)
-                    .font(.custom("AvenirNextCondensed-Bold", size: 18))
+                    .font(.headline)
                 Text(odd.formatted(.number.precision(.fractionLength(2))))
-                    .font(.custom("Menlo-Bold", size: 13))
+                    .font(.system(.subheadline, design: .monospaced))
             }
             .foregroundColor(isSelected ? .black : .white)
             .frame(maxWidth: .infinity)
@@ -481,10 +443,10 @@ struct MatchDetailView: View {
     private func readonlyOddCard(label: String, odd: Double) -> some View {
         VStack(spacing: 4) {
             Text(label)
-                .font(.custom("AvenirNextCondensed-Bold", size: 18))
+                .font(.headline)
                 .foregroundColor(.white)
             Text(odd.formatted(.number.precision(.fractionLength(2))))
-                .font(.custom("Menlo-Bold", size: 13))
+                .font(.system(.subheadline, design: .monospaced))
                 .foregroundColor(.accentCyan)
         }
         .frame(maxWidth: .infinity)
@@ -495,7 +457,7 @@ struct MatchDetailView: View {
 
     private var statusTag: some View {
         Text(match.status)
-            .font(.custom("AvenirNext-DemiBold", size: 11))
+            .font(.caption2.weight(.bold))
             .foregroundColor(.white)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
@@ -503,23 +465,23 @@ struct MatchDetailView: View {
             .clipShape(Capsule())
     }
 
-    private func teamPill(name: String, side: String, alignLeading: Bool) -> some View {
+    private func teamBlock(name: String, side: String, alignLeading: Bool) -> some View {
         VStack(alignment: alignLeading ? .leading : .trailing, spacing: 3) {
             Text(name)
-                .font(.custom("AvenirNextCondensed-Bold", size: 25))
+                .font(.title3.weight(.bold))
                 .foregroundColor(.white)
                 .lineLimit(2)
                 .multilineTextAlignment(alignLeading ? .leading : .trailing)
             Text(side)
-                .font(.custom("AvenirNext-Medium", size: 12))
+                .font(.caption2)
                 .foregroundColor(.gray)
         }
         .frame(maxWidth: .infinity, alignment: alignLeading ? .leading : .trailing)
     }
 
-    private func tinyTag(text: String, fill: Color, foreground: Color) -> some View {
+    private func tag(text: String, fill: Color, foreground: Color) -> some View {
         Text(text)
-            .font(.custom("AvenirNext-Medium", size: 11))
+            .font(.caption2)
             .foregroundColor(foreground)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)

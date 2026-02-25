@@ -33,13 +33,9 @@ struct BetSheet: View {
         !picks.isEmpty && !hasLockedPick && stake > 0 && stake <= balance
     }
 
-    private var quickStakeOptions: [Double] {
-        [5, 10, 20, 50, 100]
-    }
-
     var body: some View {
         ZStack {
-            backgroundLayer
+            Color.black.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 handle
@@ -71,30 +67,6 @@ struct BetSheet: View {
         )
     }
 
-    private var backgroundLayer: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.02, green: 0.03, blue: 0.04),
-                    Color(red: 0.06, green: 0.08, blue: 0.11),
-                    Color.black
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                Rectangle()
-                    .fill(Color.accentCyan.opacity(0.10))
-                    .frame(height: 130)
-                    .blur(radius: 55)
-                Spacer()
-            }
-            .ignoresSafeArea()
-        }
-    }
-
     private var handle: some View {
         Capsule()
             .fill(Color.white.opacity(0.35))
@@ -107,11 +79,11 @@ struct BetSheet: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Ticket Pronostici")
-                    .font(.custom("AvenirNextCondensed-Bold", size: 25))
+                    .font(.title2.weight(.bold))
                     .foregroundColor(.white)
 
                 Text(picks.count == 1 ? "1 selezione attiva" : "\(picks.count) selezioni attive")
-                    .font(.custom("AvenirNext-Medium", size: 13))
+                    .font(.caption)
                     .foregroundColor(.gray)
             }
 
@@ -131,7 +103,7 @@ struct BetSheet: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color.black.opacity(0.72))
+        .background(Color.black.opacity(0.8))
     }
 
     private var emptyState: some View {
@@ -143,11 +115,11 @@ struct BetSheet: View {
                 .foregroundColor(.accentCyan)
 
             Text("Nessuna quota selezionata")
-                .font(.custom("AvenirNextCondensed-Bold", size: 28))
+                .font(.title2.weight(.bold))
                 .foregroundColor(.white)
 
             Text("Apri una partita e tocca una quota per creare il ticket.")
-                .font(.custom("AvenirNext-Regular", size: 14))
+                .font(.subheadline)
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 14)
@@ -156,7 +128,7 @@ struct BetSheet: View {
                 dismiss()
             } label: {
                 Text("Vai alle partite")
-                    .font(.custom("AvenirNext-DemiBold", size: 14))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
@@ -185,12 +157,12 @@ struct BetSheet: View {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\(pick.match.home) - \(pick.match.away)")
-                        .font(.custom("AvenirNext-DemiBold", size: 16))
+                        .font(.headline)
                         .foregroundColor(.white)
                         .lineLimit(2)
 
                     Text(pick.match.competition)
-                        .font(.custom("AvenirNext-Regular", size: 12))
+                        .font(.caption)
                         .foregroundColor(.gray)
                 }
 
@@ -198,11 +170,11 @@ struct BetSheet: View {
 
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(pick.match.time)
-                        .font(.custom("Menlo-Bold", size: 12))
+                        .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.accentCyan)
 
                     Text(pick.match.status)
-                        .font(.custom("AvenirNext-Medium", size: 11))
+                        .font(.caption2)
                         .foregroundColor(statusColor(for: pick.match.status))
                 }
             }
@@ -259,12 +231,12 @@ struct BetSheet: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Importo puntata")
-                    .font(.custom("AvenirNext-DemiBold", size: 13))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundColor(.gray)
 
                 HStack(spacing: 10) {
                     Text("EUR")
-                        .font(.custom("AvenirNext-DemiBold", size: 12))
+                        .font(.caption.weight(.bold))
                         .foregroundColor(.black)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
@@ -275,33 +247,12 @@ struct BetSheet: View {
                         .keyboardType(.decimalPad)
                         .focused($isStakeFieldFocused)
                         .foregroundColor(.white)
-                        .font(.custom("Menlo-Bold", size: 13))
+                        .font(.system(.subheadline, design: .monospaced))
                 }
                 .padding(.horizontal, 12)
                 .frame(height: 44)
                 .background(Color.white.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                LazyVGrid(
-                    columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())],
-                    spacing: 8
-                ) {
-                    ForEach(quickStakeOptions, id: \.self) { amount in
-                        let selected = abs(stake - amount) < 0.001
-                        Button {
-                            stakeText = amount.cleanNumberString
-                        } label: {
-                            Text(amount.formatted(.currency(code: "EUR")))
-                                .font(.custom("AvenirNext-DemiBold", size: 12))
-                                .foregroundColor(selected ? .black : .white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 34)
-                                .background(selected ? Color.accentCyan : Color.white.opacity(0.12))
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
             }
 
             if stake > balance {
@@ -322,7 +273,7 @@ struct BetSheet: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 15, weight: .bold))
                     Text("Conferma ticket")
-                        .font(.custom("AvenirNext-DemiBold", size: 14))
+                        .font(.subheadline.weight(.semibold))
                 }
                 .foregroundColor(.black)
                 .frame(maxWidth: .infinity)
@@ -340,11 +291,11 @@ struct BetSheet: View {
     private func statBlock(title: String, value: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.custom("AvenirNext-Regular", size: 12))
+                .font(.caption)
                 .foregroundColor(.gray)
 
             Text(value)
-                .font(.custom("Menlo-Bold", size: 13))
+                .font(.system(.subheadline, design: .monospaced))
                 .foregroundColor(color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
@@ -358,14 +309,14 @@ struct BetSheet: View {
 
     private func warningLabel(_ text: String, color: Color) -> some View {
         Text(text)
-            .font(.custom("AvenirNext-Medium", size: 12))
+            .font(.caption)
             .foregroundColor(color)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func dataChip(_ text: String, fill: Color, text color: Color) -> some View {
         Text(text)
-            .font(.custom("AvenirNext-DemiBold", size: 12))
+            .font(.caption.weight(.semibold))
             .foregroundColor(color)
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
@@ -387,11 +338,5 @@ struct BetSheet: View {
         default:
             return .orange
         }
-    }
-}
-
-private extension Double {
-    var cleanNumberString: String {
-        rounded() == self ? String(Int(self)) : String(self)
     }
 }
