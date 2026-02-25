@@ -139,7 +139,9 @@ struct MatchDetailView: View {
                     Text("VS")
                         .font(.caption.weight(.bold))
                         .foregroundColor(.accentCyan)
-                    statusTag
+                    if let statusText = visibleStatusText(for: match.status) {
+                        statusTag(statusText)
+                    }
                 }
                 .frame(width: 70)
 
@@ -205,7 +207,6 @@ struct MatchDetailView: View {
     private var overviewPanel: some View {
         marketPanel(
             title: "Quote principali",
-            subtitle: "Mercati rapidi piu usati",
             icon: "sparkles"
         ) {
             HStack(spacing: 10) {
@@ -225,7 +226,6 @@ struct MatchDetailView: View {
     private var oneXTwoPanel: some View {
         marketPanel(
             title: "1X2",
-            subtitle: "Esito finale della partita",
             icon: "soccerball"
         ) {
             HStack(spacing: 10) {
@@ -239,7 +239,6 @@ struct MatchDetailView: View {
     private var doubleChancePanel: some View {
         marketPanel(
             title: "Doppia chance",
-            subtitle: "Derivate dal mercato 1X2",
             icon: "square.grid.2x2"
         ) {
             HStack(spacing: 10) {
@@ -251,13 +250,8 @@ struct MatchDetailView: View {
     }
 
     private var overUnderPanel: some View {
-        let subtitle = match.odds.apiMainTotalLine.map {
-            "Linea principale: \($0.formatted(.number.precision(.fractionLength(1))))"
-        }
-
         return marketPanel(
             title: "Over / Under",
-            subtitle: subtitle ?? "Linee gol disponibili",
             icon: "chart.line.uptrend.xyaxis"
         ) {
             VStack(spacing: 8) {
@@ -303,7 +297,6 @@ struct MatchDetailView: View {
     private var extraPanel: some View {
         marketPanel(
             title: "Mercati extra",
-            subtitle: "Quote principali feed",
             icon: "ellipsis.circle"
         ) {
             if let line = match.odds.apiMainTotalLine,
@@ -341,7 +334,6 @@ struct MatchDetailView: View {
     private var handicapPanel: some View {
         marketPanel(
             title: "Handicap",
-            subtitle: "Mercato point spread",
             icon: "arrow.left.and.right"
         ) {
             if let homeOdd = match.odds.handicapHome, let awayOdd = match.odds.handicapAway {
@@ -366,7 +358,6 @@ struct MatchDetailView: View {
 
     private func marketPanel<Content: View>(
         title: String,
-        subtitle: String,
         icon: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
@@ -383,10 +374,6 @@ struct MatchDetailView: View {
                     .font(.headline)
                     .foregroundColor(.white)
             }
-
-            Text(subtitle)
-                .font(.caption)
-                .foregroundColor(.gray)
 
             content()
         }
@@ -455,8 +442,8 @@ struct MatchDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
-    private var statusTag: some View {
-        Text(match.status)
+    private func statusTag(_ text: String) -> some View {
+        Text(text)
             .font(.caption2.weight(.bold))
             .foregroundColor(.white)
             .padding(.horizontal, 8)
@@ -502,6 +489,17 @@ struct MatchDetailView: View {
             return .red.opacity(0.8)
         default:
             return .orange.opacity(0.8)
+        }
+    }
+
+    private func visibleStatusText(for status: String) -> String? {
+        switch status.uppercased() {
+        case "FINISHED":
+            return "FINISHED"
+        case "LIVE":
+            return "LIVE"
+        default:
+            return nil
         }
     }
 

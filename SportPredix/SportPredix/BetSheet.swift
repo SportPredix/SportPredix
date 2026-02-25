@@ -173,9 +173,11 @@ struct BetSheet: View {
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.accentCyan)
 
-                    Text(pick.match.status)
-                        .font(.caption2)
-                        .foregroundColor(statusColor(for: pick.match.status))
+                    if let statusText = visibleStatusText(for: pick.match.status) {
+                        Text(statusText)
+                            .font(.caption2)
+                            .foregroundColor(statusColor(for: pick.match.status))
+                    }
                 }
             }
 
@@ -337,6 +339,17 @@ struct BetSheet: View {
             return .red
         default:
             return .orange
+        }
+    }
+
+    private func visibleStatusText(for status: String) -> String? {
+        switch status.uppercased() {
+        case "FINISHED":
+            return "FINISHED"
+        case "LIVE":
+            return "LIVE"
+        default:
+            return nil
         }
     }
 }

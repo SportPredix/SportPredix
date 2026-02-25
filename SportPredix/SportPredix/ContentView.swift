@@ -1587,10 +1587,13 @@ struct ContentView: View {
                             .padding(.horizontal, 4)
                             
                             ForEach(groupedMatches[time]!) { match in
+                                let isMatchClosed = !vm.canBet(on: match)
+                                let isDisabled = isPastDay || isMatchClosed
+
                                 NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
-                                    matchCardView(match: match, disabled: isPastDay)
+                                    matchCardView(match: match, disabled: isDisabled)
                                 }
-                                .disabled(isPastDay)
+                                .disabled(isDisabled)
                             }
                         }
                     }
@@ -1655,7 +1658,7 @@ struct ContentView: View {
                         Text(actualResult)
                             .font(.caption2)
                             .foregroundColor(.green)
-                    } else {
+                    } else if match.status.uppercased() != "SCHEDULED" {
                         Text(match.status)
                             .font(.caption2)
                             .foregroundColor(match.status == "FINISHED" ? .green : 
