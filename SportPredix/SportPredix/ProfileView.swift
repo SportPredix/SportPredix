@@ -277,7 +277,7 @@ struct ProfileView: View {
                     ZStack {
                         // Fallback visivo se la GIF non viene caricata.
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 22, weight: .black))
+                            .font(.system(size: 14, weight: .black))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [.yellow, .orange, .red.opacity(0.95)],
@@ -289,15 +289,15 @@ struct ProfileView: View {
 
                         if let streakFireGIFURL {
                             RemoteGIFImageView(url: streakFireGIFURL)
-                                .frame(width: 24, height: 24)
+                                .frame(width: 14, height: 14)
                         }
                     }
 
                     Text("\(vm.streakDays)")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .monospacedDigit()
-                        .frame(minWidth: 24, minHeight: 18)
+                        .frame(minWidth: 20, minHeight: 14)
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .fill(Color.black.opacity(0.86))
@@ -308,7 +308,7 @@ struct ProfileView: View {
                         )
                         .offset(y: 4)
                 }
-                .frame(width: 28, height: 42)
+                .frame(width: 20, height: 30)
                 .offset(x: 6, y: 8)
             }
         }
