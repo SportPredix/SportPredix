@@ -220,14 +220,14 @@ struct BetSheet: View {
                 )
                 statBlock(
                     title: "Vincita",
-                    value: potentialWin.formatted(.currency(code: "EUR")),
+                    value: GemFormatting.tagged(potentialWin),
                     color: canConfirm ? .green : .gray
                 )
             }
 
             statBlock(
                 title: "Saldo disponibile",
-                value: balance.formatted(.currency(code: "EUR")),
+                value: GemFormatting.tagged(balance),
                 color: .white
             )
 
@@ -237,13 +237,17 @@ struct BetSheet: View {
                     .foregroundColor(.gray)
 
                 HStack(spacing: 10) {
-                    Text("EUR")
-                        .font(.caption.weight(.bold))
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(Color.accentCyan)
-                        .clipShape(Capsule())
+                    HStack(spacing: 5) {
+                        GemIcon(color: .black, lineWidth: 1.5)
+                            .frame(width: 10, height: 10)
+                        Text("GEM")
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(.black)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color.accentCyan)
+                    .clipShape(Capsule())
 
                     TextField("Inserisci importo", text: $stakeText)
                         .keyboardType(.decimalPad)

@@ -1,4 +1,4 @@
-//
+﻿//
 //  SlipDetailView.swift
 //  SportPredix
 //
@@ -70,13 +70,13 @@ struct SlipDetailView: View {
                             HStack {
                                 Text("Puntata:")
                                 Spacer()
-                                Text("€\(slip.stake, specifier: "%.2f")")
+                                GemAmountLabel(amount: slip.stake, color: .white, font: .body, weight: .semibold, iconSize: 12)
                             }
                             
                             HStack {
                                 Text("Vincita potenziale:")
                                 Spacer()
-                                Text("€\(slip.potentialWin, specifier: "%.2f")")
+                                GemAmountLabel(amount: slip.potentialWin, color: .white, font: .body, weight: .semibold, iconSize: 12)
                             }
                             
                             if let won = slip.isWon {
@@ -110,3 +110,4 @@ struct SlipDetailView: View {
         }
     }
 }
+

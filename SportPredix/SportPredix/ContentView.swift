@@ -1,4 +1,4 @@
-//
+﻿//
 //  ContentView.swift
 //  SportPredix
 //
@@ -10,6 +10,94 @@ import Combine
 
 extension Color {
     static let accentCyan = Color(red: 68/255, green: 224/255, blue: 203/255)
+}
+
+enum GemFormatting {
+    static func amount(_ value: Double) -> String {
+        value.formatted(
+            .number
+                .precision(.fractionLength(2))
+                .locale(Locale(identifier: "it_IT"))
+        )
+    }
+
+    static func tagged(_ value: Double) -> String {
+        "GEM \(amount(value))"
+    }
+}
+
+struct GemIcon: View {
+    var color: Color = .accentCyan
+    var lineWidth: CGFloat = 1.8
+
+    var body: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            let height = geometry.size.height
+
+            let top = CGPoint(x: width * 0.50, y: height * 0.06)
+            let upperLeft = CGPoint(x: width * 0.20, y: height * 0.24)
+            let lowerLeft = CGPoint(x: width * 0.20, y: height * 0.72)
+            let bottom = CGPoint(x: width * 0.50, y: height * 0.94)
+            let lowerRight = CGPoint(x: width * 0.80, y: height * 0.72)
+            let upperRight = CGPoint(x: width * 0.80, y: height * 0.24)
+
+            let innerTopLeft = CGPoint(x: width * 0.35, y: height * 0.22)
+            let innerTopRight = CGPoint(x: width * 0.65, y: height * 0.22)
+            let innerLowerLeft = CGPoint(x: width * 0.35, y: height * 0.72)
+            let innerLowerRight = CGPoint(x: width * 0.65, y: height * 0.72)
+
+            Path { path in
+                path.move(to: top)
+                path.addLine(to: upperLeft)
+                path.addLine(to: lowerLeft)
+                path.addLine(to: bottom)
+                path.addLine(to: lowerRight)
+                path.addLine(to: upperRight)
+                path.closeSubpath()
+
+                path.move(to: upperLeft)
+                path.addLine(to: innerTopLeft)
+                path.addLine(to: top)
+                path.addLine(to: innerTopRight)
+                path.addLine(to: upperRight)
+
+                path.move(to: innerTopLeft)
+                path.addLine(to: innerLowerLeft)
+                path.addLine(to: bottom)
+
+                path.move(to: innerTopRight)
+                path.addLine(to: innerLowerRight)
+                path.addLine(to: bottom)
+            }
+            .stroke(
+                color,
+                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+            )
+        }
+        .aspectRatio(1, contentMode: .fit)
+    }
+}
+
+struct GemAmountLabel: View {
+    let amount: Double
+    var color: Color = .accentCyan
+    var font: Font = .subheadline
+    var weight: Font.Weight = .semibold
+    var iconSize: CGFloat = 14
+    var spacing: CGFloat = 6
+
+    var body: some View {
+        HStack(spacing: spacing) {
+            GemIcon(color: color, lineWidth: 1.8)
+                .frame(width: iconSize, height: iconSize)
+
+            Text(GemFormatting.amount(amount))
+                .font(font.weight(weight))
+                .foregroundColor(color)
+                .monospacedDigit()
+        }
+    }
 }
 
 // MARK: - HEADER FLUTTUANTE
@@ -48,17 +136,13 @@ struct FloatingHeader: View {
                 
                 if showsBalance {
                 // Saldo con effetto vetro
-                HStack(spacing: 6) {
-                    Image(systemName: "eurosign.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(.accentCyan)
-                        .symbolEffect(.pulse, options: .speed(0.5))
-                    
-                    Text("€\(balance, specifier: "%.2f")")
-                        .font(.headline.monospacedDigit())
-                        .foregroundColor(.accentCyan)
-                        .bold()
-                }
+                GemAmountLabel(
+                    amount: balance,
+                    color: .accentCyan,
+                    font: .headline,
+                    weight: .bold,
+                    iconSize: 14
+                )
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(
@@ -120,7 +204,7 @@ struct FloatingHeader: View {
 }
 
 // MARK: - VIEW MODEL (BettingViewModel)
-// Questo è un estratto del ViewModel, aggiorna con le modifiche necessarie
+// Questo Ã¨ un estratto del ViewModel, aggiorna con le modifiche necessarie
 
 enum PromoCodeRedemptionResult {
     case emptyCode
@@ -693,7 +777,7 @@ final class BettingViewModel: ObservableObject {
     private func generateTennisResult(homeOdd: Double, awayOdd: Double) -> (MatchOutcome?, Int?) {
         let homeProb = 1 / homeOdd
         let awayProb = 1 / awayOdd
-        let drawProb = 0.0  // ← AGGIUNGI QUESTA LINEA
+        let drawProb = 0.0  // â† AGGIUNGI QUESTA LINEA
         let totalProb = homeProb + awayProb
     
         let normHomeProb = homeProb / totalProb
@@ -1910,7 +1994,7 @@ struct ContentView: View {
                 .font(.title2)
                 .foregroundColor(.white)
             
-            Text("Torna più tardi per vedere nuove partite")
+            Text("Torna piÃ¹ tardi per vedere nuove partite")
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
@@ -2025,11 +2109,17 @@ struct ContentView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Quota \(slip.totalOdd, specifier: "%.2f")")
                                     .foregroundColor(.accentCyan)
-                                Text("Puntata €\(slip.stake, specifier: "%.2f")")
-                                    .foregroundColor(.white)
-                                Text("Vincita potenziale €\(slip.potentialWin, specifier: "%.2f")")
-                                    .foregroundColor(.gray)
-                                    .font(.caption)
+                                HStack(spacing: 6) {
+                                    Text("Puntata")
+                                        .foregroundColor(.white)
+                                    GemAmountLabel(amount: slip.stake, color: .white, font: .body, iconSize: 12)
+                                }
+                                HStack(spacing: 6) {
+                                    Text("Vincita potenziale")
+                                        .foregroundColor(.gray)
+                                    GemAmountLabel(amount: slip.potentialWin, color: .gray, font: .caption, iconSize: 11)
+                                }
+                                .font(.caption)
                                 
                                 if let won = slip.isWon {
                                     Text(won ? "ESITO: VINTA" : "ESITO: PERSA")
@@ -2108,10 +2198,7 @@ struct CasinoFullView: View {
                         Spacer()
                         
                         // Saldo utente
-                        Text("€\(vm.balance, specifier: "%.2f")")
-                            .font(.headline)
-                            .foregroundColor(.accentCyan)
-                            .bold()
+                        GemAmountLabel(amount: vm.balance, color: .accentCyan, font: .headline, weight: .bold, iconSize: 14)
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
@@ -2191,7 +2278,7 @@ struct GamesContentView: View {
                             .foregroundColor(.accentCyan)
                             .font(.caption)
                         
-                        Text("Gioco responsabile • Maggiorenni • Vietato ai minori")
+                        Text("Gioco responsabile â€¢ Maggiorenni â€¢ Vietato ai minori")
                             .font(.caption2)
                             .foregroundColor(.gray)
                     }
@@ -2208,3 +2295,8 @@ struct GamesContentView: View {
         .background(Color.clear)
     }
 }
+
+
+
+
+

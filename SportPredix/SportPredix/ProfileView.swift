@@ -557,9 +557,7 @@ struct ProfileView: View {
                     promoFeedback = "Archivio codici non disponibile o errore Firebase."
                     promoFeedbackColor = .red
                 case .success(let promoCode):
-                    let bonusText = promoCode.bonus.formatted(
-                        .currency(code: "EUR").locale(Locale(identifier: "it_IT"))
-                    )
+                    let bonusText = GemFormatting.tagged(promoCode.bonus)
                     promoFeedback = "Codice accettato: bonus \(bonusText)."
                     promoFeedbackColor = .green
                     redeemedCodeLabel = promoCode.normalizedCode
@@ -2179,9 +2177,7 @@ struct ProfileRedeemCodesView: View {
                     promoFeedback = "Archivio codici non disponibile o errore Firebase."
                     promoFeedbackColor = .red
                 case .success(let promoCode):
-                    let bonusText = promoCode.bonus.formatted(
-                        .currency(code: "EUR").locale(Locale(identifier: "it_IT"))
-                    )
+                    let bonusText = GemFormatting.tagged(promoCode.bonus)
                     promoFeedback = "Codice accettato: bonus \(bonusText)."
                     promoFeedbackColor = .green
                     redeemedCodeLabel = promoCode.normalizedCode

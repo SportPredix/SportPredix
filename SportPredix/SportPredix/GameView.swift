@@ -1,4 +1,4 @@
-//
+﻿//
 //  GameView.swift
 //  SportPredix
 //
@@ -8,7 +8,7 @@ import UIKit
 
 private enum CasinoFormatting {
     static func euro(_ value: Double) -> String {
-        value.formatted(.currency(code: "EUR"))
+        GemFormatting.tagged(value)
     }
 }
 
@@ -94,10 +94,7 @@ struct SlotMachineView: View {
 
             Spacer()
 
-            Text(CasinoFormatting.euro(balance))
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.accentCyan)
-                .monospacedDigit()
+            GemAmountLabel(amount: balance, color: .accentCyan, font: .subheadline, weight: .semibold, iconSize: 12)
         }
         .padding(.top, 12)
     }
@@ -503,10 +500,7 @@ struct ScratchCardView: View {
 
             Spacer()
 
-            Text(CasinoFormatting.euro(balance))
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.accentCyan)
-                .monospacedDigit()
+            GemAmountLabel(amount: balance, color: .accentCyan, font: .subheadline, weight: .semibold, iconSize: 12)
         }
         .padding(.top, 12)
     }
@@ -1180,3 +1174,6 @@ private func weightedValue(from table: [(value: Int, weight: Int)]) -> Int {
 
     return table.last?.value ?? 0
 }
+
+
+
