@@ -1,6 +1,7 @@
 ﻿import SwiftUI
 import FirebaseFirestore
 import UIKit
+import ImageIO
 
 private struct LeagueEntry: Identifiable {
     let id: String
@@ -30,6 +31,131 @@ private enum LeaderboardScope: String, CaseIterable, Identifiable {
             return "La classifica si popola quando ci sono utenti con saldo salvato su Firebase."
         case .friends:
             return "Aggiungi amici dalla pagina profilo per vedere la classifica dedicata."
+        }
+    }
+}
+
+private struct RemoteGIFImageView: UIViewRepresentable {
+    let url: URL
+    var contentMode: UIView.ContentMode = .scaleAspectFit
+
+    final class GIFContainerView: UIView {
+        let imageView = UIImageView()
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            backgroundColor = .clear
+            clipsToBounds = true
+
+            imageView.frame = bounds
+            imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            imageView.backgroundColor = .clear
+            imageView.clipsToBounds = true
+            addSubview(imageView)
+        }
+
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+    }
+
+    func makeUIView(context: Context) -> GIFContainerView {
+        let view = GIFContainerView()
+        view.imageView.contentMode = contentMode
+        context.coordinator.load(url: url, into: view.imageView)
+        return view
+    }
+
+    func updateUIView(_ uiView: GIFContainerView, context: Context) {
+        uiView.imageView.contentMode = contentMode
+        uiView.imageView.clipsToBounds = true
+        uiView.clipsToBounds = true
+        context.coordinator.load(url: url, into: uiView.imageView)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    final class Coordinator {
+        private static let cache = NSCache<NSURL, UIImage>()
+        private var currentURL: URL?
+        private var task: URLSessionDataTask?
+
+        deinit {
+            task?.cancel()
+        }
+
+        func load(url: URL, into imageView: UIImageView) {
+            if currentURL == url, imageView.image != nil {
+                return
+            }
+            currentURL = url
+
+            if let cached = Self.cache.object(forKey: url as NSURL) {
+                DispatchQueue.main.async {
+                    imageView.image = cached
+                    imageView.startAnimating()
+                }
+                return
+            }
+
+            task?.cancel()
+            task = URLSession.shared.dataTask(with: url) { data, _, _ in
+                guard let data, let animatedImage = Self.makeAnimatedImage(from: data) else {
+                    return
+                }
+
+                Self.cache.setObject(animatedImage, forKey: url as NSURL)
+
+                DispatchQueue.main.async {
+                    guard self.currentURL == url else { return }
+                    imageView.image = animatedImage
+                    imageView.startAnimating()
+                }
+            }
+            task?.resume()
+        }
+
+        private static func makeAnimatedImage(from data: Data) -> UIImage? {
+            guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+                return nil
+            }
+
+            let frameCount = CGImageSourceGetCount(source)
+            guard frameCount > 0 else {
+                return nil
+            }
+
+            var frames: [UIImage] = []
+            var totalDuration: Double = 0
+
+            for index in 0..<frameCount {
+                guard let frame = CGImageSourceCreateImageAtIndex(source, index, nil) else { continue }
+
+                let duration = frameDuration(source: source, index: index)
+                totalDuration += duration
+                frames.append(UIImage(cgImage: frame, scale: UIScreen.main.scale, orientation: .up))
+            }
+
+            guard !frames.isEmpty else { return nil }
+            if totalDuration <= 0 {
+                totalDuration = Double(frames.count) * 0.08
+            }
+
+            return UIImage.animatedImage(with: frames, duration: totalDuration)
+        }
+
+        private static func frameDuration(source: CGImageSource, index: Int) -> Double {
+            guard let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any],
+                  let gifInfo = properties[kCGImagePropertyGIFDictionary] as? [CFString: Any] else {
+                return 0.08
+            }
+
+            let unclamped = gifInfo[kCGImagePropertyGIFUnclampedDelayTime] as? Double
+            let clamped = gifInfo[kCGImagePropertyGIFDelayTime] as? Double
+            let value = unclamped ?? clamped ?? 0.08
+            return value < 0.02 ? 0.08 : value
         }
     }
 }
@@ -557,6 +683,7 @@ struct UserPublicProfileView: View {
     @State private var friendshipMessageColor: Color = .gray
     @State private var showRemoveFriendshipAlert = false
     @State private var isDeveloperBadgeAnimating = false
+    private let streakFireGIFURL = URL(string: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif")
 
     private static let developerAccountCodes: Set<String> = [
         "ZD0HBGEQ",
@@ -673,7 +800,7 @@ struct UserPublicProfileView: View {
 
     private var profileHeader: some View {
         VStack(spacing: 12) {
-            avatarView
+            avatarWithStreak
 
             HStack(spacing: 6) {
                 Text(name)
@@ -717,28 +844,6 @@ struct UserPublicProfileView: View {
                         .overlay(
                             Capsule(style: .continuous)
                                 .stroke(Color.accentCyan.opacity(0.25), lineWidth: 1)
-                        )
-                )
-            }
-
-            if let streakDays, streakDays > 0 {
-                HStack(spacing: 8) {
-                    Image(systemName: "flame.fill")
-                        .foregroundColor(.orange)
-
-                    Text("\(streakDays)")
-                        .font(.caption.bold())
-                        .foregroundColor(.white)
-                        .monospacedDigit()
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(Color.white.opacity(0.06))
-                        .overlay(
-                            Capsule(style: .continuous)
-                                .stroke(Color.orange.opacity(0.35), lineWidth: 1)
                         )
                 )
             }
@@ -880,6 +985,53 @@ struct UserPublicProfileView: View {
                         .stroke(Color.white.opacity(0.08), lineWidth: 1)
                 )
         )
+    }
+
+    private var avatarWithStreak: some View {
+        ZStack(alignment: .bottomTrailing) {
+            avatarView
+
+            if let streakDays, streakDays > 0 {
+                ZStack(alignment: .bottom) {
+                    ZStack {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 14, weight: .black))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.yellow, .orange, .red.opacity(0.95)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .shadow(color: Color.orange.opacity(0.4), radius: 6, x: 0, y: 2)
+
+                        if let streakFireGIFURL {
+                            RemoteGIFImageView(url: streakFireGIFURL)
+                                .frame(width: 12, height: 12)
+                                .clipped()
+                        }
+                    }
+
+                    Text("\(streakDays)")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .monospacedDigit()
+                        .frame(minWidth: 20, minHeight: 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Color.black.opacity(0.86))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .stroke(Color.orange.opacity(0.55), lineWidth: 1)
+                                )
+                        )
+                        .offset(y: 4)
+                }
+                .frame(width: 18, height: 26)
+                .offset(x: 6, y: 8)
+            }
+        }
+        .padding(.bottom, (streakDays ?? 0) > 0 ? 6 : 0)
     }
 
     @ViewBuilder

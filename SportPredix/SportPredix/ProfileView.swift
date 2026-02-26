@@ -33,19 +33,38 @@ private struct RemoteGIFImageView: UIViewRepresentable {
     let url: URL
     var contentMode: UIView.ContentMode = .scaleAspectFit
 
-    func makeUIView(context: Context) -> UIImageView {
+    final class GIFContainerView: UIView {
         let imageView = UIImageView()
-        imageView.contentMode = contentMode
-        imageView.backgroundColor = .clear
-        imageView.clipsToBounds = true
-        context.coordinator.load(url: url, into: imageView)
-        return imageView
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            backgroundColor = .clear
+            clipsToBounds = true
+
+            imageView.frame = bounds
+            imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            imageView.backgroundColor = .clear
+            imageView.clipsToBounds = true
+            addSubview(imageView)
+        }
+
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
     }
 
-    func updateUIView(_ uiView: UIImageView, context: Context) {
-        uiView.contentMode = contentMode
+    func makeUIView(context: Context) -> GIFContainerView {
+        let view = GIFContainerView()
+        view.imageView.contentMode = contentMode
+        context.coordinator.load(url: url, into: view.imageView)
+        return view
+    }
+
+    func updateUIView(_ uiView: GIFContainerView, context: Context) {
+        uiView.imageView.contentMode = contentMode
+        uiView.imageView.clipsToBounds = true
         uiView.clipsToBounds = true
-        context.coordinator.load(url: url, into: uiView)
+        context.coordinator.load(url: url, into: uiView.imageView)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -289,7 +308,8 @@ struct ProfileView: View {
 
                         if let streakFireGIFURL {
                             RemoteGIFImageView(url: streakFireGIFURL)
-                                .frame(width: 14, height: 14)
+                                .frame(width: 12, height: 12)
+                                .clipped()
                         }
                     }
 
@@ -308,7 +328,7 @@ struct ProfileView: View {
                         )
                         .offset(y: 4)
                 }
-                .frame(width: 20, height: 30)
+                .frame(width: 18, height: 26)
                 .offset(x: 6, y: 8)
             }
         }
