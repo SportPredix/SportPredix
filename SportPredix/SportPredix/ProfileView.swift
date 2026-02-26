@@ -50,8 +50,6 @@ struct ProfileView: View {
     @State private var isSavingPhoto = false
     @State private var showCopyToast = false
     @State private var copyToastHideWorkItem: DispatchWorkItem?
-    @State private var streakFlamePulse = false
-    @State private var streakFlameSway = false
 
     var body: some View {
         ZStack {
@@ -167,55 +165,54 @@ struct ProfileView: View {
             profileAvatar
 
             ZStack(alignment: .bottom) {
-                ZStack {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 36, weight: .black))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.yellow.opacity(0.8), .orange.opacity(0.95), .red.opacity(0.92)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .blur(radius: streakFlamePulse ? 2.8 : 1.3)
-                        .scaleEffect(
-                            x: streakFlameSway ? 1.1 : 0.9,
-                            y: streakFlamePulse ? 1.25 : 0.9
-                        )
-                        .opacity(streakFlamePulse ? 0.48 : 0.8)
-                        .offset(
-                            x: streakFlameSway ? 1.4 : -1.4,
-                            y: streakFlamePulse ? -2.2 : 1.0
-                        )
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { timeline in
+                    let t = timeline.date.timeIntervalSinceReferenceDate
+                    let flickerA = sin(t * 10.2)
+                    let flickerB = sin(t * 15.7 + 0.9)
+                    let sway = sin(t * 6.4 + sin(t * 2.3) * 0.5)
+                    let rise = sin(t * 11.1 + 0.7)
 
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 32, weight: .black))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.yellow, .orange, .red.opacity(0.95)],
-                                startPoint: .top,
-                                endPoint: .bottom
+                    ZStack {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 40, weight: .black))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.yellow.opacity(0.8), .orange.opacity(0.95), .red.opacity(0.92)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
                             )
-                        )
-                        .scaleEffect(
-                            x: streakFlameSway ? 1.05 : 0.95,
-                            y: streakFlamePulse ? 1.12 : 0.9
-                        )
-                        .rotationEffect(.degrees(streakFlameSway ? 3.5 : -3.5))
-                        .offset(y: streakFlamePulse ? -1.0 : 1.2)
-                        .shadow(color: Color.orange.opacity(0.44), radius: 7, x: 0, y: 2)
-                }
-                .onAppear {
-                    withAnimation(.easeInOut(duration: 0.42).repeatForever(autoreverses: true)) {
-                        streakFlamePulse = true
+                            .blur(radius: 1.2 + (flickerB + 1.0) * 0.9)
+                            .scaleEffect(
+                                x: 0.95 + (flickerB + 1.0) * 0.09,
+                                y: 1.0 + (flickerA + 1.0) * 0.15
+                            )
+                            .opacity(0.45 + (flickerA + 1.0) * 0.15)
+                            .offset(x: sway * 1.6, y: -1.6 + rise * 0.8)
+
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 34, weight: .black))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.yellow, .orange, .red.opacity(0.96)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .scaleEffect(
+                                x: 0.95 + (flickerB + 1.0) * 0.06,
+                                y: 0.92 + (flickerA + 1.0) * 0.1
+                            )
+                            .rotationEffect(.degrees(sway * 3.0))
+                            .offset(x: sway * 1.2, y: rise * 0.8)
+                            .shadow(color: Color.orange.opacity(0.42), radius: 7, x: 0, y: 2)
+
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(Color.white.opacity(0.55 + (flickerA + 1.0) * 0.12))
+                            .scaleEffect(y: 0.8 + (flickerB + 1.0) * 0.08)
+                            .offset(x: sway * 0.4, y: 2.5)
                     }
-                    withAnimation(.timingCurve(0.33, 0, 0.67, 1, duration: 0.24).repeatForever(autoreverses: true)) {
-                        streakFlameSway = true
-                    }
-                }
-                .onDisappear {
-                    streakFlamePulse = false
-                    streakFlameSway = false
                 }
 
                 Text("\(max(0, vm.streakDays))")
