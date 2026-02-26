@@ -50,6 +50,7 @@ struct ProfileView: View {
     @State private var isSavingPhoto = false
     @State private var showCopyToast = false
     @State private var copyToastHideWorkItem: DispatchWorkItem?
+    @State private var streakFlameAnimating = false
 
     var body: some View {
         ZStack {
@@ -165,16 +166,41 @@ struct ProfileView: View {
             profileAvatar
 
             ZStack(alignment: .bottom) {
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 25, weight: .black))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.yellow, .orange, .red.opacity(0.9)],
-                            startPoint: .top,
-                            endPoint: .bottom
+                ZStack {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 36, weight: .black))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.yellow.opacity(0.8), .orange.opacity(0.95), .red.opacity(0.92)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
                         )
-                    )
-                    .shadow(color: Color.orange.opacity(0.4), radius: 6, x: 0, y: 2)
+                        .blur(radius: streakFlameAnimating ? 2.2 : 1.1)
+                        .scaleEffect(streakFlameAnimating ? 1.18 : 0.96)
+                        .opacity(streakFlameAnimating ? 0.55 : 0.82)
+                        .offset(y: streakFlameAnimating ? -1.5 : 0.5)
+
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 32, weight: .black))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.yellow, .orange, .red.opacity(0.95)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .scaleEffect(streakFlameAnimating ? 1.07 : 0.94)
+                        .rotationEffect(.degrees(streakFlameAnimating ? 1.8 : -1.8))
+                        .shadow(color: Color.orange.opacity(0.46), radius: 7, x: 0, y: 2)
+                }
+                .animation(.easeInOut(duration: 0.62).repeatForever(autoreverses: true), value: streakFlameAnimating)
+                .onAppear {
+                    streakFlameAnimating = true
+                }
+                .onDisappear {
+                    streakFlameAnimating = false
+                }
 
                 Text("\(max(0, vm.streakDays))")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -189,9 +215,9 @@ struct ProfileView: View {
                                     .stroke(Color.orange.opacity(0.55), lineWidth: 1)
                             )
                     )
-                    .offset(y: -2)
+                    .offset(y: -4)
             }
-            .frame(width: 34, height: 44)
+            .frame(width: 42, height: 56)
             .offset(x: 6, y: 8)
         }
         .padding(.bottom, 6)
