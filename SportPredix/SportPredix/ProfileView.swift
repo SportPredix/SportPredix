@@ -295,16 +295,16 @@ struct ProfileView: View {
                 ZStack(alignment: .bottom) {
                     if let streakFireGIFURL {
                         RemoteGIFImageView(url: streakFireGIFURL)
-                            .frame(width: 22, height: 22)
-                            .offset(y: -3)
+                            .frame(width: 66, height: 66)
+                            .offset(y: -9)
                             .clipped()
                     }
 
                     Text("\(vm.streakDays)")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(.system(size: 33, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .monospacedDigit()
-                        .frame(minWidth: 24, minHeight: 16)
+                        .frame(minWidth: 72, minHeight: 48)
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .fill(Color.black.opacity(0.86))
@@ -313,9 +313,9 @@ struct ProfileView: View {
                                         .stroke(Color.orange.opacity(0.55), lineWidth: 1)
                                 )
                         )
-                        .offset(y: 5)
+                        .offset(y: 15)
                 }
-                .frame(width: 30, height: 40)
+                .frame(width: 90, height: 120)
                 .offset(x: 6, y: 8)
             }
         }
