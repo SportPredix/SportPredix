@@ -1729,14 +1729,22 @@ struct ContentView: View {
         let matches = orderedTimes.flatMap { groupedMatchesByTime[$0] ?? [] }
         let selectedDate = vm.dateForIndex(vm.selectedDayIndex)
         let isPastDay = vm.isPast(selectedDate)
-        let preferredMatches = matches.filter { isPreferredCompetition(competitionKey(for: $0)) }
-        let otherMatches = matches.filter { !isPreferredCompetition(competitionKey(for: $0)) }
+        let preferredMatches = sortMatchesByTime(
+            matches.filter { isPreferredCompetition(competitionKey(for: $0)) }
+        )
+        let otherMatches = sortMatchesByTime(
+            matches.filter { !isPreferredCompetition(competitionKey(for: $0)) }
+        )
         
         return ScrollView {
             VStack(spacing: 16) {
                 if matches.isEmpty && !vm.isLoading {
                     emptyMatchesView
                 } else {
+                    if !preferredMatches.isEmpty {
+                        sectionHeader(title: "Campionati principali")
+                    }
+
                     ForEach(preferredMatches) { match in
                         let isMatchClosed = !vm.canBet(on: match)
                         let isDisabled = isPastDay || isMatchClosed
@@ -1748,14 +1756,10 @@ struct ContentView: View {
                     }
 
                     if !otherMatches.isEmpty {
-                        HStack {
-                            Text("Altri campionati")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundColor(.gray)
-                            Spacer()
-                        }
-                        .padding(.top, preferredMatches.isEmpty ? 0 : 6)
-                        .padding(.horizontal, 4)
+                        sectionHeader(
+                            title: "Altri campionati",
+                            topPadding: preferredMatches.isEmpty ? 0 : 6
+                        )
                     }
 
                     ForEach(otherMatches) { match in
@@ -1818,6 +1822,50 @@ struct ContentView: View {
             }
         }
     }
+
+    private func sortMatchesByTime(_ matches: [Match]) -> [Match] {
+        matches.sorted { left, right in
+            let leftTime = timeSortValue(left.time)
+            let rightTime = timeSortValue(right.time)
+            if leftTime != rightTime {
+                return leftTime < rightTime
+            }
+
+            if left.competition != right.competition {
+                return left.competition < right.competition
+            }
+
+            if left.home != right.home {
+                return left.home < right.home
+            }
+
+            return left.away < right.away
+        }
+    }
+
+    private func timeSortValue(_ rawTime: String) -> Int {
+        let pieces = rawTime.split(separator: ":")
+        guard pieces.count == 2,
+              let hour = Int(pieces[0]),
+              let minute = Int(pieces[1]),
+              (0...23).contains(hour),
+              (0...59).contains(minute) else {
+            return Int.max
+        }
+
+        return hour * 60 + minute
+    }
+
+    private func sectionHeader(title: String, topPadding: CGFloat = 0) -> some View {
+        HStack {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.gray)
+            Spacer()
+        }
+        .padding(.top, topPadding)
+        .padding(.horizontal, 4)
+    }
     
     private var emptyMatchesView: some View {
         VStack(spacing: 20) {
@@ -1853,6 +1901,14 @@ struct ContentView: View {
                     Text(match.competition)
                         .font(.caption2)
                         .foregroundColor(.accentCyan)
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .font(.caption2)
+                        Text(match.time)
+                            .font(.caption2)
+                    }
+                    .foregroundColor(.gray)
                 }
                 
                 Spacer()
