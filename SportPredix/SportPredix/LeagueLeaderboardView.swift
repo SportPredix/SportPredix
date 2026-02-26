@@ -171,9 +171,22 @@ struct LeagueLeaderboardView: View {
                     .foregroundColor(.accentCyan)
             }
 
-            Text("Saldo: \(compactBalance(balance)) - \(totalUsers) utenti")
-                .font(.caption)
-                .foregroundColor(.gray)
+            HStack(spacing: 6) {
+                Text("Saldo")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+
+                GemIcon(color: .accentCyan, lineWidth: 1.2)
+                    .frame(width: 12, height: 12)
+
+                Text(compactBalance(balance))
+                    .font(.caption.bold())
+                    .foregroundColor(.accentCyan)
+
+                Text("• \(totalUsers) utenti")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
@@ -241,9 +254,14 @@ struct LeagueLeaderboardView: View {
 
             Spacer()
 
-            Text(compactBalance(entry.balance))
-                .font(.subheadline.bold())
-                .foregroundColor(.accentCyan)
+            HStack(spacing: 5) {
+                GemIcon(color: .accentCyan, lineWidth: 1.2)
+                    .frame(width: 13, height: 13)
+
+                Text(compactBalance(entry.balance))
+                    .font(.subheadline.bold())
+                    .foregroundColor(.accentCyan)
+            }
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
@@ -657,9 +675,29 @@ struct UserPublicProfileView: View {
                 .foregroundColor(.gray)
 
             if let balance {
-                Text("Saldo: \(compactBalance(balance))")
-                    .font(.subheadline.bold())
-                    .foregroundColor(.accentCyan)
+                HStack(spacing: 8) {
+                    Text("Saldo")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+
+                    GemAmountLabel(
+                        amount: balance,
+                        color: .accentCyan,
+                        font: .subheadline,
+                        weight: .bold,
+                        iconSize: 14
+                    )
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(Color.white.opacity(0.06))
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(Color.accentCyan.opacity(0.25), lineWidth: 1)
+                        )
+                )
             }
         }
         .frame(maxWidth: .infinity)

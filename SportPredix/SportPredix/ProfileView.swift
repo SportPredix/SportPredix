@@ -173,7 +173,7 @@ struct ProfileView: View {
                     .font(.caption)
                     .foregroundColor(.gray)
 
-                GemAmountLabel(amount: vm.balance, color: .accentCyan, font: .subheadline, weight: .bold, iconSize: 13)
+                GemAmountLabel(amount: vm.balance, color: .accentCyan, font: .subheadline, weight: .bold, iconSize: 15)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
