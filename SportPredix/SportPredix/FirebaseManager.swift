@@ -32,6 +32,7 @@ class FirebaseManager: ObservableObject {
             "name": name,
             "email": email,
             "balance": 1000.0,
+            "sportPassPoints": 0.0,
             "streakDays": 0,
             "consecutiveAccessDays": 0,
             "bestStreakDays": 0,
@@ -188,6 +189,27 @@ class FirebaseManager: ObservableObject {
             "balance": newBalance,
             "lastUpdated": FieldValue.serverTimestamp()
         ]) { error in
+            if let error = error {
+                completion(.failure(error))
+            } else {
+                completion(.success(()))
+            }
+        }
+    }
+
+    // MARK: - Aggiorna punti SportPass
+    func updateSportPassPoints(
+        userID: String,
+        points: Double,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let db = Firestore.firestore()
+        let safePoints = max(0, points)
+
+        db.collection("users").document(userID).setData([
+            "sportPassPoints": safePoints,
+            "lastUpdated": FieldValue.serverTimestamp()
+        ], merge: true) { error in
             if let error = error {
                 completion(.failure(error))
             } else {
