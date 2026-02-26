@@ -28,84 +28,32 @@ enum GemFormatting {
 
 struct GemIcon: View {
     var color: Color = .accentCyan
-    var lineWidth: CGFloat = 2.2
+    var lineWidth: CGFloat = 2.0
 
     var body: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            let height = geometry.size.height
+        ZStack {
+            Image(systemName: "diamond.fill")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(color.opacity(0.24))
 
-            let top = CGPoint(x: width * 0.50, y: height * 0.07)
-            let upperLeft = CGPoint(x: width * 0.20, y: height * 0.24)
-            let lowerLeft = CGPoint(x: width * 0.20, y: height * 0.72)
-            let bottom = CGPoint(x: width * 0.50, y: height * 0.93)
-            let lowerRight = CGPoint(x: width * 0.80, y: height * 0.72)
-            let upperRight = CGPoint(x: width * 0.80, y: height * 0.24)
+            Image(systemName: "diamond")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(Color.white.opacity(0.55))
+                .padding(max(0.1, lineWidth * 0.10))
 
-            let crownLeft = CGPoint(x: width * 0.36, y: height * 0.24)
-            let crownRight = CGPoint(x: width * 0.64, y: height * 0.24)
-            let coreTop = CGPoint(x: width * 0.50, y: height * 0.33)
-            let coreBottom = CGPoint(x: width * 0.50, y: height * 0.68)
+            Image(systemName: "diamond")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(color)
+                .padding(max(0.2, lineWidth * 0.04))
 
-            let shellPath = Path { path in
-                path.move(to: top)
-                path.addLine(to: upperLeft)
-                path.addLine(to: lowerLeft)
-                path.addLine(to: bottom)
-                path.addLine(to: lowerRight)
-                path.addLine(to: upperRight)
-                path.closeSubpath()
-            }
-
-            let facetsPath = Path { path in
-                path.move(to: upperLeft)
-                path.addLine(to: crownLeft)
-                path.addLine(to: coreTop)
-                path.addLine(to: crownRight)
-                path.addLine(to: upperRight)
-
-                path.move(to: coreTop)
-                path.addLine(to: coreBottom)
-
-                path.move(to: lowerLeft)
-                path.addLine(to: coreBottom)
-                path.addLine(to: lowerRight)
-            }
-
-            let heavyStroke = StrokeStyle(
-                lineWidth: max(1.8, lineWidth + 0.8),
-                lineCap: .round,
-                lineJoin: .round
-            )
-
-            let facetsStroke = StrokeStyle(
-                lineWidth: max(1.1, lineWidth * 0.62),
-                lineCap: .round,
-                lineJoin: .round
-            )
-
-            shellPath
-                .fill(
-                    LinearGradient(
-                        colors: [color.opacity(0.42), color.opacity(0.18)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-
-            // Contrast under-stroke to keep the border readable at very small sizes.
-            shellPath
-                .stroke(Color.white.opacity(0.50), style: StrokeStyle(
-                    lineWidth: max(2.1, lineWidth + 1.0),
-                    lineCap: .round,
-                    lineJoin: .round
-                ))
-
-            shellPath
-                .stroke(color.opacity(0.99), style: heavyStroke)
-
-            facetsPath
-                .stroke(color.opacity(0.99), style: facetsStroke)
+            Image(systemName: "diamond")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(color.opacity(0.95))
+                .padding(max(1.4, lineWidth * 0.95))
         }
         .aspectRatio(1, contentMode: .fit)
     }

@@ -8,6 +8,7 @@ import Foundation
 final class OddsService {
     enum SoccerLeague: String, CaseIterable {
         case serieA = "ita.1"
+        case serieB = "ita.2"
         case premierLeague = "eng.1"
         case laLiga = "esp.1"
         case bundesliga = "ger.1"
@@ -20,11 +21,14 @@ final class OddsService {
         case womensWorldCup = "fifa.wwc"
         case championsLeague = "uefa.champions"
         case europaLeague = "uefa.europa"
+        case conferenceLeague = "uefa.europa.conf"
 
         var displayName: String {
             switch self {
             case .serieA:
                 return "Serie A"
+            case .serieB:
+                return "Serie B"
             case .premierLeague:
                 return "Premier League"
             case .laLiga:
@@ -49,6 +53,8 @@ final class OddsService {
                 return "UEFA Champions League"
             case .europaLeague:
                 return "UEFA Europa League"
+            case .conferenceLeague:
+                return "UEFA Conference League"
             }
         }
     }
@@ -56,6 +62,7 @@ final class OddsService {
     static let shared = OddsService()
     static let supportedSoccerLeagues: [SoccerLeague] = [
         .serieA,
+        .serieB,
         .premierLeague,
         .laLiga,
         .bundesliga,
@@ -66,7 +73,8 @@ final class OddsService {
         .faCup,
         .worldCup,
         .championsLeague,
-        .europaLeague
+        .europaLeague,
+        .conferenceLeague
     ]
     private init() {}
 
