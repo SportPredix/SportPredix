@@ -31,31 +31,12 @@ struct GemIcon: View {
     var lineWidth: CGFloat = 2.0
 
     var body: some View {
-        ZStack {
-            Image(systemName: "diamond.fill")
-                .resizable()
-                .scaledToFit()
-                .foregroundStyle(color.opacity(0.24))
-
-            Image(systemName: "diamond")
-                .resizable()
-                .scaledToFit()
-                .foregroundStyle(Color.white.opacity(0.55))
-                .padding(max(0.1, lineWidth * 0.10))
-
-            Image(systemName: "diamond")
-                .resizable()
-                .scaledToFit()
-                .foregroundStyle(color)
-                .padding(max(0.2, lineWidth * 0.04))
-
-            Image(systemName: "diamond")
-                .resizable()
-                .scaledToFit()
-                .foregroundStyle(color.opacity(0.95))
-                .padding(max(1.4, lineWidth * 0.95))
-        }
-        .aspectRatio(1, contentMode: .fit)
+        Image("GemIcon")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .foregroundStyle(color)
+            .shadow(color: color.opacity(0.22), radius: max(0.5, lineWidth * 0.2), x: 0, y: 0)
     }
 }
 
@@ -69,7 +50,7 @@ struct GemAmountLabel: View {
 
     var body: some View {
         HStack(spacing: spacing) {
-            GemIcon(color: color, lineWidth: max(1.25, iconSize * 0.12))
+            GemIcon(color: color, lineWidth: max(1.5, iconSize * 0.16))
                 .frame(width: iconSize, height: iconSize)
 
             Text(GemFormatting.amount(amount))
