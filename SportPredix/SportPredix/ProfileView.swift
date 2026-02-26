@@ -127,6 +127,76 @@ struct ProfileView: View {
 
     private var userCard: some View {
         VStack(spacing: 14) {
+            avatarWithStreak
+
+            Text(authManager.currentUserName ?? "Utente")
+                .font(.title3.bold())
+                .foregroundColor(.white)
+
+            Text(authManager.currentUserEmail ?? "Email non disponibile")
+                .font(.caption)
+                .foregroundColor(.gray)
+
+            HStack(spacing: 8) {
+                Text("Saldo")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+
+                GemAmountLabel(amount: vm.balance, color: .accentCyan, font: .subheadline, weight: .bold, iconSize: 15)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(Color.accentCyan.opacity(0.25), lineWidth: 1)
+                    )
+            )
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 22)
+        .background(glassCard(cornerRadius: 18))
+    }
+
+    private var avatarWithStreak: some View {
+        ZStack(alignment: .bottomTrailing) {
+            profileAvatar
+
+            VStack(spacing: 2) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 15, weight: .black))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.yellow, .orange, .red.opacity(0.9)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .shadow(color: Color.orange.opacity(0.35), radius: 5, x: 0, y: 2)
+
+                Text("\(max(0, vm.streakDays))")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .monospacedDigit()
+                    .frame(minWidth: 24, minHeight: 18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color.black.opacity(0.86))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .stroke(Color.orange.opacity(0.55), lineWidth: 1)
+                            )
+                    )
+            }
+            .offset(x: 5, y: 8)
+        }
+        .padding(.bottom, 6)
+    }
+
+    private var profileAvatar: some View {
+        Group {
             if let profileImage = profileUIImage {
                 Image(uiImage: profileImage)
                     .resizable()
@@ -159,61 +229,7 @@ struct ProfileView: View {
                         .foregroundColor(.black)
                 }
             }
-
-            Text(authManager.currentUserName ?? "Utente")
-                .font(.title3.bold())
-                .foregroundColor(.white)
-
-            Text(authManager.currentUserEmail ?? "Email non disponibile")
-                .font(.caption)
-                .foregroundColor(.gray)
-
-            HStack(spacing: 8) {
-                Text("Saldo")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-
-                GemAmountLabel(amount: vm.balance, color: .accentCyan, font: .subheadline, weight: .bold, iconSize: 15)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color.white.opacity(0.06))
-                    .overlay(
-                        Capsule(style: .continuous)
-                            .stroke(Color.accentCyan.opacity(0.25), lineWidth: 1)
-                    )
-            )
-
-            HStack(spacing: 8) {
-                Image(systemName: "flame.fill")
-                    .foregroundColor(.orange)
-
-                Text("Streak: \(vm.streakDays) \(vm.streakDays == 1 ? "giorno" : "giorni")")
-                    .font(.caption.bold())
-                    .foregroundColor(.white)
-
-                if vm.bestStreakDays > 0 {
-                    Text("Best \(vm.bestStreakDays)")
-                        .font(.caption2)
-                        .foregroundColor(.orange.opacity(0.9))
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color.white.opacity(0.06))
-                    .overlay(
-                        Capsule(style: .continuous)
-                            .stroke(Color.orange.opacity(0.35), lineWidth: 1)
-                    )
-            )
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 22)
-        .background(glassCard(cornerRadius: 18))
     }
 
     private var profileEditorCard: some View {

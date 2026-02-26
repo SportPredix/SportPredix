@@ -5,6 +5,7 @@
 
 import SwiftUI
 import Combine
+import FirebaseFirestore
 
 // MARK: - THEME
 
@@ -373,9 +374,11 @@ final class BettingViewModel: ObservableObject {
     private var balanceSyncTask: DispatchWorkItem?
     private var betStatsSyncTask: DispatchWorkItem?
     private var slipsSyncTask: DispatchWorkItem?
+    private var streakSyncTask: DispatchWorkItem?
     private var isLoadingRemoteBalance = false
     private var isLoadingRemoteSlips = false
     private var lastSyncedSlipsSignature: String?
+    private var lastSyncedStreakSignature: String?
     private var isLoadingPromoCodes = false
     private var isFetchingMatchesBundle = false
 
@@ -527,12 +530,15 @@ final class BettingViewModel: ObservableObject {
                     self.remoteTotalWins = 0
                     self.remoteTotalLosses = 0
                     self.lastSyncedSlipsSignature = nil
+                    self.lastSyncedStreakSignature = nil
+                    self.streakSyncTask?.cancel()
                     self.slips = self.loadSlips(for: nil)
                     self.loadStreak(for: nil)
                     self.refreshDailyStreakIfNeeded(for: nil)
                     return
                 }
                 self.lastSyncedSlipsSignature = nil
+                self.lastSyncedStreakSignature = nil
                 self.migrateLegacySlipsKeyIfNeeded(for: userID)
                 self.slips = self.loadSlips(for: userID)
                 self.loadBalanceFromCloud(userID: userID)
@@ -561,29 +567,39 @@ final class BettingViewModel: ObservableObject {
 
         var updatedStreak = UserDefaults.standard.integer(forKey: daysKey)
         var updatedBest = UserDefaults.standard.integer(forKey: bestKey)
+        var persistedLastVisit = today
 
         if let rawLastVisit = UserDefaults.standard.object(forKey: lastVisitKey) as? Date {
             let lastVisit = calendar.startOfDay(for: rawLastVisit)
             let dayDifference = calendar.dateComponents([.day], from: lastVisit, to: today).day ?? 0
+            persistedLastVisit = lastVisit
 
             if dayDifference == 1 {
                 updatedStreak = max(1, updatedStreak + 1)
-                UserDefaults.standard.set(today, forKey: lastVisitKey)
+                persistedLastVisit = today
             } else if dayDifference > 1 {
                 updatedStreak = 1
-                UserDefaults.standard.set(today, forKey: lastVisitKey)
+                persistedLastVisit = today
             }
         } else {
-            updatedStreak = 1
-            UserDefaults.standard.set(today, forKey: lastVisitKey)
+            updatedStreak = max(1, updatedStreak)
+            persistedLastVisit = today
         }
 
         updatedBest = max(updatedBest, updatedStreak)
         UserDefaults.standard.set(updatedStreak, forKey: daysKey)
         UserDefaults.standard.set(updatedBest, forKey: bestKey)
+        UserDefaults.standard.set(persistedLastVisit, forKey: lastVisitKey)
 
         streakDays = updatedStreak
         bestStreakDays = updatedBest
+
+        syncStreakToCloudIfPossible(
+            userID: userID,
+            streakDays: updatedStreak,
+            bestStreakDays: updatedBest,
+            lastVisit: persistedLastVisit
+        )
     }
 
     private func loadBalanceFromCloud(userID: String) {
@@ -605,6 +621,7 @@ final class BettingViewModel: ObservableObject {
                     self.remoteTotalBetsCount = self.intValue(from: data["totalBetsCount"]) ?? 0
                     self.remoteTotalWins = self.intValue(from: data["totalWins"]) ?? 0
                     self.remoteTotalLosses = self.intValue(from: data["totalLosses"]) ?? 0
+                    self.mergeStreakFromCloudIfNeeded(userID: userID, data: data)
                 case .failure:
                     break
                 }
@@ -650,6 +667,94 @@ final class BettingViewModel: ObservableObject {
         }
         betStatsSyncTask = task
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: task)
+    }
+
+    private func mergeStreakFromCloudIfNeeded(userID: String, data: [String: Any]) {
+        let calendar = Calendar.current
+        let daysKey = streakDaysStorageKey(for: userID)
+        let bestKey = streakBestStorageKey(for: userID)
+        let lastVisitKey = streakLastVisitStorageKey(for: userID)
+
+        let localDays = UserDefaults.standard.integer(forKey: daysKey)
+        let localBest = UserDefaults.standard.integer(forKey: bestKey)
+        let localLastVisit = (UserDefaults.standard.object(forKey: lastVisitKey) as? Date).map { calendar.startOfDay(for: $0) }
+
+        let remoteDays = max(0, intValue(from: data["streakDays"]) ?? 0)
+        let remoteBest = max(0, intValue(from: data["bestStreakDays"]) ?? 0)
+        let remoteLastVisit = dateValue(from: data["streakLastVisit"]).map { calendar.startOfDay(for: $0) }
+
+        var mergedDays = localDays
+        var mergedLastVisit = localLastVisit
+
+        switch (localLastVisit, remoteLastVisit) {
+        case let (local?, remote?):
+            if remote > local {
+                mergedDays = remoteDays
+                mergedLastVisit = remote
+            } else if local > remote {
+                mergedDays = localDays
+                mergedLastVisit = local
+            } else {
+                mergedDays = max(localDays, remoteDays)
+                mergedLastVisit = local
+            }
+        case (nil, let remote?):
+            mergedDays = remoteDays
+            mergedLastVisit = remote
+        case (let local?, nil):
+            mergedDays = localDays
+            mergedLastVisit = local
+        case (nil, nil):
+            mergedDays = max(localDays, remoteDays)
+            if mergedDays > 0 {
+                mergedLastVisit = calendar.startOfDay(for: Date())
+            } else {
+                mergedLastVisit = nil
+            }
+        }
+
+        let mergedBest = max(localBest, remoteBest, mergedDays)
+
+        UserDefaults.standard.set(mergedDays, forKey: daysKey)
+        UserDefaults.standard.set(mergedBest, forKey: bestKey)
+        if let mergedLastVisit {
+            UserDefaults.standard.set(mergedLastVisit, forKey: lastVisitKey)
+        }
+
+        streakDays = mergedDays
+        bestStreakDays = mergedBest
+
+        // Re-run daily check after merge so today's access is counted once, then sync to cloud.
+        refreshDailyStreakIfNeeded(for: userID)
+    }
+
+    private func syncStreakToCloudIfPossible(
+        userID: String?,
+        streakDays: Int,
+        bestStreakDays: Int,
+        lastVisit: Date
+    ) {
+        guard let userID, !userID.isEmpty else { return }
+
+        let signature = "\(streakDays)|\(bestStreakDays)|\(Int(lastVisit.timeIntervalSince1970))"
+        guard signature != lastSyncedStreakSignature else { return }
+
+        streakSyncTask?.cancel()
+        let task = DispatchWorkItem { [weak self] in
+            FirebaseManager.shared.updateUserStreak(
+                userID: userID,
+                streakDays: streakDays,
+                bestStreakDays: bestStreakDays,
+                lastVisit: lastVisit
+            ) { result in
+                guard case .success = result else { return }
+                DispatchQueue.main.async {
+                    self?.lastSyncedStreakSignature = signature
+                }
+            }
+        }
+        streakSyncTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: task)
     }
 
     private func loadSlipsFromCloud(userID: String) {
@@ -1657,6 +1762,24 @@ final class BettingViewModel: ObservableObject {
 
     private func normalizePromoCode(_ code: String) -> String {
         code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    }
+
+    private func dateValue(from raw: Any?) -> Date? {
+        switch raw {
+        case let value as Date:
+            return value
+        case let value as Timestamp:
+            return value.dateValue()
+        case let value as NSNumber:
+            return Date(timeIntervalSince1970: value.doubleValue)
+        case let value as String:
+            if let interval = Double(value) {
+                return Date(timeIntervalSince1970: interval)
+            }
+            return ISO8601DateFormatter().date(from: value)
+        default:
+            return nil
+        }
     }
 
     private func intValue(from raw: Any?) -> Int? {
