@@ -1,4 +1,4 @@
-﻿import SwiftUI
+import SwiftUI
 import FirebaseFirestore
 import UIKit
 import ImageIO
@@ -37,7 +37,7 @@ private enum LeaderboardScope: String, CaseIterable, Identifiable {
 
 private struct RemoteGIFImageView: UIViewRepresentable {
     let url: URL
-    var contentMode: UIView.ContentMode = .scaleAspectFill
+    var contentMode: UIView.ContentMode = .scaleAspectFit
 
     final class GIFContainerView: UIView {
         let imageView = UIImageView()
@@ -996,8 +996,7 @@ struct UserPublicProfileView: View {
                     if let streakFireGIFURL {
                         RemoteGIFImageView(url: streakFireGIFURL)
                             .frame(width: 34, height: 34)
-                            .offset(y: -6)
-                            .clipped()
+                            .offset(y: -4)
                     }
 
                     Text("\(streakDays)")

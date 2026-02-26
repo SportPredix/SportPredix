@@ -1,4 +1,4 @@
-﻿import SwiftUI
+import SwiftUI
 import PhotosUI
 import UIKit
 import ImageIO
@@ -31,7 +31,7 @@ private struct AppToastView: View {
 
 private struct RemoteGIFImageView: UIViewRepresentable {
     let url: URL
-    var contentMode: UIView.ContentMode = .scaleAspectFill
+    var contentMode: UIView.ContentMode = .scaleAspectFit
 
     final class GIFContainerView: UIView {
         let imageView = UIImageView()
@@ -296,8 +296,7 @@ struct ProfileView: View {
                     if let streakFireGIFURL {
                         RemoteGIFImageView(url: streakFireGIFURL)
                             .frame(width: 34, height: 34)
-                            .offset(y: -6)
-                            .clipped()
+                            .offset(y: -4)
                     }
 
                     Text("\(vm.streakDays)")
@@ -1526,7 +1525,7 @@ struct ProfileFriendsCenterView: View {
         Picker("Classifica", selection: $selectedTab) {
             ForEach(FriendCenterTab.allCases) { tab in
                 if tab == .received && authManager.hasUnreadFriendRequests {
-                    Text("\(tab.rawValue) •").tag(tab)
+                    Text("\(tab.rawValue) �").tag(tab)
                 } else {
                     Text(tab.rawValue).tag(tab)
                 }
