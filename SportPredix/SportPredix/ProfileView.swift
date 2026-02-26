@@ -154,6 +154,50 @@ private struct RemoteGIFImageView: UIViewRepresentable {
     }
 }
 
+private struct SportPassShimmerTitle: View {
+    @State private var lightSweep: CGFloat = -1.2
+    private let titleFont = Font.headline.weight(.black)
+
+    var body: some View {
+        Text("SportPass")
+            .font(titleFont)
+            .foregroundStyle(
+                LinearGradient(
+                    colors: [Color.white, Color.accentCyan, Color.mint],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .overlay {
+                GeometryReader { geometry in
+                    let width = max(1, geometry.size.width)
+                    LinearGradient(
+                        colors: [Color.clear, Color.white.opacity(0.96), Color.clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(width: width * 0.42)
+                    .rotationEffect(.degrees(20))
+                    .offset(x: lightSweep * width)
+                }
+                .mask(
+                    Text("SportPass")
+                        .font(titleFont)
+                )
+                .allowsHitTesting(false)
+            }
+            .alignmentGuide(.firstTextBaseline) { dimensions in
+                dimensions[.firstTextBaseline]
+            }
+            .onAppear {
+                lightSweep = -1.2
+                withAnimation(.linear(duration: 1.6).repeatForever(autoreverses: false)) {
+                    lightSweep = 1.2
+                }
+            }
+    }
+}
+
 struct ProfileView: View {
     @EnvironmentObject var authManager: AuthManager
     @EnvironmentObject var vm: BettingViewModel
@@ -401,15 +445,7 @@ struct ProfileView: View {
         } label: {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("SportPass Neon")
-                        .font(.headline.weight(.black))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color.white, Color.accentCyan, Color.mint],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                    SportPassShimmerTitle()
 
                     Spacer()
 
@@ -987,6 +1023,7 @@ struct ProfileView: View {
 
 private struct SportPassDetailView: View {
     @EnvironmentObject var vm: BettingViewModel
+    @State private var showInfoPopup = false
 
     var body: some View {
         ZStack {
@@ -1002,8 +1039,29 @@ private struct SportPassDetailView: View {
                 .padding(.bottom, 36)
             }
         }
-        .navigationTitle("SportPass Neon")
+        .navigationTitle("SportPass")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showInfoPopup = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.headline.weight(.semibold))
+                        .foregroundColor(.accentCyan)
+                }
+                .accessibilityLabel("Info SportPass")
+            }
+        }
+        .alert("Come guadagnare punti SportPass", isPresented: $showInfoPopup) {
+            Button("Ho capito", role: .cancel) { }
+        } message: {
+            Text(
+                "Guadagni punti solo quando una schedina viene valutata come vinta. " +
+                "I punti assegnati sono il netto della vincita: vincita potenziale - puntata. " +
+                "Esempio: se punti 20 e la vincita potenziale e 65, ottieni 45 punti SportPass."
+            )
+        }
     }
 
     private var passBackground: some View {

@@ -394,26 +394,26 @@ final class BettingViewModel: ObservableObject {
     private var isFetchingMatchesBundle = false
 
     private static let defaultSportPassTiers: [SportPassTier] = [
-        SportPassTier(level: 1, requiredPoints: 20, reward: "10 Gemme"),
-        SportPassTier(level: 2, requiredPoints: 45, reward: "15 Gemme"),
-        SportPassTier(level: 3, requiredPoints: 75, reward: "20 Gemme"),
-        SportPassTier(level: 4, requiredPoints: 110, reward: "25 Gemme"),
-        SportPassTier(level: 5, requiredPoints: 150, reward: "30 Gemme"),
-        SportPassTier(level: 6, requiredPoints: 195, reward: "35 Gemme"),
-        SportPassTier(level: 7, requiredPoints: 245, reward: "40 Gemme"),
-        SportPassTier(level: 8, requiredPoints: 300, reward: "45 Gemme"),
-        SportPassTier(level: 9, requiredPoints: 360, reward: "50 Gemme"),
-        SportPassTier(level: 10, requiredPoints: 425, reward: "60 Gemme"),
-        SportPassTier(level: 11, requiredPoints: 495, reward: "70 Gemme"),
-        SportPassTier(level: 12, requiredPoints: 570, reward: "80 Gemme"),
-        SportPassTier(level: 13, requiredPoints: 650, reward: "90 Gemme"),
-        SportPassTier(level: 14, requiredPoints: 735, reward: "100 Gemme"),
-        SportPassTier(level: 15, requiredPoints: 825, reward: "115 Gemme"),
-        SportPassTier(level: 16, requiredPoints: 920, reward: "130 Gemme"),
-        SportPassTier(level: 17, requiredPoints: 1020, reward: "145 Gemme"),
-        SportPassTier(level: 18, requiredPoints: 1125, reward: "160 Gemme"),
-        SportPassTier(level: 19, requiredPoints: 1235, reward: "180 Gemme"),
-        SportPassTier(level: 20, requiredPoints: 1350, reward: "220 Gemme")
+        SportPassTier(level: 1, requiredPoints: 100, reward: "10 Gemme"),
+        SportPassTier(level: 2, requiredPoints: 225, reward: "15 Gemme"),
+        SportPassTier(level: 3, requiredPoints: 375, reward: "20 Gemme"),
+        SportPassTier(level: 4, requiredPoints: 550, reward: "25 Gemme"),
+        SportPassTier(level: 5, requiredPoints: 750, reward: "30 Gemme"),
+        SportPassTier(level: 6, requiredPoints: 975, reward: "35 Gemme"),
+        SportPassTier(level: 7, requiredPoints: 1225, reward: "40 Gemme"),
+        SportPassTier(level: 8, requiredPoints: 1500, reward: "45 Gemme"),
+        SportPassTier(level: 9, requiredPoints: 1800, reward: "50 Gemme"),
+        SportPassTier(level: 10, requiredPoints: 2125, reward: "60 Gemme"),
+        SportPassTier(level: 11, requiredPoints: 2475, reward: "70 Gemme"),
+        SportPassTier(level: 12, requiredPoints: 2850, reward: "80 Gemme"),
+        SportPassTier(level: 13, requiredPoints: 3250, reward: "90 Gemme"),
+        SportPassTier(level: 14, requiredPoints: 3675, reward: "100 Gemme"),
+        SportPassTier(level: 15, requiredPoints: 4125, reward: "115 Gemme"),
+        SportPassTier(level: 16, requiredPoints: 4600, reward: "130 Gemme"),
+        SportPassTier(level: 17, requiredPoints: 5100, reward: "145 Gemme"),
+        SportPassTier(level: 18, requiredPoints: 5625, reward: "160 Gemme"),
+        SportPassTier(level: 19, requiredPoints: 6175, reward: "180 Gemme"),
+        SportPassTier(level: 20, requiredPoints: 6750, reward: "220 Gemme")
     ]
 
     var sportPassTiers: [SportPassTier] {
