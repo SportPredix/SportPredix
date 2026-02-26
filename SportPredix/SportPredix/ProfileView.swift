@@ -711,24 +711,24 @@ struct ProfileSettingsView: View {
 
             ScrollView {
                 VStack(spacing: 16) {
-                    settingsItemCard(icon: "bell.fill", title: "Notifiche") {
-                        ProfileNotificationsView()
+                    settingsItemCard(icon: "person.crop.circle.fill", title: "Informazioni personali") {
+                        ProfilePersonalInfoView()
                     }
 
                     settingsItemCard(icon: "trophy.fill", title: "Campionati principali") {
                         ProfileMainLeaguesSettingsView(vm: vm)
                     }
 
-                    settingsItemCard(icon: "person.crop.circle.fill", title: "Informazioni personali") {
-                        ProfilePersonalInfoView()
+                    settingsItemCard(icon: "paintpalette.fill", title: "Temi") {
+                        ProfileThemesView()
+                    }
+
+                    settingsItemCard(icon: "bell.fill", title: "Notifiche") {
+                        ProfileNotificationsView()
                     }
 
                     settingsItemCard(icon: "checkmark.seal.fill", title: "Riscatta Codici") {
                         ProfileRedeemCodesView(vm: vm)
-                    }
-
-                    settingsItemCard(icon: "paintpalette.fill", title: "Temi") {
-                        ProfileThemesView()
                     }
 
                     settingsItemCard(icon: "info.circle.fill", title: "Informazioni") {
@@ -869,6 +869,7 @@ struct ProfileNotificationsView: View {
 
 struct ProfileMainLeaguesSettingsView: View {
     @ObservedObject var vm: BettingViewModel
+    @State private var searchText = ""
 
     var body: some View {
         ZStack {
@@ -882,8 +883,10 @@ struct ProfileMainLeaguesSettingsView: View {
                             .font(.caption)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
+                        searchField
+
                         VStack(spacing: 10) {
-                            ForEach(vm.allAvailableMainLeagues, id: \.self) { league in
+                            ForEach(filteredLeagues, id: \.self) { league in
                                 leagueSelectionRow(league)
                             }
                         }
@@ -937,6 +940,47 @@ struct ProfileMainLeaguesSettingsView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .stroke(Color.accentCyan.opacity(0.18), lineWidth: 1)
+                )
+        )
+    }
+
+    private var filteredLeagues: [String] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return vm.allAvailableMainLeagues }
+
+        return vm.allAvailableMainLeagues.filter { league in
+            league.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.gray)
+
+            TextField("Cerca campionato", text: $searchText)
+                .foregroundColor(.white)
+                .textInputAutocapitalization(.never)
+                .disableAutocorrection(true)
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.gray)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 42)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
                 )
         )
     }

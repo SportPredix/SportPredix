@@ -1613,6 +1613,7 @@ struct ContentView: View {
     @StateObject private var vm = BettingViewModel()
     @State private var refreshID = UUID()
     @State private var showProfileSettings = false
+    @State private var showMainLeaguesSettings = false
     @AppStorage("profileSelectedTheme") private var selectedTheme = "Scuro"
     private let calendarPastDays = 7
     private let calendarFutureDays = 21
@@ -1718,6 +1719,11 @@ struct ContentView: View {
                         matchListView
                     }
                 }
+
+                NavigationLink(destination: ProfileMainLeaguesSettingsView(vm: vm), isActive: $showMainLeaguesSettings) {
+                    EmptyView()
+                }
+                .hidden()
             }
             .id(refreshID)
 
@@ -2047,7 +2053,10 @@ struct ContentView: View {
                     emptyMatchesView
                 } else {
                     if !preferredMatches.isEmpty {
-                        sectionHeader(title: "Campionati principali")
+                        sectionHeader(
+                            title: "Campionati principali",
+                            showsSettingsButton: true
+                        )
                     }
 
                     ForEach(preferredGroupedMatches, id: \.time) { timeGroup in
@@ -2178,12 +2187,37 @@ struct ContentView: View {
         return hour * 60 + minute
     }
 
-    private func sectionHeader(title: String, topPadding: CGFloat = 0) -> some View {
+    private func sectionHeader(
+        title: String,
+        topPadding: CGFloat = 0,
+        showsSettingsButton: Bool = false
+    ) -> some View {
         HStack {
             Text(title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundColor(.gray)
+
             Spacer()
+
+            if showsSettingsButton {
+                Button {
+                    showMainLeaguesSettings = true
+                } label: {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.accentCyan)
+                        .padding(8)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.06))
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                )
+                        )
+                }
+                .buttonStyle(.plain)
+            }
         }
         .padding(.top, topPadding)
         .padding(.horizontal, 4)
