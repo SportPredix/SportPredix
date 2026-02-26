@@ -2209,8 +2209,8 @@ struct ProfileRedeemCodesView: View {
 }
 
 struct ProfileThemesView: View {
-    @AppStorage("profileSelectedTheme") private var selectedTheme = "Sistema"
-    private let themes = ["Sistema", "Chiaro", "Scuro"]
+    @AppStorage("profileSelectedTheme") private var selectedTheme = "Scuro"
+    private let themes = ["Scuro"]
 
     var body: some View {
         ZStack {

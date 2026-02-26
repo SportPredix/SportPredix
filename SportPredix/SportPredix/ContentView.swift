@@ -22,7 +22,7 @@ enum GemFormatting {
     }
 
     static func tagged(_ value: Double) -> String {
-        "GEM \(amount(value))"
+        "💎 \(amount(value))"
     }
 }
 
@@ -222,10 +222,10 @@ struct ApiRefreshCountdownView: View {
                 )
         )
         .onReceive(timer) { now = $0 }
-        .alert("Prossima chiamata API", isPresented: $showInfoPopup) {
+        .alert("Controllo schedine", isPresented: $showInfoPopup) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("Questo countdown mostra tra quanto l'app fara la prossima chiamata automatica all'API per aggiornare i dati delle partite. Quando arriva a zero, l'aggiornamento avviene al primo refresh utile.")
+            Text("Quando questo countdown finisce, verranno controllate tutte le schedine e, in caso di vittoria, verra accreditato l'importo indicato.")
         }
     }
 }
@@ -1501,7 +1501,7 @@ struct ContentView: View {
     @StateObject private var vm = BettingViewModel()
     @State private var refreshID = UUID()
     @State private var showProfileSettings = false
-    @AppStorage("profileSelectedTheme") private var selectedTheme = "Sistema"
+    @AppStorage("profileSelectedTheme") private var selectedTheme = "Scuro"
     private let calendarPastDays = 7
     private let calendarFutureDays = 21
     private let preferredLeagueOrder = OddsService.supportedSoccerLeagues.map(\.displayName)
@@ -1527,12 +1527,10 @@ struct ContentView: View {
 
     private var preferredColorScheme: ColorScheme? {
         switch selectedTheme {
-        case "Chiaro":
-            return .light
         case "Scuro":
             return .dark
         default:
-            return nil
+            return .dark
         }
     }
     
@@ -1549,7 +1547,7 @@ struct ContentView: View {
                 .tag(1)
                 .tabItem {
                     Image(systemName: "dice.fill")
-                    Text("Casino")
+                    Text("Casinò")
                 }
 
             legaTab
@@ -2301,7 +2299,7 @@ struct CasinoFullView: View {
                 // Header DEDICATO per Casino
                 VStack(spacing: 0) {
                     HStack {
-                        Text("Casino")
+                        Text("Casinò")
                             .font(.title2.bold())
                             .foregroundColor(.white)
                         

@@ -7,7 +7,7 @@ struct AuthView: View {
     @State private var password = ""
     @State private var name = ""
     @State private var confirmPassword = ""
-    @AppStorage("profileSelectedTheme") private var selectedTheme = "Sistema"
+    @AppStorage("profileSelectedTheme") private var selectedTheme = "Scuro"
     
     var body: some View {
         ZStack {
@@ -31,12 +31,10 @@ struct AuthView: View {
 
     private var preferredColorScheme: ColorScheme? {
         switch selectedTheme {
-        case "Chiaro":
-            return .light
         case "Scuro":
             return .dark
         default:
-            return nil
+            return .dark
         }
     }
     

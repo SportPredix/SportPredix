@@ -237,12 +237,9 @@ struct BetSheet: View {
                     .foregroundColor(.gray)
 
                 HStack(spacing: 10) {
-                    HStack(spacing: 5) {
+                    HStack(spacing: 0) {
                         GemIcon(color: .black, lineWidth: 1.5)
                             .frame(width: 10, height: 10)
-                        Text("GEM")
-                            .font(.caption.weight(.bold))
-                            .foregroundColor(.black)
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
