@@ -1729,14 +1729,8 @@ struct ContentView: View {
         let matches = orderedTimes.flatMap { groupedMatchesByTime[$0] ?? [] }
         let selectedDate = vm.dateForIndex(vm.selectedDayIndex)
         let isPastDay = vm.isPast(selectedDate)
-        let matchesByCompetition = Dictionary(grouping: matches) { competitionKey(for: $0) }
-        let preferredCompetitionKeys = orderedPreferredCompetitionKeys(from: matchesByCompetition)
-        let preferredCompetitionSet = Set(preferredCompetitionKeys)
-        let preferredMatches = preferredCompetitionKeys.flatMap { matchesByCompetition[$0] ?? [] }
-        let otherCompetitions = matchesByCompetition.keys
-            .filter { !preferredCompetitionSet.contains($0) }
-            .sorted()
-        let otherMatches = otherCompetitions.flatMap { matchesByCompetition[$0] ?? [] }
+        let preferredMatches = matches.filter { isPreferredCompetition(competitionKey(for: $0)) }
+        let otherMatches = matches.filter { !isPreferredCompetition(competitionKey(for: $0)) }
         
         return ScrollView {
             VStack(spacing: 16) {
@@ -1791,21 +1785,9 @@ struct ContentView: View {
         return value.isEmpty ? "Campionato" : value
     }
 
-    private func orderedPreferredCompetitionKeys(from matchesByCompetition: [String: [Match]]) -> [String] {
-        var remaining = Set(matchesByCompetition.keys)
-        var ordered: [String] = []
-
-        for preferredCompetition in preferredLeagueOrder {
-            let preferredNormalized = normalizeCompetitionName(preferredCompetition)
-            guard let key = remaining.first(where: { normalizeCompetitionName($0) == preferredNormalized }) else {
-                continue
-            }
-
-            ordered.append(key)
-            remaining.remove(key)
-        }
-
-        return ordered
+    private func isPreferredCompetition(_ competition: String) -> Bool {
+        let normalized = normalizeCompetitionName(competition)
+        return preferredLeagueOrder.contains { normalizeCompetitionName($0) == normalized }
     }
 
     private func normalizeCompetitionName(_ name: String) -> String {
