@@ -164,9 +164,9 @@ struct ProfileView: View {
         ZStack(alignment: .bottomTrailing) {
             profileAvatar
 
-            VStack(spacing: 2) {
+            ZStack(alignment: .bottom) {
                 Image(systemName: "flame.fill")
-                    .font(.system(size: 15, weight: .black))
+                    .font(.system(size: 25, weight: .black))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.yellow, .orange, .red.opacity(0.9)],
@@ -174,7 +174,7 @@ struct ProfileView: View {
                             endPoint: .bottom
                         )
                     )
-                    .shadow(color: Color.orange.opacity(0.35), radius: 5, x: 0, y: 2)
+                    .shadow(color: Color.orange.opacity(0.4), radius: 6, x: 0, y: 2)
 
                 Text("\(max(0, vm.streakDays))")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -189,8 +189,10 @@ struct ProfileView: View {
                                     .stroke(Color.orange.opacity(0.55), lineWidth: 1)
                             )
                     )
+                    .offset(y: -2)
             }
-            .offset(x: 5, y: 8)
+            .frame(width: 34, height: 44)
+            .offset(x: 6, y: 8)
         }
         .padding(.bottom, 6)
     }
