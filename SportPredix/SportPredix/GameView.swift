@@ -1006,7 +1006,7 @@ struct GamesView: View {
                 .padding(.top, 20)
 
                 VStack(spacing: 6) {
-                    Text("Gioco responsabile | maggiorenni | vietato ai minori")
+                    Text("Gioca responsabilmente, vietato ai minori")
                         .font(.caption2)
                         .foregroundColor(.gray)
                     Text("Le vincite sono virtuali")

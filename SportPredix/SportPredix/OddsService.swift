@@ -184,6 +184,26 @@ final class OddsService {
         }
     }
 
+    func fetchAllSoccerLeagueDisplayNames(
+        completion: @escaping (Result<[String], Error>) -> Void
+    ) {
+        fetchDiscoveredSoccerLeagueTargets { [weak self] result in
+            guard let self else { return }
+
+            switch result {
+            case .success(let discoveredTargets):
+                let configuredTargets = Self.supportedSoccerLeagues.map {
+                    LeagueTarget(key: $0.rawValue, displayName: $0.displayName)
+                }
+                let mergedTargets = self.mergedLeagueTargets(configuredTargets + discoveredTargets)
+                let names = mergedTargets.map { self.displayName(for: $0) }
+                completion(.success(names))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+
     private func fetchMatchesByDateRange(
         from startDate: Date,
         to endDate: Date,
@@ -248,6 +268,39 @@ final class OddsService {
             }
             return nil
         }
+    }
+
+    private func displayName(for target: LeagueTarget) -> String {
+        if let displayName = target.displayName?.trimmingCharacters(in: .whitespacesAndNewlines), !displayName.isEmpty {
+            return displayName
+        }
+
+        if let configured = Self.supportedSoccerLeagues.first(where: { $0.rawValue == target.key }) {
+            return configured.displayName
+        }
+
+        return prettifiedLeagueName(from: target.key)
+    }
+
+    private func prettifiedLeagueName(from leagueKey: String) -> String {
+        let acronyms: Set<String> = ["uefa", "fifa", "afc", "caf", "concacaf", "mls", "nwsl", "w", "usl"]
+        let cleaned = leagueKey
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: ".", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let tokens = cleaned.split(separator: " ").map(String.init)
+        guard !tokens.isEmpty else { return leagueKey }
+
+        return tokens
+            .map { token in
+                let normalized = token.lowercased()
+                if acronyms.contains(normalized) || token.count <= 3 {
+                    return normalized.uppercased()
+                }
+                return normalized.capitalized
+            }
+            .joined(separator: " ")
     }
 
     private func groupMatchesByDay(_ parsed: [(kickoff: Date, match: Match)]) -> [String: [Match]] {

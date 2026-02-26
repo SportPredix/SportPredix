@@ -949,25 +949,25 @@ struct ProfileMainLeaguesSettingsView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "trophy.fill")
-                    .foregroundColor(isSelected ? .black : .accentCyan)
+                    .foregroundColor(.accentCyan)
 
                 Text(league)
-                    .foregroundColor(isSelected ? .black : .white)
+                    .foregroundColor(.white)
                     .font(.subheadline.bold())
 
                 Spacer()
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isSelected ? .black : .gray)
+                    .foregroundColor(isSelected ? .accentCyan : .gray)
             }
             .padding(.horizontal, 12)
             .frame(height: 44)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(isSelected ? Color.accentCyan : Color.white.opacity(0.05))
+                    .fill(Color.white.opacity(0.05))
                     .overlay(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(isSelected ? Color.accentCyan.opacity(0.6) : Color.white.opacity(0.1), lineWidth: 1)
+                            .stroke(isSelected ? Color.accentCyan : Color.white.opacity(0.1), lineWidth: isSelected ? 1.2 : 1)
                     )
             )
         }

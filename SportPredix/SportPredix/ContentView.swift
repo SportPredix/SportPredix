@@ -341,6 +341,8 @@ final class BettingViewModel: ObservableObject {
     @Published var preferredMainLeagues: [String] {
         didSet { UserDefaults.standard.set(preferredMainLeagues, forKey: preferredMainLeaguesKey) }
     }
+
+    @Published private(set) var apiAvailableMainLeagues: [String] = []
     
     @Published var currentPicks: [BetPick] = []
     @Published var slips: [BetSlip] = []
@@ -378,7 +380,27 @@ final class BettingViewModel: ObservableObject {
     }
 
     var allAvailableMainLeagues: [String] {
-        OddsService.supportedSoccerLeagues.map(\.displayName)
+        let defaultLeagues = OddsService.supportedSoccerLeagues.map(\.displayName)
+        let fromMatches = extractedCompetitionNamesFromMatches()
+        let additional = (apiAvailableMainLeagues + fromMatches).sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+
+        var merged: [String] = []
+        var seen = Set<String>()
+
+        func appendIfNeeded(_ name: String) {
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            let normalized = normalizeLeagueName(trimmed)
+            guard seen.insert(normalized).inserted else { return }
+            merged.append(trimmed)
+        }
+
+        defaultLeagues.forEach(appendIfNeeded)
+        additional.forEach(appendIfNeeded)
+
+        return merged
     }
     
     init() {
@@ -409,6 +431,7 @@ final class BettingViewModel: ObservableObject {
         loadMatchesForAllDays()
         setupAuthObserver()
         fetchPromoCodesIfNeeded()
+        fetchAvailableMainLeaguesFromAPI()
     }
 
     func isMainLeagueSelected(_ league: String) -> Bool {
@@ -446,6 +469,29 @@ final class BettingViewModel: ObservableObject {
             .lowercased()
             .folding(options: .diacriticInsensitive, locale: Locale(identifier: "it_IT"))
             .replacingOccurrences(of: " ", with: "")
+    }
+
+    private func fetchAvailableMainLeaguesFromAPI() {
+        OddsService.shared.fetchAllSoccerLeagueDisplayNames { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                guard case .success(let leagues) = result else { return }
+                self.apiAvailableMainLeagues = leagues
+            }
+        }
+    }
+
+    private func extractedCompetitionNamesFromMatches() -> [String] {
+        var names: [String] = []
+        for matches in dailyMatches.values {
+            for match in matches {
+                let trimmed = match.competition.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    names.append(trimmed)
+                }
+            }
+        }
+        return names
     }
 
     private func setupAuthObserver() {
