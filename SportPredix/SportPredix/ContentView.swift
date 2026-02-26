@@ -225,7 +225,7 @@ struct ApiRefreshCountdownView: View {
         .alert("Controllo schedine", isPresented: $showInfoPopup) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("Al termine di questo conto alla rovescia, il sistema controllera tutte le schedine e, in caso di esito vincente, accreditera automaticamente l'importo indicato.")
+            Text("Al termine di questo conto alla rovescia, il sistema controllerà tutti i pronostici e, in caso di esito vincente, accrediterà automaticamente l'importo indicato.")
         }
     }
 }
@@ -337,6 +337,10 @@ final class BettingViewModel: ObservableObject {
     @Published var privacyEnabled: Bool {
         didSet { UserDefaults.standard.set(privacyEnabled, forKey: "privacyEnabled") }
     }
+
+    @Published var preferredMainLeagues: [String] {
+        didSet { UserDefaults.standard.set(preferredMainLeagues, forKey: preferredMainLeaguesKey) }
+    }
     
     @Published var currentPicks: [BetPick] = []
     @Published var slips: [BetSlip] = []
@@ -353,6 +357,7 @@ final class BettingViewModel: ObservableObject {
     private let matchesKey = "savedMatches"
     private let lastFetchKey = "lastBetstackFetch"
     private let lastBundleFetchDayKey = "lastMatchesBundleFetchDay"
+    private let preferredMainLeaguesKey = "preferredMainLeagues"
     private let matchesSourceVersionKey = "matchesSourceVersion"
     private let matchesSourceVersion = 7
     // Sostituisci con la raw URL del JSON nella tua repository esterna.
@@ -371,6 +376,10 @@ final class BettingViewModel: ObservableObject {
         guard let userID, !userID.isEmpty else { return slipsKey }
         return "\(slipsKey)_\(userID)"
     }
+
+    var allAvailableMainLeagues: [String] {
+        OddsService.supportedSoccerLeagues.map(\.displayName)
+    }
     
     init() {
         let savedBalance = UserDefaults.standard.double(forKey: "balance")
@@ -380,6 +389,12 @@ final class BettingViewModel: ObservableObject {
         
         self.notificationsEnabled = UserDefaults.standard.object(forKey: "notificationsEnabled") as? Bool ?? true
         self.privacyEnabled = UserDefaults.standard.object(forKey: "privacyEnabled") as? Bool ?? false
+
+        if let savedPreferredMainLeagues = UserDefaults.standard.stringArray(forKey: preferredMainLeaguesKey) {
+            self.preferredMainLeagues = savedPreferredMainLeagues
+        } else {
+            self.preferredMainLeagues = OddsService.supportedSoccerLeagues.map(\.displayName)
+        }
         
         self.selectedSport = UserDefaults.standard.string(forKey: "selectedSport") ?? "Calcio"
         
@@ -394,6 +409,43 @@ final class BettingViewModel: ObservableObject {
         loadMatchesForAllDays()
         setupAuthObserver()
         fetchPromoCodesIfNeeded()
+    }
+
+    func isMainLeagueSelected(_ league: String) -> Bool {
+        let target = normalizeLeagueName(league)
+        return preferredMainLeagues.contains { normalizeLeagueName($0) == target }
+    }
+
+    func toggleMainLeagueSelection(_ league: String) {
+        let target = normalizeLeagueName(league)
+        var updated = preferredMainLeagues
+
+        if let index = updated.firstIndex(where: { normalizeLeagueName($0) == target }) {
+            updated.remove(at: index)
+        } else {
+            updated.append(league)
+        }
+
+        let orderedLeagues = allAvailableMainLeagues
+        updated.sort { left, right in
+            let leftIndex = orderedLeagues.firstIndex(where: { normalizeLeagueName($0) == normalizeLeagueName(left) }) ?? Int.max
+            let rightIndex = orderedLeagues.firstIndex(where: { normalizeLeagueName($0) == normalizeLeagueName(right) }) ?? Int.max
+
+            if leftIndex != rightIndex {
+                return leftIndex < rightIndex
+            }
+
+            return left < right
+        }
+
+        preferredMainLeagues = updated
+    }
+
+    private func normalizeLeagueName(_ name: String) -> String {
+        name
+            .lowercased()
+            .folding(options: .diacriticInsensitive, locale: Locale(identifier: "it_IT"))
+            .replacingOccurrences(of: " ", with: "")
     }
 
     private func setupAuthObserver() {
@@ -1518,7 +1570,6 @@ struct ContentView: View {
     @AppStorage("profileSelectedTheme") private var selectedTheme = "Scuro"
     private let calendarPastDays = 7
     private let calendarFutureDays = 21
-    private let preferredLeagueOrder = OddsService.supportedSoccerLeagues.map(\.displayName)
     
     var body: some View {
         NavigationView {
@@ -2007,7 +2058,7 @@ struct ContentView: View {
 
     private func isPreferredCompetition(_ competition: String) -> Bool {
         let normalized = normalizeCompetitionName(competition)
-        return preferredLeagueOrder.contains { normalizeCompetitionName($0) == normalized }
+        return vm.preferredMainLeagues.contains { normalizeCompetitionName($0) == normalized }
     }
 
     private func normalizeCompetitionName(_ name: String) -> String {

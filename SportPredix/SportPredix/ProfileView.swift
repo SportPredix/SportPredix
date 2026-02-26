@@ -711,16 +711,12 @@ struct ProfileSettingsView: View {
 
             ScrollView {
                 VStack(spacing: 16) {
-                    settingsItemCard(
-                        icon: "bell.fill",
-                        title: "Notifiche",
-                        subtitle: "In arrivo con il prossimo aggiornamento..."
-                    ) {
+                    settingsItemCard(icon: "bell.fill", title: "Notifiche") {
                         ProfileNotificationsView()
                     }
 
                     settingsItemCard(icon: "trophy.fill", title: "Campionati principali") {
-                        ProfileMainLeaguesSettingsView()
+                        ProfileMainLeaguesSettingsView(vm: vm)
                     }
 
                     settingsItemCard(icon: "person.crop.circle.fill", title: "Informazioni personali") {
@@ -775,7 +771,6 @@ struct ProfileSettingsView: View {
     private func settingsItemCard<Destination: View>(
         icon: String,
         title: String,
-        subtitle: String? = nil,
         @ViewBuilder destination: () -> Destination
     ) -> some View {
         NavigationLink {
@@ -785,17 +780,9 @@ struct ProfileSettingsView: View {
                 Image(systemName: icon)
                     .foregroundColor(.accentCyan)
 
-                VStack(alignment: .leading, spacing: subtitle == nil ? 0 : 3) {
-                    Text(title)
-                        .foregroundColor(.white)
-                        .font(.subheadline.bold())
-
-                    if let subtitle {
-                        Text(subtitle)
-                            .foregroundColor(.gray)
-                            .font(.caption)
-                    }
-                }
+                Text(title)
+                    .foregroundColor(.white)
+                    .font(.subheadline.bold())
 
                 Spacer()
             }
@@ -881,7 +868,7 @@ struct ProfileNotificationsView: View {
 }
 
 struct ProfileMainLeaguesSettingsView: View {
-    private let leagues = OddsService.supportedSoccerLeagues.map(\.displayName)
+    @ObservedObject var vm: BettingViewModel
 
     var body: some View {
         ZStack {
@@ -890,28 +877,14 @@ struct ProfileMainLeaguesSettingsView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     sectionCard(title: "Campionati principali") {
+                        Text("Seleziona i campionati da mostrare come principali nella sezione Sport.")
+                            .foregroundColor(.gray)
+                            .font(.caption)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
                         VStack(spacing: 10) {
-                            ForEach(leagues, id: \.self) { league in
-                                HStack(spacing: 10) {
-                                    Image(systemName: "trophy.fill")
-                                        .foregroundColor(.accentCyan)
-
-                                    Text(league)
-                                        .foregroundColor(.white)
-                                        .font(.subheadline.bold())
-
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 12)
-                                .frame(height: 44)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(Color.white.opacity(0.05))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                                        )
-                                )
+                            ForEach(vm.allAvailableMainLeagues, id: \.self) { league in
+                                leagueSelectionRow(league)
                             }
                         }
                     }
@@ -966,6 +939,39 @@ struct ProfileMainLeaguesSettingsView: View {
                         .stroke(Color.accentCyan.opacity(0.18), lineWidth: 1)
                 )
         )
+    }
+
+    private func leagueSelectionRow(_ league: String) -> some View {
+        let isSelected = vm.isMainLeagueSelected(league)
+
+        return Button {
+            vm.toggleMainLeagueSelection(league)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "trophy.fill")
+                    .foregroundColor(isSelected ? .black : .accentCyan)
+
+                Text(league)
+                    .foregroundColor(isSelected ? .black : .white)
+                    .font(.subheadline.bold())
+
+                Spacer()
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isSelected ? .black : .gray)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 44)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isSelected ? Color.accentCyan : Color.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(isSelected ? Color.accentCyan.opacity(0.6) : Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 
