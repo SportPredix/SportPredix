@@ -1735,6 +1735,8 @@ struct ContentView: View {
         let otherMatches = sortMatchesByTime(
             matches.filter { !isPreferredCompetition(competitionKey(for: $0)) }
         )
+        let preferredGroupedMatches = groupMatchesBySortedTime(preferredMatches)
+        let otherGroupedMatches = groupMatchesBySortedTime(otherMatches)
         
         return ScrollView {
             VStack(spacing: 16) {
@@ -1745,14 +1747,18 @@ struct ContentView: View {
                         sectionHeader(title: "Campionati principali")
                     }
 
-                    ForEach(preferredMatches) { match in
-                        let isMatchClosed = !vm.canBet(on: match)
-                        let isDisabled = isPastDay || isMatchClosed
+                    ForEach(preferredGroupedMatches, id: \.time) { timeGroup in
+                        timeHeader(timeGroup.time)
 
-                        NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
-                            matchCardView(match: match, disabled: isDisabled)
+                        ForEach(timeGroup.matches) { match in
+                            let isMatchClosed = !vm.canBet(on: match)
+                            let isDisabled = isPastDay || isMatchClosed
+
+                            NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
+                                matchCardView(match: match, disabled: isDisabled)
+                            }
+                            .disabled(isDisabled)
                         }
-                        .disabled(isDisabled)
                     }
 
                     if !otherMatches.isEmpty {
@@ -1762,14 +1768,18 @@ struct ContentView: View {
                         )
                     }
 
-                    ForEach(otherMatches) { match in
-                        let isMatchClosed = !vm.canBet(on: match)
-                        let isDisabled = isPastDay || isMatchClosed
+                    ForEach(otherGroupedMatches, id: \.time) { timeGroup in
+                        timeHeader(timeGroup.time)
 
-                        NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
-                            matchCardView(match: match, disabled: isDisabled)
+                        ForEach(timeGroup.matches) { match in
+                            let isMatchClosed = !vm.canBet(on: match)
+                            let isDisabled = isPastDay || isMatchClosed
+
+                            NavigationLink(destination: MatchDetailView(match: match, vm: vm)) {
+                                matchCardView(match: match, disabled: isDisabled)
+                            }
+                            .disabled(isDisabled)
                         }
-                        .disabled(isDisabled)
                     }
                 }
             }
@@ -1843,6 +1853,15 @@ struct ContentView: View {
         }
     }
 
+    private func groupMatchesBySortedTime(_ matches: [Match]) -> [(time: String, matches: [Match])] {
+        let grouped = Dictionary(grouping: matches) { $0.time }
+        let orderedTimes = sortedTimeKeys(grouped.keys)
+        return orderedTimes.map { time in
+            let values = grouped[time] ?? []
+            return (time: time, matches: sortMatchesByTime(values))
+        }
+    }
+
     private func timeSortValue(_ rawTime: String) -> Int {
         let pieces = rawTime.split(separator: ":")
         guard pieces.count == 2,
@@ -1864,6 +1883,17 @@ struct ContentView: View {
             Spacer()
         }
         .padding(.top, topPadding)
+        .padding(.horizontal, 4)
+    }
+
+    private func timeHeader(_ value: String) -> some View {
+        HStack {
+            Text(value)
+                .font(.title2.weight(.bold))
+                .foregroundColor(.accentCyan)
+            Spacer()
+        }
+        .padding(.top, 2)
         .padding(.horizontal, 4)
     }
     
@@ -1901,14 +1931,6 @@ struct ContentView: View {
                     Text(match.competition)
                         .font(.caption2)
                         .foregroundColor(.accentCyan)
-
-                    HStack(spacing: 4) {
-                        Image(systemName: "clock")
-                            .font(.caption2)
-                        Text(match.time)
-                            .font(.caption2)
-                    }
-                    .foregroundColor(.gray)
                 }
                 
                 Spacer()
