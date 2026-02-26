@@ -68,6 +68,7 @@ struct FloatingHeader: View {
     let balance: Double
     @Binding var showSportPicker: Bool
     var showsBalance: Bool = true
+    var trailingContent: AnyView? = nil
     var trailingSystemImage: String = "gearshape.fill"
     var trailingAction: (() -> Void)? = nil
     
@@ -95,7 +96,9 @@ struct FloatingHeader: View {
                 
                 Spacer()
                 
-                if showsBalance {
+                if let trailingContent {
+                    trailingContent
+                } else if showsBalance {
                 // Saldo con effetto vetro
                 GemAmountLabel(
                     amount: balance,
@@ -160,6 +163,69 @@ struct FloatingHeader: View {
                 .frame(height: 1)
                 .blur(radius: 0.5)
                 .padding(.horizontal, 20)
+        }
+    }
+}
+
+struct ApiRefreshCountdownView: View {
+    let lastUpdateTime: Date?
+
+    @State private var now = Date()
+    @State private var showInfoPopup = false
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    private var nextAutomaticFetchDate: Date {
+        guard let lastUpdateTime else { return now }
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: lastUpdateTime)
+        return calendar.date(byAdding: .day, value: 1, to: dayStart) ?? lastUpdateTime.addingTimeInterval(24 * 60 * 60)
+    }
+
+    private var remainingSeconds: Int {
+        max(0, Int(nextAutomaticFetchDate.timeIntervalSince(now)))
+    }
+
+    private var countdownText: String {
+        let hours = remainingSeconds / 3600
+        let minutes = (remainingSeconds % 3600) / 60
+        let seconds = remainingSeconds % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(countdownText)
+                .font(.headline.monospacedDigit())
+                .foregroundColor(.accentCyan)
+                .bold()
+
+            Button {
+                showInfoPopup = true
+            } label: {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.accentCyan)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .opacity(0.8)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.accentCyan.opacity(0.3), lineWidth: 1)
+                        .blur(radius: 0.5)
+                )
+        )
+        .onReceive(timer) { now = $0 }
+        .alert("Prossima chiamata API", isPresented: $showInfoPopup) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Questo countdown mostra tra quanto l'app fara la prossima chiamata automatica all'API per aggiornare i dati delle partite. Quando arriva a zero, l'aggiornamento avviene al primo refresh utile.")
         }
     }
 }
@@ -1680,7 +1746,10 @@ struct ContentView: View {
                     title: "Storico",
                     balance: vm.balance,
                     showSportPicker: $vm.showSportPicker,
-                    showsBalance: true
+                    showsBalance: false,
+                    trailingContent: AnyView(
+                        ApiRefreshCountdownView(lastUpdateTime: vm.lastUpdateTime)
+                    )
                 )
                 
                 placedBetsView
