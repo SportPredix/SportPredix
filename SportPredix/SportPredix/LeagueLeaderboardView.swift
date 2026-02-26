@@ -555,6 +555,7 @@ struct UserPublicProfileView: View {
     @State private var friendshipMessage: String?
     @State private var friendshipMessageColor: Color = .gray
     @State private var showRemoveFriendshipAlert = false
+    @State private var isDeveloperBadgeAnimating = false
 
     private static let developerAccountCodes: Set<String> = [
         "ZD0HBGEQ",
@@ -747,7 +748,6 @@ struct UserPublicProfileView: View {
         HStack(spacing: 6) {
             Image(systemName: "hammer.fill")
             Text("Sviluppatore SportPredix")
-            Image(systemName: "sparkles")
         }
         .font(.caption.bold())
         .foregroundColor(.black)
@@ -768,7 +768,20 @@ struct UserPublicProfileView: View {
             Capsule(style: .continuous)
                 .stroke(Color.white.opacity(0.35), lineWidth: 1)
         )
-        .shadow(color: Color.accentCyan.opacity(0.35), radius: 10, x: 0, y: 5)
+        .scaleEffect(isDeveloperBadgeAnimating ? 1.02 : 0.98)
+        .shadow(
+            color: Color.accentCyan.opacity(isDeveloperBadgeAnimating ? 0.42 : 0.24),
+            radius: isDeveloperBadgeAnimating ? 12 : 7,
+            x: 0,
+            y: 5
+        )
+        .animation(.easeInOut(duration: 1.25).repeatForever(autoreverses: true), value: isDeveloperBadgeAnimating)
+        .onAppear {
+            isDeveloperBadgeAnimating = true
+        }
+        .onDisappear {
+            isDeveloperBadgeAnimating = false
+        }
     }
 
     private var statsCard: some View {

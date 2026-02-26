@@ -32,6 +32,8 @@ class FirebaseManager: ObservableObject {
             "name": name,
             "email": email,
             "balance": 1000.0,
+            "streakDays": 0,
+            "bestStreakDays": 0,
             "totalBetsCount": 0,
             "totalWins": 0,
             "totalLosses": 0,
@@ -208,6 +210,30 @@ class FirebaseManager: ObservableObject {
             "totalWins": totalWins,
             "totalLosses": totalLosses,
             "lastStatsUpdated": FieldValue.serverTimestamp(),
+            "lastUpdated": FieldValue.serverTimestamp()
+        ], merge: true) { error in
+            if let error = error {
+                completion(.failure(error))
+            } else {
+                completion(.success(()))
+            }
+        }
+    }
+
+    // MARK: - Aggiorna streak utente
+    func updateUserStreak(
+        userID: String,
+        streakDays: Int,
+        bestStreakDays: Int,
+        lastVisit: Date,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let db = Firestore.firestore()
+
+        db.collection("users").document(userID).setData([
+            "streakDays": streakDays,
+            "bestStreakDays": bestStreakDays,
+            "streakLastVisit": Timestamp(date: lastVisit),
             "lastUpdated": FieldValue.serverTimestamp()
         ], merge: true) { error in
             if let error = error {
