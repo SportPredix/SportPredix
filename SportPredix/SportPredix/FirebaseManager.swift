@@ -33,6 +33,7 @@ class FirebaseManager: ObservableObject {
             "email": email,
             "balance": 1000.0,
             "streakDays": 0,
+            "consecutiveAccessDays": 0,
             "bestStreakDays": 0,
             "totalBetsCount": 0,
             "totalWins": 0,
@@ -224,6 +225,7 @@ class FirebaseManager: ObservableObject {
     func updateUserStreak(
         userID: String,
         streakDays: Int,
+        consecutiveAccessDays: Int,
         bestStreakDays: Int,
         lastVisit: Date,
         completion: @escaping (Result<Void, Error>) -> Void
@@ -232,6 +234,7 @@ class FirebaseManager: ObservableObject {
 
         db.collection("users").document(userID).setData([
             "streakDays": streakDays,
+            "consecutiveAccessDays": consecutiveAccessDays,
             "bestStreakDays": bestStreakDays,
             "streakLastVisit": Timestamp(date: lastVisit),
             "lastUpdated": FieldValue.serverTimestamp()

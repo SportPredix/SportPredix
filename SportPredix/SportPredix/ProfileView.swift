@@ -37,13 +37,14 @@ private struct RemoteGIFImageView: UIViewRepresentable {
         let imageView = UIImageView()
         imageView.contentMode = contentMode
         imageView.backgroundColor = .clear
-        imageView.clipsToBounds = false
+        imageView.clipsToBounds = true
         context.coordinator.load(url: url, into: imageView)
         return imageView
     }
 
     func updateUIView(_ uiView: UIImageView, context: Context) {
         uiView.contentMode = contentMode
+        uiView.clipsToBounds = true
         context.coordinator.load(url: url, into: uiView)
     }
 
@@ -271,45 +272,47 @@ struct ProfileView: View {
         ZStack(alignment: .bottomTrailing) {
             profileAvatar
 
-            ZStack(alignment: .bottom) {
-                ZStack {
-                    // Fallback visivo se la GIF non viene caricata.
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 34, weight: .black))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.yellow, .orange, .red.opacity(0.95)],
-                                startPoint: .top,
-                                endPoint: .bottom
+            if vm.streakDays > 0 {
+                ZStack(alignment: .bottom) {
+                    ZStack {
+                        // Fallback visivo se la GIF non viene caricata.
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 22, weight: .black))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.yellow, .orange, .red.opacity(0.95)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
                             )
-                        )
-                        .shadow(color: Color.orange.opacity(0.4), radius: 6, x: 0, y: 2)
+                            .shadow(color: Color.orange.opacity(0.4), radius: 6, x: 0, y: 2)
 
-                    if let streakFireGIFURL {
-                        RemoteGIFImageView(url: streakFireGIFURL)
-                            .frame(width: 40, height: 40)
+                        if let streakFireGIFURL {
+                            RemoteGIFImageView(url: streakFireGIFURL)
+                                .frame(width: 24, height: 24)
+                        }
                     }
-                }
 
-                Text("\(max(0, vm.streakDays))")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                    .monospacedDigit()
-                    .frame(minWidth: 24, minHeight: 18)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(Color.black.opacity(0.86))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .stroke(Color.orange.opacity(0.55), lineWidth: 1)
-                            )
-                    )
-                    .offset(y: 4)
+                    Text("\(vm.streakDays)")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .monospacedDigit()
+                        .frame(minWidth: 24, minHeight: 18)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Color.black.opacity(0.86))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .stroke(Color.orange.opacity(0.55), lineWidth: 1)
+                                )
+                        )
+                        .offset(y: 4)
+                }
+                .frame(width: 28, height: 42)
+                .offset(x: 6, y: 8)
             }
-            .frame(width: 42, height: 56)
-            .offset(x: 6, y: 8)
         }
-        .padding(.bottom, 6)
+        .padding(.bottom, vm.streakDays > 0 ? 6 : 0)
     }
 
     private var profileAvatar: some View {

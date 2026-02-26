@@ -544,6 +544,7 @@ struct UserPublicProfileView: View {
     @State private var accountCode: String
     @State private var profileImageData: Data?
     @State private var balance: Double?
+    @State private var streakDays: Int?
     @State private var totalBetsCount: Int?
     @State private var totalWins: Int?
     @State private var totalLosses: Int?
@@ -581,6 +582,7 @@ struct UserPublicProfileView: View {
         _accountCode = State(initialValue: UserPublicProfileView.normalizedAccountCode(initialAccountCode, userID: userID))
         _profileImageData = State(initialValue: initialProfileImageData)
         _balance = State(initialValue: initialBalance)
+        _streakDays = State(initialValue: nil)
         _totalBetsCount = State(initialValue: nil)
         _totalWins = State(initialValue: nil)
         _totalLosses = State(initialValue: nil)
@@ -715,6 +717,28 @@ struct UserPublicProfileView: View {
                         .overlay(
                             Capsule(style: .continuous)
                                 .stroke(Color.accentCyan.opacity(0.25), lineWidth: 1)
+                        )
+                )
+            }
+
+            if let streakDays, streakDays > 0 {
+                HStack(spacing: 8) {
+                    Image(systemName: "flame.fill")
+                        .foregroundColor(.orange)
+
+                    Text("\(streakDays)")
+                        .font(.caption.bold())
+                        .foregroundColor(.white)
+                        .monospacedDigit()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(Color.white.opacity(0.06))
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(Color.orange.opacity(0.35), lineWidth: 1)
                         )
                 )
             }
@@ -914,6 +938,7 @@ struct UserPublicProfileView: View {
 
                 accountCode = Self.normalizedAccountCode(data["accountCode"] as? String, userID: userID)
                 balance = toDouble(data["balance"]) ?? balance
+                streakDays = toInt(data["streakDays"]) ?? streakDays ?? 0
                 totalBetsCount = toInt(data["totalBetsCount"]) ?? totalBetsCount ?? 0
                 totalWins = toInt(data["totalWins"]) ?? totalWins ?? 0
                 totalLosses = toInt(data["totalLosses"]) ?? totalLosses ?? 0

@@ -366,6 +366,7 @@ final class BettingViewModel: ObservableObject {
     private let streakDaysKey = "streakDays"
     private let streakBestKey = "streakBestDays"
     private let streakLastVisitKey = "streakLastVisit"
+    private let streakConsecutiveKey = "streakConsecutiveAccessDays"
     private let matchesSourceVersionKey = "matchesSourceVersion"
     private let matchesSourceVersion = 7
     // Sostituisci con la raw URL del JSON nella tua repository esterna.
@@ -400,6 +401,11 @@ final class BettingViewModel: ObservableObject {
     private func streakLastVisitStorageKey(for userID: String?) -> String {
         guard let userID, !userID.isEmpty else { return streakLastVisitKey }
         return "\(streakLastVisitKey)_\(userID)"
+    }
+
+    private func streakConsecutiveStorageKey(for userID: String?) -> String {
+        guard let userID, !userID.isEmpty else { return streakConsecutiveKey }
+        return "\(streakConsecutiveKey)_\(userID)"
     }
 
     var allAvailableMainLeagues: [String] {
@@ -554,8 +560,20 @@ final class BettingViewModel: ObservableObject {
     }
 
     private func loadStreak(for userID: String?) {
-        streakDays = UserDefaults.standard.integer(forKey: streakDaysStorageKey(for: userID))
-        bestStreakDays = UserDefaults.standard.integer(forKey: streakBestStorageKey(for: userID))
+        let daysKey = streakDaysStorageKey(for: userID)
+        let bestKey = streakBestStorageKey(for: userID)
+        let consecutiveKey = streakConsecutiveStorageKey(for: userID)
+
+        let storedDays = UserDefaults.standard.integer(forKey: daysKey)
+        let storedConsecutive = UserDefaults.standard.integer(forKey: consecutiveKey)
+        let resolvedConsecutive = max(storedConsecutive, storedDays)
+        let resolvedActiveStreak = resolvedConsecutive >= 3 ? resolvedConsecutive : 0
+
+        UserDefaults.standard.set(resolvedConsecutive, forKey: consecutiveKey)
+        UserDefaults.standard.set(resolvedActiveStreak, forKey: daysKey)
+
+        streakDays = resolvedActiveStreak
+        bestStreakDays = max(UserDefaults.standard.integer(forKey: bestKey), resolvedActiveStreak)
     }
 
     private func refreshDailyStreakIfNeeded(for userID: String?, referenceDate: Date = Date()) {
@@ -564,8 +582,12 @@ final class BettingViewModel: ObservableObject {
         let daysKey = streakDaysStorageKey(for: userID)
         let bestKey = streakBestStorageKey(for: userID)
         let lastVisitKey = streakLastVisitStorageKey(for: userID)
+        let consecutiveKey = streakConsecutiveStorageKey(for: userID)
 
-        var updatedStreak = UserDefaults.standard.integer(forKey: daysKey)
+        var updatedConsecutive = max(
+            UserDefaults.standard.integer(forKey: consecutiveKey),
+            UserDefaults.standard.integer(forKey: daysKey)
+        )
         var updatedBest = UserDefaults.standard.integer(forKey: bestKey)
         var persistedLastVisit = today
 
@@ -575,28 +597,32 @@ final class BettingViewModel: ObservableObject {
             persistedLastVisit = lastVisit
 
             if dayDifference == 1 {
-                updatedStreak = max(1, updatedStreak + 1)
+                updatedConsecutive = max(1, updatedConsecutive + 1)
                 persistedLastVisit = today
             } else if dayDifference > 1 {
-                updatedStreak = 1
+                // Ha saltato almeno un giorno: streak persa e ripartenza da 1 giorno di accesso.
+                updatedConsecutive = 1
                 persistedLastVisit = today
             }
         } else {
-            updatedStreak = max(1, updatedStreak)
+            updatedConsecutive = max(1, updatedConsecutive)
             persistedLastVisit = today
         }
 
-        updatedBest = max(updatedBest, updatedStreak)
-        UserDefaults.standard.set(updatedStreak, forKey: daysKey)
+        let activeStreak = updatedConsecutive >= 3 ? updatedConsecutive : 0
+        updatedBest = max(updatedBest, activeStreak)
+        UserDefaults.standard.set(activeStreak, forKey: daysKey)
         UserDefaults.standard.set(updatedBest, forKey: bestKey)
         UserDefaults.standard.set(persistedLastVisit, forKey: lastVisitKey)
+        UserDefaults.standard.set(updatedConsecutive, forKey: consecutiveKey)
 
-        streakDays = updatedStreak
+        streakDays = activeStreak
         bestStreakDays = updatedBest
 
         syncStreakToCloudIfPossible(
             userID: userID,
-            streakDays: updatedStreak,
+            streakDays: activeStreak,
+            consecutiveAccessDays: updatedConsecutive,
             bestStreakDays: updatedBest,
             lastVisit: persistedLastVisit
         )
@@ -674,54 +700,65 @@ final class BettingViewModel: ObservableObject {
         let daysKey = streakDaysStorageKey(for: userID)
         let bestKey = streakBestStorageKey(for: userID)
         let lastVisitKey = streakLastVisitStorageKey(for: userID)
+        let consecutiveKey = streakConsecutiveStorageKey(for: userID)
 
         let localDays = UserDefaults.standard.integer(forKey: daysKey)
         let localBest = UserDefaults.standard.integer(forKey: bestKey)
+        let localConsecutive = max(
+            UserDefaults.standard.integer(forKey: consecutiveKey),
+            localDays
+        )
         let localLastVisit = (UserDefaults.standard.object(forKey: lastVisitKey) as? Date).map { calendar.startOfDay(for: $0) }
 
-        let remoteDays = max(0, intValue(from: data["streakDays"]) ?? 0)
+        let remoteActiveDays = max(0, intValue(from: data["streakDays"]) ?? 0)
+        let remoteConsecutive = max(
+            remoteActiveDays,
+            intValue(from: data["consecutiveAccessDays"]) ?? 0
+        )
         let remoteBest = max(0, intValue(from: data["bestStreakDays"]) ?? 0)
         let remoteLastVisit = dateValue(from: data["streakLastVisit"]).map { calendar.startOfDay(for: $0) }
 
-        var mergedDays = localDays
+        var mergedConsecutive = localConsecutive
         var mergedLastVisit = localLastVisit
 
         switch (localLastVisit, remoteLastVisit) {
         case let (local?, remote?):
             if remote > local {
-                mergedDays = remoteDays
+                mergedConsecutive = remoteConsecutive
                 mergedLastVisit = remote
             } else if local > remote {
-                mergedDays = localDays
+                mergedConsecutive = localConsecutive
                 mergedLastVisit = local
             } else {
-                mergedDays = max(localDays, remoteDays)
+                mergedConsecutive = max(localConsecutive, remoteConsecutive)
                 mergedLastVisit = local
             }
         case (nil, let remote?):
-            mergedDays = remoteDays
+            mergedConsecutive = remoteConsecutive
             mergedLastVisit = remote
         case (let local?, nil):
-            mergedDays = localDays
+            mergedConsecutive = localConsecutive
             mergedLastVisit = local
         case (nil, nil):
-            mergedDays = max(localDays, remoteDays)
-            if mergedDays > 0 {
+            mergedConsecutive = max(localConsecutive, remoteConsecutive)
+            if mergedConsecutive > 0 {
                 mergedLastVisit = calendar.startOfDay(for: Date())
             } else {
                 mergedLastVisit = nil
             }
         }
 
-        let mergedBest = max(localBest, remoteBest, mergedDays)
+        let mergedActiveStreak = mergedConsecutive >= 3 ? mergedConsecutive : 0
+        let mergedBest = max(localBest, remoteBest, mergedActiveStreak)
 
-        UserDefaults.standard.set(mergedDays, forKey: daysKey)
+        UserDefaults.standard.set(mergedActiveStreak, forKey: daysKey)
+        UserDefaults.standard.set(mergedConsecutive, forKey: consecutiveKey)
         UserDefaults.standard.set(mergedBest, forKey: bestKey)
         if let mergedLastVisit {
             UserDefaults.standard.set(mergedLastVisit, forKey: lastVisitKey)
         }
 
-        streakDays = mergedDays
+        streakDays = mergedActiveStreak
         bestStreakDays = mergedBest
 
         // Re-run daily check after merge so today's access is counted once, then sync to cloud.
@@ -731,12 +768,13 @@ final class BettingViewModel: ObservableObject {
     private func syncStreakToCloudIfPossible(
         userID: String?,
         streakDays: Int,
+        consecutiveAccessDays: Int,
         bestStreakDays: Int,
         lastVisit: Date
     ) {
         guard let userID, !userID.isEmpty else { return }
 
-        let signature = "\(streakDays)|\(bestStreakDays)|\(Int(lastVisit.timeIntervalSince1970))"
+        let signature = "\(streakDays)|\(consecutiveAccessDays)|\(bestStreakDays)|\(Int(lastVisit.timeIntervalSince1970))"
         guard signature != lastSyncedStreakSignature else { return }
 
         streakSyncTask?.cancel()
@@ -744,6 +782,7 @@ final class BettingViewModel: ObservableObject {
             FirebaseManager.shared.updateUserStreak(
                 userID: userID,
                 streakDays: streakDays,
+                consecutiveAccessDays: consecutiveAccessDays,
                 bestStreakDays: bestStreakDays,
                 lastVisit: lastVisit
             ) { result in
