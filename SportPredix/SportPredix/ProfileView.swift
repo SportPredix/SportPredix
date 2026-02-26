@@ -31,7 +31,7 @@ private struct AppToastView: View {
 
 private struct RemoteGIFImageView: UIViewRepresentable {
     let url: URL
-    var contentMode: UIView.ContentMode = .scaleAspectFit
+    var contentMode: UIView.ContentMode = .scaleAspectFill
 
     final class GIFContainerView: UIView {
         let imageView = UIImageView()
@@ -295,15 +295,16 @@ struct ProfileView: View {
                 ZStack(alignment: .bottom) {
                     if let streakFireGIFURL {
                         RemoteGIFImageView(url: streakFireGIFURL)
-                            .frame(width: 18, height: 18)
+                            .frame(width: 22, height: 22)
+                            .offset(y: -3)
                             .clipped()
                     }
 
                     Text("\(vm.streakDays)")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .monospacedDigit()
-                        .frame(minWidth: 22, minHeight: 15)
+                        .frame(minWidth: 24, minHeight: 16)
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .fill(Color.black.opacity(0.86))
@@ -312,9 +313,9 @@ struct ProfileView: View {
                                         .stroke(Color.orange.opacity(0.55), lineWidth: 1)
                                 )
                         )
-                        .offset(y: 4)
+                        .offset(y: 5)
                 }
-                .frame(width: 24, height: 34)
+                .frame(width: 30, height: 40)
                 .offset(x: 6, y: 8)
             }
         }
