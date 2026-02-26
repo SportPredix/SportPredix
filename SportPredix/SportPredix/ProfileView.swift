@@ -293,31 +293,17 @@ struct ProfileView: View {
 
             if vm.streakDays > 0 {
                 ZStack(alignment: .bottom) {
-                    ZStack {
-                        // Fallback visivo se la GIF non viene caricata.
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 14, weight: .black))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.yellow, .orange, .red.opacity(0.95)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .shadow(color: Color.orange.opacity(0.4), radius: 6, x: 0, y: 2)
-
-                        if let streakFireGIFURL {
-                            RemoteGIFImageView(url: streakFireGIFURL)
-                                .frame(width: 12, height: 12)
-                                .clipped()
-                        }
+                    if let streakFireGIFURL {
+                        RemoteGIFImageView(url: streakFireGIFURL)
+                            .frame(width: 18, height: 18)
+                            .clipped()
                     }
 
                     Text("\(vm.streakDays)")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .monospacedDigit()
-                        .frame(minWidth: 20, minHeight: 14)
+                        .frame(minWidth: 22, minHeight: 15)
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .fill(Color.black.opacity(0.86))
@@ -328,7 +314,7 @@ struct ProfileView: View {
                         )
                         .offset(y: 4)
                 }
-                .frame(width: 18, height: 26)
+                .frame(width: 24, height: 34)
                 .offset(x: 6, y: 8)
             }
         }
