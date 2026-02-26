@@ -711,8 +711,16 @@ struct ProfileSettingsView: View {
 
             ScrollView {
                 VStack(spacing: 16) {
-                    settingsItemCard(icon: "bell.fill", title: "Notifiche") {
+                    settingsItemCard(
+                        icon: "bell.fill",
+                        title: "Notifiche",
+                        subtitle: "In arrivo con il prossimo aggiornamento..."
+                    ) {
                         ProfileNotificationsView()
+                    }
+
+                    settingsItemCard(icon: "trophy.fill", title: "Campionati principali") {
+                        ProfileMainLeaguesSettingsView()
                     }
 
                     settingsItemCard(icon: "person.crop.circle.fill", title: "Informazioni personali") {
@@ -767,6 +775,7 @@ struct ProfileSettingsView: View {
     private func settingsItemCard<Destination: View>(
         icon: String,
         title: String,
+        subtitle: String? = nil,
         @ViewBuilder destination: () -> Destination
     ) -> some View {
         NavigationLink {
@@ -776,9 +785,17 @@ struct ProfileSettingsView: View {
                 Image(systemName: icon)
                     .foregroundColor(.accentCyan)
 
-                Text(title)
-                    .foregroundColor(.white)
-                    .font(.subheadline.bold())
+                VStack(alignment: .leading, spacing: subtitle == nil ? 0 : 3) {
+                    Text(title)
+                        .foregroundColor(.white)
+                        .font(.subheadline.bold())
+
+                    if let subtitle {
+                        Text(subtitle)
+                            .foregroundColor(.gray)
+                            .font(.caption)
+                    }
+                }
 
                 Spacer()
             }
@@ -796,63 +813,18 @@ struct ProfileSettingsView: View {
     }
 }
 
-private struct FakeNotificationItem: Identifiable {
-    let id = UUID()
-    let icon: String
-    let title: String
-    let detail: String
-    let time: String
-    let isUnread: Bool
-}
-
 struct ProfileNotificationsView: View {
-    private let notifications: [FakeNotificationItem] = [
-        FakeNotificationItem(
-            icon: "gift.fill",
-            title: "Bonus giornaliero disponibile",
-            detail: "Riscatta il tuo bonus prima di mezzanotte.",
-            time: "Adesso",
-            isUnread: true
-        ),
-        FakeNotificationItem(
-            icon: "trophy.fill",
-            title: "Hai scalato la classifica",
-            detail: "Sei salito di 3 posizioni nella classifica amici.",
-            time: "12 min fa",
-            isUnread: true
-        ),
-        FakeNotificationItem(
-            icon: "soccerball",
-            title: "Nuove partite disponibili",
-            detail: "Sono state aggiunte nuove quote per stasera.",
-            time: "1 h fa",
-            isUnread: false
-        ),
-        FakeNotificationItem(
-            icon: "person.2.fill",
-            title: "Nuova richiesta amico",
-            detail: "Controlla la sezione amici per rispondere.",
-            time: "Ieri",
-            isUnread: false
-        )
-    ]
-
     var body: some View {
         ZStack {
             settingsBackground
 
             ScrollView {
                 VStack(spacing: 16) {
-                    sectionCard(title: "Notifiche Recenti") {
-                        VStack(spacing: 12) {
-                            ForEach(Array(notifications.enumerated()), id: \.element.id) { index, item in
-                                notificationRow(item)
-
-                                if index < notifications.count - 1 {
-                                    Divider().background(Color.white.opacity(0.08))
-                                }
-                            }
-                        }
+                    sectionCard(title: "Notifiche") {
+                        Text("In arrivo con il prossimo aggiornamento...")
+                            .foregroundColor(.gray)
+                            .font(.subheadline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -864,43 +836,93 @@ struct ProfileNotificationsView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func notificationRow(_ item: FakeNotificationItem) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(Color.accentCyan.opacity(0.2))
-                    .frame(width: 34, height: 34)
+    private var settingsBackground: some View {
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.black,
+                    Color(red: 0.06, green: 0.07, blue: 0.1)
+                ]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
 
-                Image(systemName: item.icon)
-                    .foregroundColor(.accentCyan)
-                    .font(.subheadline.bold())
-            }
+            RadialGradient(
+                gradient: Gradient(colors: [
+                    Color.accentCyan.opacity(0.25),
+                    Color.clear
+                ]),
+                center: .topTrailing,
+                startRadius: 20,
+                endRadius: 320
+            )
+        }
+        .ignoresSafeArea()
+    }
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(item.title)
-                        .foregroundColor(.white)
-                        .font(.subheadline.bold())
-                        .lineLimit(2)
+    private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.white)
 
-                    if item.isUnread {
-                        Circle()
-                            .fill(Color.accentCyan)
-                            .frame(width: 7, height: 7)
+            content()
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.accentCyan.opacity(0.18), lineWidth: 1)
+                )
+        )
+    }
+}
+
+struct ProfileMainLeaguesSettingsView: View {
+    private let leagues = OddsService.supportedSoccerLeagues.map(\.displayName)
+
+    var body: some View {
+        ZStack {
+            settingsBackground
+
+            ScrollView {
+                VStack(spacing: 16) {
+                    sectionCard(title: "Campionati principali") {
+                        VStack(spacing: 10) {
+                            ForEach(leagues, id: \.self) { league in
+                                HStack(spacing: 10) {
+                                    Image(systemName: "trophy.fill")
+                                        .foregroundColor(.accentCyan)
+
+                                    Text(league)
+                                        .foregroundColor(.white)
+                                        .font(.subheadline.bold())
+
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 12)
+                                .frame(height: 44)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(Color.white.opacity(0.05))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                        )
+                                )
+                            }
+                        }
                     }
                 }
-
-                Text(item.detail)
-                    .foregroundColor(.gray)
-                    .font(.caption)
-
-                Text(item.time)
-                    .foregroundColor(.gray.opacity(0.8))
-                    .font(.caption2)
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 32)
             }
-
-            Spacer(minLength: 0)
         }
+        .navigationTitle("Campionati principali")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private var settingsBackground: some View {

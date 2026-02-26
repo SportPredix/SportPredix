@@ -218,16 +218,16 @@ struct BetSheet: View {
                     value: totalOdd.formatted(.number.precision(.fractionLength(2))),
                     color: .accentCyan
                 )
-                statBlock(
+                gemStatBlock(
                     title: "Vincita",
-                    value: GemFormatting.tagged(potentialWin),
+                    amount: potentialWin,
                     color: canConfirm ? .green : .gray
                 )
             }
 
-            statBlock(
+            gemStatBlock(
                 title: "Saldo disponibile",
-                value: GemFormatting.tagged(balance),
+                amount: balance,
                 color: .white
             )
 
@@ -300,6 +300,23 @@ struct BetSheet: View {
             Text(value)
                 .font(.system(.subheadline, design: .monospaced))
                 .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func gemStatBlock(title: String, amount: Double, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.gray)
+
+            GemAmountLabel(amount: amount, color: color, font: .subheadline, weight: .semibold, iconSize: 12, spacing: 5)
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
         }

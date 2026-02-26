@@ -22,7 +22,7 @@ enum GemFormatting {
     }
 
     static func tagged(_ value: Double) -> String {
-        "💎 \(amount(value))"
+        amount(value)
     }
 }
 
@@ -225,7 +225,7 @@ struct ApiRefreshCountdownView: View {
         .alert("Controllo schedine", isPresented: $showInfoPopup) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("Quando questo countdown finisce, verranno controllate tutte le schedine e, in caso di vittoria, verra accreditato l'importo indicato.")
+            Text("Al termine di questo conto alla rovescia, il sistema controllera tutte le schedine e, in caso di esito vincente, accreditera automaticamente l'importo indicato.")
         }
     }
 }
@@ -993,6 +993,13 @@ final class BettingViewModel: ObservableObject {
             return true
         }
 
+        if isOneXTwoOutcome(outcome) {
+            let hasHomeAwaySelection = picksForMatch.contains { $0.outcome == .homeAway }
+            if hasHomeAwaySelection {
+                return false
+            }
+        }
+
         if isDoubleChanceOutcome(outcome) {
             let hasOneXTwoSelection = picksForMatch.contains { isOneXTwoOutcome($0.outcome) }
             if hasOneXTwoSelection {
@@ -1018,6 +1025,13 @@ final class BettingViewModel: ObservableObject {
                 pick.match.id == latestMatch.id && pick.outcome == outcome
             }
             return
+        }
+
+        if isOneXTwoOutcome(outcome) {
+            let hasHomeAwaySelection = picksForMatch.contains { $0.outcome == .homeAway }
+            if hasHomeAwaySelection {
+                return
+            }
         }
 
         if isDoubleChanceOutcome(outcome) {
