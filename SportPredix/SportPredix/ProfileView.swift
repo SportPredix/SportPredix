@@ -1,6 +1,7 @@
 ﻿import SwiftUI
 import PhotosUI
 import UIKit
+import ImageIO
 
 private struct AppToastView: View {
     let message: String
@@ -28,6 +29,111 @@ private struct AppToastView: View {
     }
 }
 
+private struct RemoteGIFImageView: UIViewRepresentable {
+    let url: URL
+    var contentMode: UIView.ContentMode = .scaleAspectFit
+
+    func makeUIView(context: Context) -> UIImageView {
+        let imageView = UIImageView()
+        imageView.contentMode = contentMode
+        imageView.backgroundColor = .clear
+        imageView.clipsToBounds = false
+        context.coordinator.load(url: url, into: imageView)
+        return imageView
+    }
+
+    func updateUIView(_ uiView: UIImageView, context: Context) {
+        uiView.contentMode = contentMode
+        context.coordinator.load(url: url, into: uiView)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    final class Coordinator {
+        private static let cache = NSCache<NSURL, UIImage>()
+        private var currentURL: URL?
+        private var task: URLSessionDataTask?
+
+        deinit {
+            task?.cancel()
+        }
+
+        func load(url: URL, into imageView: UIImageView) {
+            if currentURL == url, imageView.image != nil {
+                return
+            }
+            currentURL = url
+
+            if let cached = Self.cache.object(forKey: url as NSURL) {
+                DispatchQueue.main.async {
+                    imageView.image = cached
+                    imageView.startAnimating()
+                }
+                return
+            }
+
+            task?.cancel()
+            task = URLSession.shared.dataTask(with: url) { data, _, _ in
+                guard let data, let animatedImage = Self.makeAnimatedImage(from: data) else {
+                    return
+                }
+
+                Self.cache.setObject(animatedImage, forKey: url as NSURL)
+
+                DispatchQueue.main.async {
+                    guard self.currentURL == url else { return }
+                    imageView.image = animatedImage
+                    imageView.startAnimating()
+                }
+            }
+            task?.resume()
+        }
+
+        private static func makeAnimatedImage(from data: Data) -> UIImage? {
+            guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+                return nil
+            }
+
+            let frameCount = CGImageSourceGetCount(source)
+            guard frameCount > 0 else {
+                return nil
+            }
+
+            var frames: [UIImage] = []
+            var totalDuration: Double = 0
+
+            for index in 0..<frameCount {
+                guard let frame = CGImageSourceCreateImageAtIndex(source, index, nil) else { continue }
+
+                let duration = frameDuration(source: source, index: index)
+                totalDuration += duration
+                frames.append(UIImage(cgImage: frame, scale: UIScreen.main.scale, orientation: .up))
+            }
+
+            guard !frames.isEmpty else { return nil }
+            if totalDuration <= 0 {
+                totalDuration = Double(frames.count) * 0.08
+            }
+
+            return UIImage.animatedImage(with: frames, duration: totalDuration)
+        }
+
+        private static func frameDuration(source: CGImageSource, index: Int) -> Double {
+            guard let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any],
+                  let gifInfo = properties[kCGImagePropertyGIFDictionary] as? [CFString: Any] else {
+                return 0.08
+            }
+
+            let unclamped = gifInfo[kCGImagePropertyGIFUnclampedDelayTime] as? Double
+            let clamped = gifInfo[kCGImagePropertyGIFDelayTime] as? Double
+            let value = unclamped ?? clamped ?? 0.08
+            return value < 0.02 ? 0.08 : value
+        }
+    }
+}
+
 struct ProfileView: View {
     @EnvironmentObject var authManager: AuthManager
     @EnvironmentObject var vm: BettingViewModel
@@ -50,6 +156,7 @@ struct ProfileView: View {
     @State private var isSavingPhoto = false
     @State private var showCopyToast = false
     @State private var copyToastHideWorkItem: DispatchWorkItem?
+    private let streakFireGIFURL = URL(string: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif")
 
     var body: some View {
         ZStack {
@@ -165,53 +272,22 @@ struct ProfileView: View {
             profileAvatar
 
             ZStack(alignment: .bottom) {
-                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { timeline in
-                    let t = timeline.date.timeIntervalSinceReferenceDate
-                    let flickerA = sin(t * 10.2)
-                    let flickerB = sin(t * 15.7 + 0.9)
-                    let sway = sin(t * 6.4 + sin(t * 2.3) * 0.5)
-                    let rise = sin(t * 11.1 + 0.7)
+                ZStack {
+                    // Fallback visivo se la GIF non viene caricata.
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 34, weight: .black))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.yellow, .orange, .red.opacity(0.95)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .shadow(color: Color.orange.opacity(0.4), radius: 6, x: 0, y: 2)
 
-                    ZStack {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 40, weight: .black))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.yellow.opacity(0.8), .orange.opacity(0.95), .red.opacity(0.92)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .blur(radius: 1.2 + (flickerB + 1.0) * 0.9)
-                            .scaleEffect(
-                                x: 0.95 + (flickerB + 1.0) * 0.09,
-                                y: 1.0 + (flickerA + 1.0) * 0.15
-                            )
-                            .opacity(0.45 + (flickerA + 1.0) * 0.15)
-                            .offset(x: sway * 1.6, y: -1.6 + rise * 0.8)
-
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 34, weight: .black))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.yellow, .orange, .red.opacity(0.96)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .scaleEffect(
-                                x: 0.95 + (flickerB + 1.0) * 0.06,
-                                y: 0.92 + (flickerA + 1.0) * 0.1
-                            )
-                            .rotationEffect(.degrees(sway * 3.0))
-                            .offset(x: sway * 1.2, y: rise * 0.8)
-                            .shadow(color: Color.orange.opacity(0.42), radius: 7, x: 0, y: 2)
-
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(Color.white.opacity(0.55 + (flickerA + 1.0) * 0.12))
-                            .scaleEffect(y: 0.8 + (flickerB + 1.0) * 0.08)
-                            .offset(x: sway * 0.4, y: 2.5)
+                    if let streakFireGIFURL {
+                        RemoteGIFImageView(url: streakFireGIFURL)
+                            .frame(width: 40, height: 40)
                     }
                 }
 
