@@ -86,6 +86,96 @@ class FirebaseManager: ObservableObject {
             }
         }
     }
+
+    // MARK: - Sincronizzazione storico schedine completo su Firestore
+    func replaceBetSlips(
+        userID: String,
+        slips: [BetSlip],
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let db = Firestore.firestore()
+        let slipsRef = db.collection("users").document(userID).collection("betSlips")
+
+        slipsRef.getDocuments { snapshot, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            let existingIDs = Set(snapshot?.documents.map { $0.documentID } ?? [])
+            let targetIDs = Set(slips.map { $0.id.uuidString })
+            let batch = db.batch()
+
+            for slip in slips {
+                guard let payload = Self.encodedBetSlipPayload(from: slip) else { continue }
+
+                let documentID = slip.id.uuidString
+                let docRef = slipsRef.document(documentID)
+                var slipData: [String: Any] = [
+                    "id": documentID,
+                    "payload": payload,
+                    "date": Timestamp(date: slip.date),
+                    "stake": slip.stake,
+                    "totalOdd": slip.totalOdd,
+                    "potentialWin": slip.potentialWin,
+                    "isEvaluated": slip.isEvaluated,
+                    "lastUpdated": FieldValue.serverTimestamp()
+                ]
+
+                if let isWon = slip.isWon {
+                    slipData["isWon"] = isWon
+                }
+
+                batch.setData(slipData, forDocument: docRef, merge: true)
+            }
+
+            for staleID in existingIDs.subtracting(targetIDs) {
+                batch.deleteDocument(slipsRef.document(staleID))
+            }
+
+            batch.commit { error in
+                if let error = error {
+                    completion(.failure(error))
+                } else {
+                    completion(.success(()))
+                }
+            }
+        }
+    }
+
+    func loadBetSlips(
+        userID: String,
+        completion: @escaping (Result<[BetSlip], Error>) -> Void
+    ) {
+        let db = Firestore.firestore()
+        let slipsRef = db.collection("users").document(userID).collection("betSlips")
+
+        slipsRef.getDocuments { snapshot, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+
+            let documents = snapshot?.documents ?? []
+            var loaded: [BetSlip] = []
+
+            for document in documents {
+                let data = document.data()
+
+                if let payload = data["payload"] as? String,
+                   let decoded = Self.decodedBetSlipPayload(from: payload) {
+                    loaded.append(decoded)
+                    continue
+                }
+
+                if let legacySlip = Self.decodedLegacyBetSlip(documentID: document.documentID, from: data) {
+                    loaded.append(legacySlip)
+                }
+            }
+
+            completion(.success(loaded.sorted { $0.date > $1.date }))
+        }
+    }
     
     // MARK: - Aggiorna saldo
     func updateBalance(userID: String, newBalance: Double, completion: @escaping (Result<Void, Error>) -> Void) {
@@ -246,6 +336,45 @@ class FirebaseManager: ObservableObject {
         default:
             return nil
         }
+    }
+
+    private static func encodedBetSlipPayload(from slip: BetSlip) -> String? {
+        guard let data = try? JSONEncoder().encode(slip) else { return nil }
+        return data.base64EncodedString()
+    }
+
+    private static func decodedBetSlipPayload(from payload: String) -> BetSlip? {
+        guard let data = Data(base64Encoded: payload) else { return nil }
+        return try? JSONDecoder().decode(BetSlip.self, from: data)
+    }
+
+    private static func decodedLegacyBetSlip(documentID: String, from data: [String: Any]) -> BetSlip? {
+        guard
+            let stake = doubleValue(from: data["stake"]),
+            let totalOdd = doubleValue(from: data["totalOdd"]),
+            let potentialWin = doubleValue(from: data["potentialWin"])
+        else {
+            return nil
+        }
+
+        let date = (data["date"] as? Timestamp)?.dateValue()
+            ?? (data["createdAt"] as? Timestamp)?.dateValue()
+            ?? Date()
+
+        let resolvedID = UUID(uuidString: documentID) ?? UUID()
+        let isWon = data["isWon"] as? Bool
+        let isEvaluated = data["isEvaluated"] as? Bool ?? false
+
+        return BetSlip(
+            id: resolvedID,
+            picks: [],
+            stake: stake,
+            totalOdd: totalOdd,
+            potentialWin: potentialWin,
+            date: date,
+            isWon: isWon,
+            isEvaluated: isEvaluated
+        )
     }
 
     private static func doubleValue(from raw: Any?) -> Double? {

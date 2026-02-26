@@ -294,9 +294,17 @@ final class BettingViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var balanceSyncTask: DispatchWorkItem?
     private var betStatsSyncTask: DispatchWorkItem?
+    private var slipsSyncTask: DispatchWorkItem?
     private var isLoadingRemoteBalance = false
+    private var isLoadingRemoteSlips = false
+    private var lastSyncedSlipsSignature: String?
     private var isLoadingPromoCodes = false
     private var isFetchingMatchesBundle = false
+
+    private func slipsStorageKey(for userID: String?) -> String {
+        guard let userID, !userID.isEmpty else { return slipsKey }
+        return "\(slipsKey)_\(userID)"
+    }
     
     init() {
         let savedBalance = UserDefaults.standard.double(forKey: "balance")
@@ -332,9 +340,15 @@ final class BettingViewModel: ObservableObject {
                     self.remoteTotalBetsCount = 0
                     self.remoteTotalWins = 0
                     self.remoteTotalLosses = 0
+                    self.lastSyncedSlipsSignature = nil
+                    self.slips = self.loadSlips(for: nil)
                     return
                 }
+                self.lastSyncedSlipsSignature = nil
+                self.migrateLegacySlipsKeyIfNeeded(for: userID)
+                self.slips = self.loadSlips(for: userID)
                 self.loadBalanceFromCloud(userID: userID)
+                self.loadSlipsFromCloud(userID: userID)
             }
             .store(in: &cancellables)
     }
@@ -403,6 +417,51 @@ final class BettingViewModel: ObservableObject {
         }
         betStatsSyncTask = task
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: task)
+    }
+
+    private func loadSlipsFromCloud(userID: String) {
+        isLoadingRemoteSlips = true
+        FirebaseManager.shared.loadBetSlips(userID: userID) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                defer { self.isLoadingRemoteSlips = false }
+
+                switch result {
+                case .success(let remoteSlips):
+                    if remoteSlips.isEmpty, !self.slips.isEmpty {
+                        // First sync for this account: keep local scoped cache and push it to Firestore.
+                        self.isLoadingRemoteSlips = false
+                        self.syncSlipsToCloudIfPossible()
+                        return
+                    }
+                    self.slips = remoteSlips.sorted { $0.date > $1.date }
+                    self.cacheSlipsLocally(self.slips, userID: userID)
+                    self.lastSyncedSlipsSignature = self.slipsSignature(for: self.slips)
+                case .failure:
+                    break
+                }
+            }
+        }
+    }
+
+    private func syncSlipsToCloudIfPossible() {
+        guard !isLoadingRemoteSlips else { return }
+        guard let userID = AuthManager.shared.currentUserID else { return }
+
+        slipsSyncTask?.cancel()
+        let slipsToSync = slips
+        guard let signature = slipsSignature(for: slipsToSync) else { return }
+        guard signature != lastSyncedSlipsSignature else { return }
+        let task = DispatchWorkItem {
+            FirebaseManager.shared.replaceBetSlips(userID: userID, slips: slipsToSync) { [weak self] result in
+                guard case .success = result else { return }
+                DispatchQueue.main.async {
+                    self?.lastSyncedSlipsSignature = signature
+                }
+            }
+        }
+        slipsSyncTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: task)
     }
     
     private func loadMatchesForAllDays() {
@@ -1019,16 +1078,37 @@ final class BettingViewModel: ObservableObject {
     }
     
     private func saveSlips() {
-        if let data = try? JSONEncoder().encode(slips) {
-            UserDefaults.standard.set(data, forKey: slipsKey)
-        }
+        cacheSlipsLocally(slips)
         syncBetStatsToCloudIfPossible()
+        syncSlipsToCloudIfPossible()
+    }
+
+    private func cacheSlipsLocally(_ slips: [BetSlip], userID: String? = AuthManager.shared.currentUserID) {
+        if let data = try? JSONEncoder().encode(slips) {
+            UserDefaults.standard.set(data, forKey: slipsStorageKey(for: userID))
+        }
+    }
+
+    private func migrateLegacySlipsKeyIfNeeded(for userID: String) {
+        let scopedKey = slipsStorageKey(for: userID)
+        guard UserDefaults.standard.data(forKey: scopedKey) == nil else { return }
+        guard let legacyData = UserDefaults.standard.data(forKey: slipsKey) else { return }
+        UserDefaults.standard.set(legacyData, forKey: scopedKey)
+    }
+
+    private func slipsSignature(for slips: [BetSlip]) -> String? {
+        guard let data = try? JSONEncoder().encode(slips) else { return nil }
+        return data.base64EncodedString()
     }
     
     private func loadSlips() -> [BetSlip] {
-        guard let data = UserDefaults.standard.data(forKey: slipsKey),
+        loadSlips(for: AuthManager.shared.currentUserID)
+    }
+
+    private func loadSlips(for userID: String?) -> [BetSlip] {
+        guard let data = UserDefaults.standard.data(forKey: slipsStorageKey(for: userID)),
               let decoded = try? JSONDecoder().decode([BetSlip].self, from: data) else { return [] }
-        return decoded
+        return decoded.sorted { $0.date > $1.date }
     }
 
     private enum PickSettlement: Equatable {
