@@ -198,6 +198,44 @@ private struct SportPassShimmerTitle: View {
     }
 }
 
+private struct NeonOrbitBorder: View {
+    var cornerRadius: CGFloat = 16
+    var lineWidth: CGFloat = 1.4
+    @State private var orbitDegrees: Double = 0
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .stroke(Color.accentCyan.opacity(0.22), lineWidth: lineWidth)
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .trim(from: 0.02, to: 0.19)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.clear,
+                                Color.white.opacity(0.98),
+                                Color.accentCyan.opacity(0.95),
+                                Color.clear
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        style: StrokeStyle(lineWidth: lineWidth + 0.8, lineCap: .round, lineJoin: .round)
+                    )
+                    .rotationEffect(.degrees(orbitDegrees))
+                    .shadow(color: Color.accentCyan.opacity(0.72), radius: 8)
+                    .shadow(color: Color.white.opacity(0.55), radius: 4)
+                    .allowsHitTesting(false)
+            }
+            .onAppear {
+                orbitDegrees = 0
+                withAnimation(.linear(duration: 2.4).repeatForever(autoreverses: false)) {
+                    orbitDegrees = 360
+                }
+            }
+    }
+}
+
 struct ProfileView: View {
     @EnvironmentObject var authManager: AuthManager
     @EnvironmentObject var vm: BettingViewModel
@@ -443,7 +481,7 @@ struct ProfileView: View {
             SportPassDetailView()
                 .environmentObject(vm)
         } label: {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline) {
                     SportPassShimmerTitle()
 
@@ -460,14 +498,14 @@ struct ProfileView: View {
                         )
                 }
 
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("\(sportPassPointsText(vm.sportPassPoints)) punti")
                             .font(.subheadline.bold())
                             .foregroundColor(.white)
 
                         if let nextTier = vm.sportPassNextTier {
-                            Text("Prossima: \(nextTier.reward)")
+                            Text("Prossimo L\(nextTier.level) a \(sportPassPointsText(nextTier.requiredPoints))")
                                 .font(.caption)
                                 .foregroundColor(.gray)
                         } else {
@@ -488,13 +526,13 @@ struct ProfileView: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 56, height: 56)
+                            .frame(width: 40, height: 40)
 
                         Image(systemName: "diamond.fill")
-                            .font(.system(size: 20, weight: .black))
+                            .font(.system(size: 15, weight: .black))
                             .foregroundColor(.white)
                     }
-                    .shadow(color: Color.accentCyan.opacity(0.45), radius: 10, x: 0, y: 2)
+                    .shadow(color: Color.accentCyan.opacity(0.45), radius: 6, x: 0, y: 2)
                 }
 
                 GeometryReader { geometry in
@@ -515,38 +553,14 @@ struct ProfileView: View {
                     }
                 }
                 .frame(height: 8)
-
-                HStack {
-                    Text("Apri Pass")
-                        .font(.caption.bold())
-                        .foregroundColor(.accentCyan)
-
-                    Spacer()
-
-                    Image(systemName: "arrow.right.circle.fill")
-                        .font(.subheadline.bold())
-                        .foregroundColor(.accentCyan)
-                }
             }
-            .padding(16)
+            .padding(12)
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(Color.black.opacity(0.74))
 
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color.accentCyan.opacity(0.95),
-                                    Color.blue.opacity(0.82),
-                                    Color.mint.opacity(0.88)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.4
-                        )
+                    NeonOrbitBorder(cornerRadius: 16, lineWidth: 1.4)
                 }
             )
             .shadow(color: Color.accentCyan.opacity(0.4), radius: 14, x: 0, y: 0)
