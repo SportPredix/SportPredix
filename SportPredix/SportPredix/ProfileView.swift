@@ -167,6 +167,24 @@ struct ProfileView: View {
             Text(authManager.currentUserEmail ?? "Email non disponibile")
                 .font(.caption)
                 .foregroundColor(.gray)
+
+            HStack(spacing: 8) {
+                Text("Saldo")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+
+                GemAmountLabel(amount: vm.balance, color: .accentCyan, font: .subheadline, weight: .bold, iconSize: 13)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(Color.accentCyan.opacity(0.25), lineWidth: 1)
+                    )
+            )
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 22)

@@ -28,52 +28,111 @@ enum GemFormatting {
 
 struct GemIcon: View {
     var color: Color = .accentCyan
-    var lineWidth: CGFloat = 1.8
+    var lineWidth: CGFloat = 2.0
 
     var body: some View {
         GeometryReader { geometry in
             let width = geometry.size.width
             let height = geometry.size.height
 
-            let top = CGPoint(x: width * 0.50, y: height * 0.06)
-            let upperLeft = CGPoint(x: width * 0.20, y: height * 0.24)
-            let lowerLeft = CGPoint(x: width * 0.20, y: height * 0.72)
-            let bottom = CGPoint(x: width * 0.50, y: height * 0.94)
-            let lowerRight = CGPoint(x: width * 0.80, y: height * 0.72)
-            let upperRight = CGPoint(x: width * 0.80, y: height * 0.24)
+            let top = CGPoint(x: width * 0.50, y: height * 0.05)
+            let leftShoulder = CGPoint(x: width * 0.18, y: height * 0.24)
+            let leftMid = CGPoint(x: width * 0.18, y: height * 0.72)
+            let bottom = CGPoint(x: width * 0.50, y: height * 0.95)
+            let rightMid = CGPoint(x: width * 0.82, y: height * 0.72)
+            let rightShoulder = CGPoint(x: width * 0.82, y: height * 0.24)
 
-            let innerTopLeft = CGPoint(x: width * 0.35, y: height * 0.22)
-            let innerTopRight = CGPoint(x: width * 0.65, y: height * 0.22)
-            let innerLowerLeft = CGPoint(x: width * 0.35, y: height * 0.72)
-            let innerLowerRight = CGPoint(x: width * 0.65, y: height * 0.72)
+            let crownLeft = CGPoint(x: width * 0.34, y: height * 0.20)
+            let crownRight = CGPoint(x: width * 0.66, y: height * 0.20)
+            let coreTop = CGPoint(x: width * 0.50, y: height * 0.28)
+            let coreBottom = CGPoint(x: width * 0.50, y: height * 0.70)
+            let facetLeftTop = CGPoint(x: width * 0.34, y: height * 0.34)
+            let facetLeftBottom = CGPoint(x: width * 0.34, y: height * 0.68)
+            let facetRightTop = CGPoint(x: width * 0.66, y: height * 0.34)
+            let facetRightBottom = CGPoint(x: width * 0.66, y: height * 0.68)
+
+            let strokeStyle = StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+
+            Path { path in
+                // Outer cut
+                path.move(to: top)
+                path.addLine(to: leftShoulder)
+                path.addLine(to: leftMid)
+                path.addLine(to: bottom)
+                path.addLine(to: rightMid)
+                path.addLine(to: rightShoulder)
+                path.closeSubpath()
+
+                // Crown facets
+                path.move(to: leftShoulder)
+                path.addLine(to: crownLeft)
+                path.addLine(to: top)
+                path.addLine(to: crownRight)
+                path.addLine(to: rightShoulder)
+
+                // Core
+                path.move(to: coreTop)
+                path.addLine(to: coreBottom)
+
+                // Side facets
+                path.move(to: crownLeft)
+                path.addLine(to: facetLeftTop)
+                path.addLine(to: facetLeftBottom)
+                path.addLine(to: bottom)
+
+                path.move(to: crownRight)
+                path.addLine(to: facetRightTop)
+                path.addLine(to: facetRightBottom)
+                path.addLine(to: bottom)
+
+                // Core connections
+                path.move(to: facetLeftTop)
+                path.addLine(to: coreTop)
+                path.addLine(to: facetRightTop)
+
+                path.move(to: facetLeftBottom)
+                path.addLine(to: coreBottom)
+                path.addLine(to: facetRightBottom)
+            }
+            .stroke(color.opacity(0.35), style: StrokeStyle(lineWidth: lineWidth + 1.2, lineCap: .round, lineJoin: .round))
 
             Path { path in
                 path.move(to: top)
-                path.addLine(to: upperLeft)
-                path.addLine(to: lowerLeft)
+                path.addLine(to: leftShoulder)
+                path.addLine(to: leftMid)
                 path.addLine(to: bottom)
-                path.addLine(to: lowerRight)
-                path.addLine(to: upperRight)
+                path.addLine(to: rightMid)
+                path.addLine(to: rightShoulder)
                 path.closeSubpath()
 
-                path.move(to: upperLeft)
-                path.addLine(to: innerTopLeft)
+                path.move(to: leftShoulder)
+                path.addLine(to: crownLeft)
                 path.addLine(to: top)
-                path.addLine(to: innerTopRight)
-                path.addLine(to: upperRight)
+                path.addLine(to: crownRight)
+                path.addLine(to: rightShoulder)
 
-                path.move(to: innerTopLeft)
-                path.addLine(to: innerLowerLeft)
+                path.move(to: coreTop)
+                path.addLine(to: coreBottom)
+
+                path.move(to: crownLeft)
+                path.addLine(to: facetLeftTop)
+                path.addLine(to: facetLeftBottom)
                 path.addLine(to: bottom)
 
-                path.move(to: innerTopRight)
-                path.addLine(to: innerLowerRight)
+                path.move(to: crownRight)
+                path.addLine(to: facetRightTop)
+                path.addLine(to: facetRightBottom)
                 path.addLine(to: bottom)
+
+                path.move(to: facetLeftTop)
+                path.addLine(to: coreTop)
+                path.addLine(to: facetRightTop)
+
+                path.move(to: facetLeftBottom)
+                path.addLine(to: coreBottom)
+                path.addLine(to: facetRightBottom)
             }
-            .stroke(
-                color,
-                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
-            )
+            .stroke(color, style: strokeStyle)
         }
         .aspectRatio(1, contentMode: .fit)
     }
@@ -89,7 +148,7 @@ struct GemAmountLabel: View {
 
     var body: some View {
         HStack(spacing: spacing) {
-            GemIcon(color: color, lineWidth: 1.8)
+            GemIcon(color: color, lineWidth: 2.0)
                 .frame(width: iconSize, height: iconSize)
 
             Text(GemFormatting.amount(amount))
