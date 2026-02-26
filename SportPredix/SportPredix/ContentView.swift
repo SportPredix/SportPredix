@@ -386,12 +386,10 @@ final class BettingViewModel: ObservableObject {
     private var betStatsSyncTask: DispatchWorkItem?
     private var slipsSyncTask: DispatchWorkItem?
     private var streakSyncTask: DispatchWorkItem?
-    private var sportPassSyncTask: DispatchWorkItem?
     private var isLoadingRemoteBalance = false
     private var isLoadingRemoteSlips = false
     private var lastSyncedSlipsSignature: String?
     private var lastSyncedStreakSignature: String?
-    private var lastSyncedSportPassPoints: Double?
     private var isLoadingPromoCodes = false
     private var isFetchingMatchesBundle = false
 
@@ -602,9 +600,7 @@ final class BettingViewModel: ObservableObject {
                     self.remoteTotalLosses = 0
                     self.lastSyncedSlipsSignature = nil
                     self.lastSyncedStreakSignature = nil
-                    self.lastSyncedSportPassPoints = nil
                     self.streakSyncTask?.cancel()
-                    self.sportPassSyncTask?.cancel()
                     self.slips = self.loadSlips(for: nil)
                     self.loadStreak(for: nil)
                     self.refreshDailyStreakIfNeeded(for: nil)
@@ -613,7 +609,6 @@ final class BettingViewModel: ObservableObject {
                 }
                 self.lastSyncedSlipsSignature = nil
                 self.lastSyncedStreakSignature = nil
-                self.lastSyncedSportPassPoints = nil
                 self.migrateLegacySlipsKeyIfNeeded(for: userID)
                 self.slips = self.loadSlips(for: userID)
                 self.loadSportPass(for: userID)
@@ -648,12 +643,17 @@ final class BettingViewModel: ObservableObject {
 
     private func loadSportPass(for userID: String?) {
         let key = sportPassPointsStorageKey(for: userID)
-        // Il pass avanza esclusivamente dal netto delle schedine vinte e valutate.
-        let computedPoints = slips.reduce(0.0) { partial, slip in
+        if let storedValue = UserDefaults.standard.object(forKey: key) as? NSNumber {
+            sportPassPoints = max(0, storedValue.doubleValue)
+            return
+        }
+
+        // Migrazione iniziale: calcola i punti dal netto delle schedine gia valutate come vinte.
+        let migrated = slips.reduce(0.0) { partial, slip in
             guard slip.isEvaluated, slip.isWon == true else { return partial }
             return partial + max(0, slip.potentialWin - slip.stake)
         }
-        sportPassPoints = max(0, computedPoints)
+        sportPassPoints = max(0, migrated)
         UserDefaults.standard.set(sportPassPoints, forKey: key)
     }
 
@@ -662,7 +662,6 @@ final class BettingViewModel: ObservableObject {
         guard gainedPoints > 0 else { return }
         sportPassPoints += gainedPoints
         UserDefaults.standard.set(sportPassPoints, forKey: sportPassPointsStorageKey(for: AuthManager.shared.currentUserID))
-        syncSportPassToCloudIfPossible(userID: AuthManager.shared.currentUserID, points: sportPassPoints)
     }
 
     private func refreshDailyStreakIfNeeded(for userID: String?, referenceDate: Date = Date()) {
@@ -736,21 +735,6 @@ final class BettingViewModel: ObservableObject {
                     self.remoteTotalBetsCount = self.intValue(from: data["totalBetsCount"]) ?? 0
                     self.remoteTotalWins = self.intValue(from: data["totalWins"]) ?? 0
                     self.remoteTotalLosses = self.intValue(from: data["totalLosses"]) ?? 0
-                    let remoteSportPassPoints =
-                        (data["sportPassPoints"] as? NSNumber)?.doubleValue
-                        ?? (data["sportPassPoints"] as? Double)
-                    if let remoteSportPassPoints {
-                        let safeRemotePoints = max(0, remoteSportPassPoints)
-                        self.lastSyncedSportPassPoints = safeRemotePoints
-                        let mergedPoints = max(self.sportPassPoints, safeRemotePoints)
-                        self.sportPassPoints = mergedPoints
-                        UserDefaults.standard.set(mergedPoints, forKey: self.sportPassPointsStorageKey(for: userID))
-                        if abs(mergedPoints - safeRemotePoints) > 0.0001 {
-                            self.syncSportPassToCloudIfPossible(userID: userID, points: mergedPoints)
-                        }
-                    } else {
-                        self.syncSportPassToCloudIfPossible(userID: userID, points: self.sportPassPoints)
-                    }
                     self.mergeStreakFromCloudIfNeeded(userID: userID, data: data)
                 case .failure:
                     break
@@ -797,27 +781,6 @@ final class BettingViewModel: ObservableObject {
         }
         betStatsSyncTask = task
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: task)
-    }
-
-    private func syncSportPassToCloudIfPossible(userID: String?, points: Double? = nil) {
-        guard let userID, !userID.isEmpty else { return }
-
-        let pointsToSync = max(0, points ?? sportPassPoints)
-        if let lastSyncedSportPassPoints, abs(lastSyncedSportPassPoints - pointsToSync) < 0.0001 {
-            return
-        }
-
-        sportPassSyncTask?.cancel()
-        let task = DispatchWorkItem { [weak self] in
-            FirebaseManager.shared.updateSportPassPoints(userID: userID, points: pointsToSync) { result in
-                guard case .success = result else { return }
-                DispatchQueue.main.async {
-                    self?.lastSyncedSportPassPoints = pointsToSync
-                }
-            }
-        }
-        sportPassSyncTask = task
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: task)
     }
 
     private func mergeStreakFromCloudIfNeeded(userID: String, data: [String: Any]) {
@@ -937,7 +900,6 @@ final class BettingViewModel: ObservableObject {
                         return
                     }
                     self.slips = remoteSlips.sorted { $0.date > $1.date }
-                    self.loadSportPass(for: userID)
                     self.cacheSlipsLocally(self.slips, userID: userID)
                     self.lastSyncedSlipsSignature = self.slipsSignature(for: self.slips)
                 case .failure:
@@ -1847,7 +1809,6 @@ final class BettingViewModel: ObservableObject {
         currentPicks.removeAll()
         sportPassPoints = 0
         UserDefaults.standard.set(0.0, forKey: sportPassPointsStorageKey(for: AuthManager.shared.currentUserID))
-        syncSportPassToCloudIfPossible(userID: AuthManager.shared.currentUserID, points: 0)
         saveSlips()
     }
     

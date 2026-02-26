@@ -175,6 +175,7 @@ struct ProfileView: View {
     @State private var photoFeedbackColor: Color = .gray
     @State private var isSavingPhoto = false
     @State private var showCopyToast = false
+    @State private var showSportPassDetail = false
     @State private var copyToastHideWorkItem: DispatchWorkItem?
     private let streakFireGIFURL = URL(string: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif")
 
@@ -219,6 +220,10 @@ struct ProfileView: View {
             }
         } message: {
             Text("Sei sicuro di voler uscire?")
+        }
+        .sheet(isPresented: $showSportPassDetail) {
+            SportPassDetailView()
+                .environmentObject(vm)
         }
         .onAppear {
             authManager.refreshUnreadFriendRequestsStatus()
@@ -409,27 +414,40 @@ struct ProfileView: View {
 
                 Spacer()
 
-                Text("NEON")
-                    .font(.caption2.bold())
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(Color.accentCyan)
-                    )
+                HStack(spacing: 8) {
+                    Text("NEON")
+                        .font(.caption2.bold())
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.accentCyan)
+                        )
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption.bold())
+                        .foregroundColor(.accentCyan.opacity(0.9))
+                }
             }
 
-            HStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Accesso Premium")
+                    Text("Livello \(vm.sportPassCurrentTier)/\(vm.sportPassMaxTier)")
                         .font(.subheadline.bold())
                         .foregroundColor(.white)
 
-                    Text("Profilo avanzato, vantaggi esclusivi e badge potenziati.")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if let nextTier = vm.sportPassNextTier {
+                        Text("Prossima soglia: Livello \(nextTier.level) - \(nextTier.reward)")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text("Pass completato: tutte le 20 soglie sbloccate.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 Spacer(minLength: 0)
@@ -456,9 +474,48 @@ struct ProfileView: View {
                 }
             }
 
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Text("\(sportPassPointsText(vm.sportPassPoints)) punti")
+                        .font(.caption.bold())
+                        .foregroundColor(.accentCyan)
+
+                    Spacer()
+
+                    if let nextTier = vm.sportPassNextTier {
+                        Text("Target \(sportPassPointsText(nextTier.requiredPoints))")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    } else {
+                        Text("Target MAX")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                }
+
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        Capsule(style: .continuous)
+                            .fill(Color.white.opacity(0.08))
+
+                        Capsule(style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.accentCyan, Color.mint],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: max(10, geometry.size.width * max(0, min(1, vm.sportPassProgressToNextTier))))
+                            .animation(.easeInOut(duration: 0.25), value: vm.sportPassProgressToNextTier)
+                    }
+                }
+                .frame(height: 8)
+            }
+
             HStack(spacing: 8) {
-                sportPassPill(systemImage: "sparkles", label: "Esperienza Neon")
-                sportPassPill(systemImage: "flame.fill", label: "Streak Boost")
+                sportPassPill(systemImage: "list.bullet.rectangle.fill", label: "Solo schedine vinte")
+                sportPassPill(systemImage: "nosign", label: "No slot e promo")
             }
         }
         .padding(16)
@@ -484,8 +541,11 @@ struct ProfileView: View {
         )
         .shadow(color: Color.accentCyan.opacity(0.4), radius: 14, x: 0, y: 0)
         .shadow(color: Color.blue.opacity(0.28), radius: 20, x: 0, y: 8)
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .onTapGesture {
+            showSportPassDetail = true
+        }
     }
-
     private var friendsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Amici")
@@ -573,6 +633,11 @@ struct ProfileView: View {
                         .stroke(Color.accentCyan.opacity(0.35), lineWidth: 1)
                 )
         )
+    }
+
+    private func sportPassPointsText(_ value: Double) -> String {
+        let rounded = Int(value.rounded())
+        return "\(rounded)"
     }
 
     private var settingsCard: some View {
@@ -966,6 +1031,195 @@ struct ProfileView: View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(Color.accentCyan.opacity(0.18), lineWidth: 1)
             )
+    }
+}
+
+private struct SportPassDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var vm: BettingViewModel
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color.black,
+                        Color(red: 0.06, green: 0.07, blue: 0.1)
+                    ]),
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 16) {
+                        headerCard
+                        tiersCard
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .padding(.bottom, 32)
+                }
+            }
+            .navigationTitle("SportPass")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Chiudi") {
+                        dismiss()
+                    }
+                    .foregroundColor(.accentCyan)
+                }
+            }
+        }
+    }
+
+    private var headerCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Progressi Pass")
+                    .font(.headline.weight(.black))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.white, Color.accentCyan, Color.mint],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+
+                Spacer()
+
+                Text("LIV \(vm.sportPassCurrentTier)/\(vm.sportPassMaxTier)")
+                    .font(.caption2.bold())
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(Color.accentCyan)
+                    )
+            }
+
+            HStack {
+                Text("\(sportPassPointsText(vm.sportPassPoints)) punti")
+                    .font(.subheadline.bold())
+                    .foregroundColor(.accentCyan)
+
+                Spacer()
+
+                if let nextTier = vm.sportPassNextTier {
+                    Text("Prossimo: L\(nextTier.level)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                } else {
+                    Text("Completato")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule(style: .continuous)
+                        .fill(Color.white.opacity(0.08))
+
+                    Capsule(style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.accentCyan, Color.mint],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(10, geometry.size.width * max(0, min(1, vm.sportPassProgressToNextTier))))
+                        .animation(.easeInOut(duration: 0.25), value: vm.sportPassProgressToNextTier)
+                }
+            }
+            .frame(height: 9)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.black.opacity(0.72))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color.accentCyan.opacity(0.95),
+                                    Color.blue.opacity(0.8),
+                                    Color.mint.opacity(0.85)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.4
+                        )
+                )
+        )
+        .shadow(color: Color.accentCyan.opacity(0.35), radius: 12, x: 0, y: 0)
+    }
+
+    private var tiersCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Soglie e Ricompense")
+                .font(.headline)
+                .foregroundColor(.white)
+
+            ForEach(vm.sportPassTiers) { tier in
+                let isUnlocked = vm.sportPassPoints >= tier.requiredPoints
+                HStack(spacing: 10) {
+                    Text("L\(tier.level)")
+                        .font(.caption.bold())
+                        .foregroundColor(.black)
+                        .frame(width: 34, height: 24)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(isUnlocked ? Color.accentCyan : Color.gray.opacity(0.3))
+                        )
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(tier.reward)
+                            .font(.subheadline.bold())
+                            .foregroundColor(.white)
+                        Text("Richiesti \(sportPassPointsText(tier.requiredPoints)) punti")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: isUnlocked ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(isUnlocked ? .accentCyan : .gray)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white.opacity(0.04))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(
+                                    isUnlocked ? Color.accentCyan.opacity(0.35) : Color.white.opacity(0.08),
+                                    lineWidth: 1
+                                )
+                        )
+                )
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.black.opacity(0.7))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.accentCyan.opacity(0.18), lineWidth: 1)
+                )
+        )
+    }
+
+    private func sportPassPointsText(_ value: Double) -> String {
+        "\(Int(value.rounded()))"
     }
 }
 
@@ -1646,7 +1900,7 @@ struct ProfileFriendsCenterView: View {
         Picker("Classifica", selection: $selectedTab) {
             ForEach(FriendCenterTab.allCases) { tab in
                 if tab == .received && authManager.hasUnreadFriendRequests {
-                    Text("\(tab.rawValue) �").tag(tab)
+                    Text("\(tab.rawValue) ï¿½").tag(tab)
                 } else {
                     Text(tab.rawValue).tag(tab)
                 }
