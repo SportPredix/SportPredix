@@ -186,6 +186,7 @@ struct ProfileView: View {
                 VStack(spacing: 20) {
                     userCard
                     statsRow
+                    sportPassCard
                     friendsCard
                     logoutButton
                     footer
@@ -263,24 +264,6 @@ struct ProfileView: View {
             Text(authManager.currentUserEmail ?? "Email non disponibile")
                 .font(.caption)
                 .foregroundColor(.gray)
-
-            HStack(spacing: 8) {
-                Text("Saldo")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-
-                GemAmountLabel(amount: vm.balance, color: .accentCyan, font: .subheadline, weight: .bold, iconSize: 15)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color.white.opacity(0.06))
-                    .overlay(
-                        Capsule(style: .continuous)
-                            .stroke(Color.accentCyan.opacity(0.25), lineWidth: 1)
-                    )
-            )
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 22)
@@ -411,9 +394,105 @@ struct ProfileView: View {
         }
     }
 
+    private var sportPassCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("SportPass")
+                    .font(.headline.weight(.black))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.white, Color.accentCyan, Color.mint],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+
+                Spacer()
+
+                Text("NEON")
+                    .font(.caption2.bold())
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(Color.accentCyan)
+                    )
+            }
+
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Accesso Premium")
+                        .font(.subheadline.bold())
+                        .foregroundColor(.white)
+
+                    Text("Profilo avanzato, vantaggi esclusivi e badge potenziati.")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                gradient: Gradient(colors: [
+                                    Color.accentCyan.opacity(0.95),
+                                    Color.blue.opacity(0.7),
+                                    Color.clear
+                                ]),
+                                center: .center,
+                                startRadius: 6,
+                                endRadius: 36
+                            )
+                        )
+                        .frame(width: 46, height: 46)
+
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 18, weight: .heavy))
+                        .foregroundColor(.white)
+                }
+            }
+
+            HStack(spacing: 8) {
+                sportPassPill(systemImage: "sparkles", label: "Esperienza Neon")
+                sportPassPill(systemImage: "flame.fill", label: "Streak Boost")
+            }
+        }
+        .padding(16)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.black.opacity(0.72))
+
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.accentCyan.opacity(0.95),
+                                Color.blue.opacity(0.8),
+                                Color.mint.opacity(0.85)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.4
+                    )
+            }
+        )
+        .shadow(color: Color.accentCyan.opacity(0.4), radius: 14, x: 0, y: 0)
+        .shadow(color: Color.blue.opacity(0.28), radius: 20, x: 0, y: 8)
+    }
+
     private var friendsCard: some View {
-        sectionCard(title: "Amici") {
-            VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Amici")
+                .font(.headline)
+                .foregroundColor(.white)
+
+            VStack(spacing: 10) {
                 NavigationLink {
                     ProfileFriendsCenterView()
                 } label: {
@@ -439,19 +518,61 @@ struct ProfileView: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .frame(height: 40)
 
-                Divider().background(Color.white.opacity(0.08))
+                HStack(spacing: 8) {
+                    Image(systemName: "number.square.fill")
+                        .font(.caption.bold())
+                        .foregroundColor(.gray)
 
-                accountRow(
-                    icon: "number.square.fill",
-                    label: "Codice Amico",
-                    value: authManager.currentUserAccountCode,
-                    valueColor: .accentCyan,
-                    showsCopyButton: true,
-                    copyAction: copyCurrentUserFriendCode
-                )
+                    Text("Codice")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+
+                    Spacer()
+
+                    Text(authManager.currentUserAccountCode)
+                        .font(.caption.bold())
+                        .foregroundColor(.accentCyan)
+                        .lineLimit(1)
+
+                    Button(action: copyCurrentUserFriendCode) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.caption.bold())
+                            .foregroundColor(.accentCyan)
+                            .frame(width: 24, height: 24)
+                            .background(
+                                Circle()
+                                    .fill(Color.white.opacity(0.08))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+            .padding(12)
+            .background(glassCard(cornerRadius: 14))
         }
+    }
+
+    private func sportPassPill(systemImage: String, label: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.caption.bold())
+            Text(label)
+                .font(.caption2.bold())
+                .lineLimit(1)
+        }
+        .foregroundColor(.accentCyan)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.white.opacity(0.04))
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(Color.accentCyan.opacity(0.35), lineWidth: 1)
+                )
+        )
     }
 
     private var settingsCard: some View {
