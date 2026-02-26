@@ -556,6 +556,12 @@ struct UserPublicProfileView: View {
     @State private var friendshipMessageColor: Color = .gray
     @State private var showRemoveFriendshipAlert = false
 
+    private static let developerAccountCodes: Set<String> = [
+        "ZD0HBGEQ",
+        "8K4AKMTL",
+        "RFE6F1Y3"
+    ]
+
     init(
         userID: String,
         initialName: String? = nil,
@@ -666,13 +672,25 @@ struct UserPublicProfileView: View {
         VStack(spacing: 12) {
             avatarView
 
-            Text(name)
-                .font(.title3.bold())
-                .foregroundColor(.white)
+            HStack(spacing: 6) {
+                Text(name)
+                    .font(.title3.bold())
+                    .foregroundColor(.white)
+
+                if isDeveloperProfile {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.accentCyan)
+                }
+            }
+
+            if isDeveloperProfile {
+                developerBadge
+            }
 
             Text("Codice: \(accountCode)")
                 .font(.caption)
-                .foregroundColor(.gray)
+                .foregroundColor(isDeveloperProfile ? .accentCyan : .gray)
 
             if let balance {
                 HStack(spacing: 8) {
@@ -704,12 +722,53 @@ struct UserPublicProfileView: View {
         .padding(.vertical, 18)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.white.opacity(0.06))
+                .fill(isDeveloperProfile ? Color.accentCyan.opacity(0.09) : Color.white.opacity(0.06))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.accentCyan.opacity(0.18), lineWidth: 1)
+                        .stroke(
+                            isDeveloperProfile ? Color.accentCyan.opacity(0.65) : Color.accentCyan.opacity(0.18),
+                            lineWidth: isDeveloperProfile ? 1.5 : 1
+                        )
                 )
         )
+        .shadow(
+            color: isDeveloperProfile ? Color.accentCyan.opacity(0.28) : Color.clear,
+            radius: isDeveloperProfile ? 16 : 0,
+            x: 0,
+            y: 8
+        )
+    }
+
+    private var isDeveloperProfile: Bool {
+        Self.developerAccountCodes.contains(accountCode.uppercased())
+    }
+
+    private var developerBadge: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "hammer.fill")
+            Text("Sviluppatore SportPredix")
+            Image(systemName: "sparkles")
+        }
+        .font(.caption.bold())
+        .foregroundColor(.black)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.accentCyan,
+                    Color.mint
+                ]),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+        .clipShape(Capsule())
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(Color.white.opacity(0.35), lineWidth: 1)
+        )
+        .shadow(color: Color.accentCyan.opacity(0.35), radius: 10, x: 0, y: 5)
     }
 
     private var statsCard: some View {

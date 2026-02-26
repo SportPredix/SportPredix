@@ -343,6 +343,8 @@ final class BettingViewModel: ObservableObject {
     }
 
     @Published private(set) var apiAvailableMainLeagues: [String] = []
+    @Published private(set) var streakDays = 0
+    @Published private(set) var bestStreakDays = 0
     
     @Published var currentPicks: [BetPick] = []
     @Published var slips: [BetSlip] = []
@@ -360,6 +362,9 @@ final class BettingViewModel: ObservableObject {
     private let lastFetchKey = "lastBetstackFetch"
     private let lastBundleFetchDayKey = "lastMatchesBundleFetchDay"
     private let preferredMainLeaguesKey = "preferredMainLeagues"
+    private let streakDaysKey = "streakDays"
+    private let streakBestKey = "streakBestDays"
+    private let streakLastVisitKey = "streakLastVisit"
     private let matchesSourceVersionKey = "matchesSourceVersion"
     private let matchesSourceVersion = 7
     // Sostituisci con la raw URL del JSON nella tua repository esterna.
@@ -377,6 +382,21 @@ final class BettingViewModel: ObservableObject {
     private func slipsStorageKey(for userID: String?) -> String {
         guard let userID, !userID.isEmpty else { return slipsKey }
         return "\(slipsKey)_\(userID)"
+    }
+
+    private func streakDaysStorageKey(for userID: String?) -> String {
+        guard let userID, !userID.isEmpty else { return streakDaysKey }
+        return "\(streakDaysKey)_\(userID)"
+    }
+
+    private func streakBestStorageKey(for userID: String?) -> String {
+        guard let userID, !userID.isEmpty else { return streakBestKey }
+        return "\(streakBestKey)_\(userID)"
+    }
+
+    private func streakLastVisitStorageKey(for userID: String?) -> String {
+        guard let userID, !userID.isEmpty else { return streakLastVisitKey }
+        return "\(streakLastVisitKey)_\(userID)"
     }
 
     var allAvailableMainLeagues: [String] {
@@ -423,6 +443,8 @@ final class BettingViewModel: ObservableObject {
         self.slips = loadSlips()
         self.dailyMatches = loadMatches()
         migrateMatchesCacheIfNeeded()
+        loadStreak(for: AuthManager.shared.currentUserID)
+        refreshDailyStreakIfNeeded(for: AuthManager.shared.currentUserID)
         
         if let savedDate = UserDefaults.standard.object(forKey: lastFetchKey) as? Date {
             self.lastUpdateTime = savedDate
@@ -506,6 +528,8 @@ final class BettingViewModel: ObservableObject {
                     self.remoteTotalLosses = 0
                     self.lastSyncedSlipsSignature = nil
                     self.slips = self.loadSlips(for: nil)
+                    self.loadStreak(for: nil)
+                    self.refreshDailyStreakIfNeeded(for: nil)
                     return
                 }
                 self.lastSyncedSlipsSignature = nil
@@ -513,8 +537,53 @@ final class BettingViewModel: ObservableObject {
                 self.slips = self.loadSlips(for: userID)
                 self.loadBalanceFromCloud(userID: userID)
                 self.loadSlipsFromCloud(userID: userID)
+                self.loadStreak(for: userID)
+                self.refreshDailyStreakIfNeeded(for: userID)
             }
             .store(in: &cancellables)
+    }
+
+    func registerDailyAccess() {
+        refreshDailyStreakIfNeeded(for: AuthManager.shared.currentUserID)
+    }
+
+    private func loadStreak(for userID: String?) {
+        streakDays = UserDefaults.standard.integer(forKey: streakDaysStorageKey(for: userID))
+        bestStreakDays = UserDefaults.standard.integer(forKey: streakBestStorageKey(for: userID))
+    }
+
+    private func refreshDailyStreakIfNeeded(for userID: String?, referenceDate: Date = Date()) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: referenceDate)
+        let daysKey = streakDaysStorageKey(for: userID)
+        let bestKey = streakBestStorageKey(for: userID)
+        let lastVisitKey = streakLastVisitStorageKey(for: userID)
+
+        var updatedStreak = UserDefaults.standard.integer(forKey: daysKey)
+        var updatedBest = UserDefaults.standard.integer(forKey: bestKey)
+
+        if let rawLastVisit = UserDefaults.standard.object(forKey: lastVisitKey) as? Date {
+            let lastVisit = calendar.startOfDay(for: rawLastVisit)
+            let dayDifference = calendar.dateComponents([.day], from: lastVisit, to: today).day ?? 0
+
+            if dayDifference == 1 {
+                updatedStreak = max(1, updatedStreak + 1)
+                UserDefaults.standard.set(today, forKey: lastVisitKey)
+            } else if dayDifference > 1 {
+                updatedStreak = 1
+                UserDefaults.standard.set(today, forKey: lastVisitKey)
+            }
+        } else {
+            updatedStreak = 1
+            UserDefaults.standard.set(today, forKey: lastVisitKey)
+        }
+
+        updatedBest = max(updatedBest, updatedStreak)
+        UserDefaults.standard.set(updatedStreak, forKey: daysKey)
+        UserDefaults.standard.set(updatedBest, forKey: bestKey)
+
+        streakDays = updatedStreak
+        bestStreakDays = updatedBest
     }
 
     private func loadBalanceFromCloud(userID: String) {
@@ -1611,6 +1680,7 @@ final class BettingViewModel: ObservableObject {
 struct ContentView: View {
     
     @StateObject private var vm = BettingViewModel()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var refreshID = UUID()
     @State private var showProfileSettings = false
     @State private var showMainLeaguesSettings = false
@@ -1635,6 +1705,14 @@ struct ContentView: View {
         }
         .navigationBarHidden(true)
         .preferredColorScheme(preferredColorScheme)
+        .onAppear {
+            vm.registerDailyAccess()
+        }
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .active {
+                vm.registerDailyAccess()
+            }
+        }
     }
 
     private var preferredColorScheme: ColorScheme? {
@@ -2193,12 +2271,6 @@ struct ContentView: View {
         showsSettingsButton: Bool = false
     ) -> some View {
         HStack {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.gray)
-
-            Spacer()
-
             if showsSettingsButton {
                 Button {
                     showMainLeaguesSettings = true
@@ -2218,6 +2290,12 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.gray)
+
+            Spacer()
         }
         .padding(.top, topPadding)
         .padding(.horizontal, 4)

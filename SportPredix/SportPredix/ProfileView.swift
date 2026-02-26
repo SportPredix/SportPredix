@@ -185,6 +185,31 @@ struct ProfileView: View {
                             .stroke(Color.accentCyan.opacity(0.25), lineWidth: 1)
                     )
             )
+
+            HStack(spacing: 8) {
+                Image(systemName: "flame.fill")
+                    .foregroundColor(.orange)
+
+                Text("Streak: \(vm.streakDays) \(vm.streakDays == 1 ? "giorno" : "giorni")")
+                    .font(.caption.bold())
+                    .foregroundColor(.white)
+
+                if vm.bestStreakDays > 0 {
+                    Text("Best \(vm.bestStreakDays)")
+                        .font(.caption2)
+                        .foregroundColor(.orange.opacity(0.9))
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(Color.orange.opacity(0.35), lineWidth: 1)
+                    )
+            )
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 22)
