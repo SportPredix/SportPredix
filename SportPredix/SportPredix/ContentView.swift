@@ -1889,7 +1889,7 @@ struct ContentView: View {
     private func timeHeader(_ value: String) -> some View {
         HStack {
             Text(value)
-                .font(.title2.weight(.bold))
+                .font(.title3.weight(.bold))
                 .foregroundColor(.accentCyan)
             Spacer()
         }
@@ -2152,8 +2152,8 @@ struct CasinoFullView: View {
 struct GamesContentView: View {
     let games = [
         ("Gratta e Vinci", "sparkles", Color.accentCyan),
-        ("Slot Machine", "slot.machine", Color.pink),
-        ("Crazy Time", "clock.badge", Color.orange),
+        ("Slot Machine", "dice.fill", Color.pink),
+        ("Crazy Time", "timer", Color.orange),
         ("Roulette", "circle.grid.cross", Color.green),
         ("Blackjack", "suit.club", Color.purple),
         ("Poker", "suit.spade", Color.yellow)

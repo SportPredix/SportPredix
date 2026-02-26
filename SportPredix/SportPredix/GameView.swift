@@ -988,8 +988,8 @@ private enum SlotSymbol: CaseIterable, Hashable {
 struct GamesView: View {
     private let games = [
         ("Gratta e Vinci", "sparkles", Color.accentCyan),
-        ("Slot Machine", "slot.machine", Color.pink),
-        ("Crazy Time", "clock.badge", Color.orange),
+        ("Slot Machine", "dice.fill", Color.pink),
+        ("Crazy Time", "timer", Color.orange),
         ("Roulette", "circle.grid.cross", Color.green),
         ("Blackjack", "suit.club", Color.purple),
         ("Poker", "suit.spade", Color.yellow)
