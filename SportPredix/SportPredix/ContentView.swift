@@ -28,26 +28,26 @@ enum GemFormatting {
 
 struct GemIcon: View {
     var color: Color = .accentCyan
-    var lineWidth: CGFloat = 1.6
+    var lineWidth: CGFloat = 2.2
 
     var body: some View {
         GeometryReader { geometry in
             let width = geometry.size.width
             let height = geometry.size.height
 
-            let top = CGPoint(x: width * 0.50, y: height * 0.08)
-            let upperLeft = CGPoint(x: width * 0.22, y: height * 0.24)
-            let lowerLeft = CGPoint(x: width * 0.22, y: height * 0.70)
-            let bottom = CGPoint(x: width * 0.50, y: height * 0.92)
-            let lowerRight = CGPoint(x: width * 0.78, y: height * 0.70)
-            let upperRight = CGPoint(x: width * 0.78, y: height * 0.24)
+            let top = CGPoint(x: width * 0.50, y: height * 0.07)
+            let upperLeft = CGPoint(x: width * 0.20, y: height * 0.24)
+            let lowerLeft = CGPoint(x: width * 0.20, y: height * 0.72)
+            let bottom = CGPoint(x: width * 0.50, y: height * 0.93)
+            let lowerRight = CGPoint(x: width * 0.80, y: height * 0.72)
+            let upperRight = CGPoint(x: width * 0.80, y: height * 0.24)
 
-            let innerLeftTop = CGPoint(x: width * 0.38, y: height * 0.26)
-            let innerRightTop = CGPoint(x: width * 0.62, y: height * 0.26)
-            let innerLeftBottom = CGPoint(x: width * 0.38, y: height * 0.68)
-            let innerRightBottom = CGPoint(x: width * 0.62, y: height * 0.68)
+            let crownLeft = CGPoint(x: width * 0.36, y: height * 0.24)
+            let crownRight = CGPoint(x: width * 0.64, y: height * 0.24)
+            let coreTop = CGPoint(x: width * 0.50, y: height * 0.33)
+            let coreBottom = CGPoint(x: width * 0.50, y: height * 0.68)
 
-            let outerPath = Path { path in
+            let shellPath = Path { path in
                 path.move(to: top)
                 path.addLine(to: upperLeft)
                 path.addLine(to: lowerLeft)
@@ -59,52 +59,53 @@ struct GemIcon: View {
 
             let facetsPath = Path { path in
                 path.move(to: upperLeft)
-                path.addLine(to: innerLeftTop)
-                path.addLine(to: top)
-                path.addLine(to: innerRightTop)
+                path.addLine(to: crownLeft)
+                path.addLine(to: coreTop)
+                path.addLine(to: crownRight)
                 path.addLine(to: upperRight)
 
-                path.move(to: innerLeftTop)
-                path.addLine(to: innerLeftBottom)
-                path.addLine(to: bottom)
+                path.move(to: coreTop)
+                path.addLine(to: coreBottom)
 
-                path.move(to: innerRightTop)
-                path.addLine(to: innerRightBottom)
-                path.addLine(to: bottom)
-
-                path.move(to: innerLeftTop)
-                path.addLine(to: innerRightTop)
-
-                path.move(to: innerLeftBottom)
-                path.addLine(to: innerRightBottom)
+                path.move(to: lowerLeft)
+                path.addLine(to: coreBottom)
+                path.addLine(to: lowerRight)
             }
 
-            let outerStroke = StrokeStyle(
-                lineWidth: max(1.1, lineWidth),
+            let heavyStroke = StrokeStyle(
+                lineWidth: max(1.8, lineWidth + 0.8),
                 lineCap: .round,
                 lineJoin: .round
             )
 
             let facetsStroke = StrokeStyle(
-                lineWidth: max(0.9, lineWidth * 0.85),
+                lineWidth: max(1.1, lineWidth * 0.62),
                 lineCap: .round,
                 lineJoin: .round
             )
 
-            outerPath
+            shellPath
                 .fill(
                     LinearGradient(
-                        colors: [color.opacity(0.28), color.opacity(0.14)],
+                        colors: [color.opacity(0.42), color.opacity(0.18)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
 
-            outerPath
-                .stroke(color.opacity(0.96), style: outerStroke)
+            // Contrast under-stroke to keep the border readable at very small sizes.
+            shellPath
+                .stroke(Color.white.opacity(0.50), style: StrokeStyle(
+                    lineWidth: max(2.1, lineWidth + 1.0),
+                    lineCap: .round,
+                    lineJoin: .round
+                ))
+
+            shellPath
+                .stroke(color.opacity(0.99), style: heavyStroke)
 
             facetsPath
-                .stroke(color.opacity(0.96), style: facetsStroke)
+                .stroke(color.opacity(0.99), style: facetsStroke)
         }
         .aspectRatio(1, contentMode: .fit)
     }
@@ -120,7 +121,7 @@ struct GemAmountLabel: View {
 
     var body: some View {
         HStack(spacing: spacing) {
-            GemIcon(color: color, lineWidth: max(1.1, iconSize * 0.12))
+            GemIcon(color: color, lineWidth: max(1.25, iconSize * 0.12))
                 .frame(width: iconSize, height: iconSize)
 
             Text(GemFormatting.amount(amount))
