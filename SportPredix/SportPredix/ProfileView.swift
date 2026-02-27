@@ -198,39 +198,52 @@ private struct SportPassShimmerTitle: View {
     }
 }
 
-private struct NeonOrbitBorder: View {
+private struct SportPassOrbitBorder: View {
     var cornerRadius: CGFloat = 16
-    var lineWidth: CGFloat = 1.4
-    @State private var orbitDegrees: Double = 0
+    var lineWidth: CGFloat = 1.1
+    @State private var travel: CGFloat = 0
+    private let trailLength: CGFloat = 0.16
 
     var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        let head = travel
+        let tail = max(0, head - trailLength)
+        let wraps = head > 1
+
+        return RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .stroke(Color.accentCyan.opacity(0.22), lineWidth: lineWidth)
             .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .trim(from: 0.02, to: 0.19)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color.clear,
-                                Color.white.opacity(0.98),
-                                Color.accentCyan.opacity(0.95),
-                                Color.clear
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ),
-                        style: StrokeStyle(lineWidth: lineWidth + 0.8, lineCap: .round, lineJoin: .round)
-                    )
-                    .rotationEffect(.degrees(orbitDegrees))
-                    .shadow(color: Color.accentCyan.opacity(0.72), radius: 8)
-                    .shadow(color: Color.white.opacity(0.55), radius: 4)
-                    .allowsHitTesting(false)
+                ZStack {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .trim(from: tail, to: min(head, 1))
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.clear, Color.white.opacity(0.98), Color.accentCyan.opacity(0.92)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+                        )
+
+                    if wraps {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .trim(from: 0, to: head - 1)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.clear, Color.white.opacity(0.98), Color.accentCyan.opacity(0.92)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ),
+                                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+                            )
+                    }
+                }
+                .shadow(color: Color.accentCyan.opacity(0.45), radius: 4)
+                .allowsHitTesting(false)
             }
             .onAppear {
-                orbitDegrees = 0
-                withAnimation(.linear(duration: 2.4).repeatForever(autoreverses: false)) {
-                    orbitDegrees = 360
+                travel = 0
+                withAnimation(.linear(duration: 2.6).repeatForever(autoreverses: false)) {
+                    travel = 1 + trailLength
                 }
             }
     }
@@ -556,12 +569,11 @@ struct ProfileView: View {
             }
             .padding(12)
             .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.black.opacity(0.74))
-
-                    NeonOrbitBorder(cornerRadius: 16, lineWidth: 1.4)
-                }
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.black.opacity(0.74))
+                    .overlay(
+                        SportPassOrbitBorder(cornerRadius: 16, lineWidth: 1.4)
+                    )
             )
             .shadow(color: Color.accentCyan.opacity(0.4), radius: 14, x: 0, y: 0)
             .shadow(color: Color.blue.opacity(0.28), radius: 20, x: 0, y: 8)
@@ -3050,3 +3062,5 @@ struct ProfileThemesView: View {
         .environmentObject(AuthManager.shared)
         .environmentObject(BettingViewModel())
 }
+
+
