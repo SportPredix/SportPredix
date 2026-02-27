@@ -1081,9 +1081,19 @@ private struct SportPassDetailView: View {
             Button("Ho capito", role: .cancel) { }
         } message: {
             Text(
-                "I punti SportPass si ottengono solo con schedine vinte. " +
-                "Il punteggio non dipende direttamente da quanto punti: conta soprattutto la difficolta della schedina (quota totale) e, in parte, numero di eventi e costanza. " +
-                "C'e un soft cap giornaliero: oltre la soglia giornaliera i punti extra valgono meno, cosi il pass resta bilanciato per tutti."
+                "I punti SportPass arrivano solo quando una schedina e vinta.\n\n" +
+                "Come vengono calcolati:\n" +
+                "1) Conta soprattutto la quota totale: piu e difficile, piu punti ottieni.\n" +
+                "2) Piu eventi nella schedina = piccolo bonus.\n" +
+                "3) L'importo giocato conta poco, quindi chi punta tanto non ha un vantaggio enorme.\n" +
+                "4) Se sei costante nel tempo, hai un piccolo bonus extra.\n\n" +
+                "Soft cap giornaliero:\n" +
+                "Dopo una certa soglia giornaliera, i punti continuano ad arrivare ma in quantita ridotta.\n" +
+                "Serve per mantenere il pass equilibrato per tutti.\n\n" +
+                "Esempi:\n" +
+                "- Schedina facile (quota bassa) = pochi punti.\n" +
+                "- Schedina piu difficile (quota alta) = piu punti.\n" +
+                "- Due utenti con puntate diverse ma stessa difficolta ottengono punti simili."
             )
         }
     }
@@ -1307,8 +1317,9 @@ private struct SportPassDetailView: View {
                 }
 
                 HStack(spacing: 6) {
-                    GemIcon(color: .accentCyan, lineWidth: 1.6)
-                        .frame(width: 11, height: 11)
+                    Image(systemName: "diamond.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.accentCyan)
                     Text("Sblocca a \(sportPassPointsText(tier.requiredPoints)) punti")
                         .font(.caption2)
                         .foregroundColor(.gray)
