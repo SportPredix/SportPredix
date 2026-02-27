@@ -1206,19 +1206,7 @@ private struct SportPassDetailView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.black.opacity(0.74))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color.accentCyan.opacity(0.95),
-                                    Color.blue.opacity(0.8),
-                                    Color.mint.opacity(0.85)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.4
-                        )
+                    SportPassOrbitBorder(cornerRadius: 16, lineWidth: 1.4)
                 )
         )
         .shadow(color: Color.accentCyan.opacity(0.34), radius: 14, x: 0, y: 2)
@@ -1233,11 +1221,10 @@ private struct SportPassDetailView: View {
 
                 Spacer()
 
-                Text("SOLO GEMME")
-                    .font(.caption2.bold())
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                GemIcon(color: .black, lineWidth: 1.7)
+                    .frame(width: 14, height: 14)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 6)
                     .background(
                         Capsule(style: .continuous)
                             .fill(Color.accentCyan)
@@ -1276,17 +1263,17 @@ private struct SportPassDetailView: View {
             VStack(spacing: 0) {
                 ZStack {
                     Circle()
-                        .fill(isUnlocked ? Color.accentCyan : Color.white.opacity(0.12))
+                        .fill(isClaimed ? Color.white.opacity(0.12) : (isUnlocked ? Color.accentCyan : Color.white.opacity(0.12)))
                         .frame(width: 34, height: 34)
 
                     Text("L\(tier.level)")
                         .font(.caption.bold())
-                        .foregroundColor(isUnlocked ? .black : .white)
+                        .foregroundColor((isUnlocked && !isClaimed) ? .black : .white)
                 }
 
                 if !isLast {
                     RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(isUnlocked ? Color.accentCyan.opacity(0.7) : Color.white.opacity(0.12))
+                        .fill(isClaimed ? Color.white.opacity(0.12) : (isUnlocked ? Color.accentCyan.opacity(0.7) : Color.white.opacity(0.12)))
                         .frame(width: 3, height: 44)
                         .padding(.top, 4)
                 }
@@ -1294,9 +1281,17 @@ private struct SportPassDetailView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text(tier.reward)
-                        .font(.subheadline.bold())
-                        .foregroundColor(.white)
+                    HStack(spacing: 6) {
+                        GemIcon(
+                            color: isClaimed ? Color.gray : Color.accentCyan,
+                            lineWidth: 1.8
+                        )
+                        .frame(width: 14, height: 14)
+
+                        Text(rewardAmountText(tier.reward))
+                            .font(.subheadline.bold())
+                            .foregroundColor(.white)
+                    }
 
                     Spacer()
 
@@ -1324,16 +1319,7 @@ private struct SportPassDetailView: View {
                         .foregroundColor(.accentCyan.opacity(0.95))
                 }
 
-                if isClaimed {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.caption.bold())
-                            .foregroundColor(.green)
-                        Text("Ricompensa riscattata")
-                            .font(.caption2.bold())
-                            .foregroundColor(.green)
-                    }
-                } else if isClaimable {
+                if isClaimable {
                     Button {
                         claimTierReward(tier)
                     } label: {
@@ -1367,9 +1353,11 @@ private struct SportPassDetailView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: (isUnlocked || isClaimed)
+                            colors: isClaimed
+                                ? [Color.white.opacity(0.03), Color.white.opacity(0.015)]
+                                : (isUnlocked
                                 ? [Color.accentCyan.opacity(0.2), Color.blue.opacity(0.22)]
-                                : [Color.white.opacity(0.04), Color.white.opacity(0.02)],
+                                : [Color.white.opacity(0.04), Color.white.opacity(0.02)]),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -1377,12 +1365,14 @@ private struct SportPassDetailView: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(
-                                (isUnlocked || isClaimed) ? Color.accentCyan.opacity(0.45) : Color.white.opacity(0.1),
+                                isClaimed ? Color.white.opacity(0.08) : (isUnlocked ? Color.accentCyan.opacity(0.45) : Color.white.opacity(0.1)),
                                 lineWidth: 1
                             )
                     )
             )
-            .shadow(color: (isUnlocked || isClaimed) ? Color.accentCyan.opacity(0.2) : Color.clear, radius: 8, x: 0, y: 2)
+            .saturation(isClaimed ? 0 : 1)
+            .opacity(isClaimed ? 0.55 : 1)
+            .shadow(color: isClaimed ? Color.clear : (isUnlocked ? Color.accentCyan.opacity(0.2) : Color.clear), radius: 8, x: 0, y: 2)
         }
     }
 
@@ -1408,7 +1398,7 @@ private struct SportPassDetailView: View {
 
     private func statusLabelBackground(isUnlocked: Bool, isClaimed: Bool) -> Color {
         if isClaimed {
-            return Color.green.opacity(0.85)
+            return Color.white.opacity(0.12)
         }
         if isUnlocked {
             return Color.accentCyan
@@ -1446,6 +1436,12 @@ private struct SportPassDetailView: View {
 
     private func sportPassPointsText(_ value: Double) -> String {
         "\(Int(value.rounded()))"
+    }
+
+    private func rewardAmountText(_ reward: String) -> String {
+        reward
+            .replacingOccurrences(of: "Gemme", with: "", options: .caseInsensitive)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

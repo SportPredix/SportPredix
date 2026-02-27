@@ -671,6 +671,7 @@ struct UserPublicProfileView: View {
     @State private var profileImageData: Data?
     @State private var balance: Double?
     @State private var streakDays: Int?
+    @State private var sportPassPoints: Double?
     @State private var totalBetsCount: Int?
     @State private var totalWins: Int?
     @State private var totalLosses: Int?
@@ -689,6 +690,28 @@ struct UserPublicProfileView: View {
         "ZD0HBGEQ",
         "8K4AKMTL",
         "RFE6F1Y3"
+    ]
+    private static let publicSportPassTiers: [SportPassTier] = [
+        SportPassTier(level: 1, requiredPoints: 100, reward: "10 Gemme"),
+        SportPassTier(level: 2, requiredPoints: 225, reward: "15 Gemme"),
+        SportPassTier(level: 3, requiredPoints: 375, reward: "20 Gemme"),
+        SportPassTier(level: 4, requiredPoints: 550, reward: "25 Gemme"),
+        SportPassTier(level: 5, requiredPoints: 750, reward: "30 Gemme"),
+        SportPassTier(level: 6, requiredPoints: 975, reward: "35 Gemme"),
+        SportPassTier(level: 7, requiredPoints: 1225, reward: "40 Gemme"),
+        SportPassTier(level: 8, requiredPoints: 1500, reward: "45 Gemme"),
+        SportPassTier(level: 9, requiredPoints: 1800, reward: "50 Gemme"),
+        SportPassTier(level: 10, requiredPoints: 2125, reward: "60 Gemme"),
+        SportPassTier(level: 11, requiredPoints: 2475, reward: "70 Gemme"),
+        SportPassTier(level: 12, requiredPoints: 2850, reward: "80 Gemme"),
+        SportPassTier(level: 13, requiredPoints: 3250, reward: "90 Gemme"),
+        SportPassTier(level: 14, requiredPoints: 3675, reward: "100 Gemme"),
+        SportPassTier(level: 15, requiredPoints: 4125, reward: "115 Gemme"),
+        SportPassTier(level: 16, requiredPoints: 4600, reward: "130 Gemme"),
+        SportPassTier(level: 17, requiredPoints: 5100, reward: "145 Gemme"),
+        SportPassTier(level: 18, requiredPoints: 5625, reward: "160 Gemme"),
+        SportPassTier(level: 19, requiredPoints: 6175, reward: "180 Gemme"),
+        SportPassTier(level: 20, requiredPoints: 6750, reward: "220 Gemme")
     ]
 
     init(
@@ -710,6 +733,7 @@ struct UserPublicProfileView: View {
         _profileImageData = State(initialValue: initialProfileImageData)
         _balance = State(initialValue: initialBalance)
         _streakDays = State(initialValue: nil)
+        _sportPassPoints = State(initialValue: nil)
         _totalBetsCount = State(initialValue: nil)
         _totalWins = State(initialValue: nil)
         _totalLosses = State(initialValue: nil)
@@ -731,6 +755,7 @@ struct UserPublicProfileView: View {
                 VStack(spacing: 16) {
                     profileHeader
                     statsCard
+                    sportPassCard
                     if shouldShowFriendshipAction {
                         friendshipActionCard
                     }
@@ -921,6 +946,86 @@ struct UserPublicProfileView: View {
         }
     }
 
+    private var sportPassCard: some View {
+        let points = max(0, sportPassPoints ?? 0)
+        let currentTier = sportPassCurrentTier(for: points)
+        let nextTier = sportPassNextTier(for: points)
+        let progress = sportPassProgressToNextTier(for: points)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("SportPass")
+                    .font(.headline.weight(.black))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.white, Color.accentCyan, Color.mint],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+
+                Spacer()
+
+                Text("LIV \(currentTier)")
+                    .font(.caption.bold())
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(Color.accentCyan)
+                    )
+            }
+
+            HStack(spacing: 10) {
+                Text("\(sportPassPointsText(points)) punti")
+                    .font(.subheadline.bold())
+                    .foregroundColor(.white)
+
+                Spacer()
+
+                if let nextTier {
+                    Text("Prossimo L\(nextTier.level) a \(sportPassPointsText(nextTier.requiredPoints))")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                } else {
+                    Text("Pass completato")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule(style: .continuous)
+                        .fill(Color.white.opacity(0.08))
+
+                    Capsule(style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.accentCyan, Color.mint],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(10, geometry.size.width * max(0, min(1, progress))))
+                }
+            }
+            .frame(height: 8)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.black.opacity(0.74))
+                .overlay(
+                    PublicSportPassOrbitBorder(cornerRadius: 16, lineWidth: 1.4)
+                )
+        )
+        .shadow(color: Color.accentCyan.opacity(0.4), radius: 14, x: 0, y: 0)
+        .shadow(color: Color.blue.opacity(0.28), radius: 20, x: 0, y: 8)
+    }
+
     private var shouldShowFriendshipAction: Bool {
         guard let currentUserID = authManager.currentUserID else { return false }
         return currentUserID != userID
@@ -1078,6 +1183,7 @@ struct UserPublicProfileView: View {
                 accountCode = Self.normalizedAccountCode(data["accountCode"] as? String, userID: userID)
                 balance = toDouble(data["balance"]) ?? balance
                 streakDays = toInt(data["streakDays"]) ?? streakDays ?? 0
+                sportPassPoints = toDouble(data["sportPassPoints"]) ?? sportPassPoints ?? 0
                 totalBetsCount = toInt(data["totalBetsCount"]) ?? totalBetsCount ?? 0
                 totalWins = toInt(data["totalWins"]) ?? totalWins ?? 0
                 totalLosses = toInt(data["totalLosses"]) ?? totalLosses ?? 0
@@ -1230,6 +1336,73 @@ struct UserPublicProfileView: View {
             }
         }
         return String(userID.prefix(8)).uppercased()
+    }
+
+    private func sportPassCurrentTier(for points: Double) -> Int {
+        Self.publicSportPassTiers.filter { points >= $0.requiredPoints }.count
+    }
+
+    private func sportPassNextTier(for points: Double) -> SportPassTier? {
+        Self.publicSportPassTiers.first { points < $0.requiredPoints }
+    }
+
+    private func sportPassProgressToNextTier(for points: Double) -> Double {
+        let currentTier = sportPassCurrentTier(for: points)
+        guard let nextTier = sportPassNextTier(for: points) else { return 1 }
+        let previousTierPoints = currentTier == 0 ? 0 : Self.publicSportPassTiers[currentTier - 1].requiredPoints
+        let span = max(1, nextTier.requiredPoints - previousTierPoints)
+        let current = min(nextTier.requiredPoints, max(previousTierPoints, points))
+        return (current - previousTierPoints) / span
+    }
+
+    private func sportPassPointsText(_ value: Double) -> String {
+        "\(Int(value.rounded()))"
+    }
+}
+
+private struct PublicSportPassOrbitBorder: View {
+    var cornerRadius: CGFloat = 16
+    var lineWidth: CGFloat = 1.1
+    private let trailLength: CGFloat = 18
+    private let cycleDuration: TimeInterval = 1.9
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            GeometryReader { geometry in
+                let w = max(1, geometry.size.width)
+                let h = max(1, geometry.size.height)
+                let r = min(cornerRadius, min(w, h) * 0.5)
+                let perimeter = max(1, (2 * (w + h - (2 * r))) + (2 * .pi * r))
+                let progress = CGFloat(
+                    (timeline.date.timeIntervalSinceReferenceDate
+                        .truncatingRemainder(dividingBy: cycleDuration)) / cycleDuration
+                )
+                let phase = -progress * (perimeter + trailLength)
+
+                ZStack {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(Color.accentCyan.opacity(0.22), lineWidth: lineWidth)
+
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.98), Color.accentCyan.opacity(0.95)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            style: StrokeStyle(
+                                lineWidth: lineWidth,
+                                lineCap: .round,
+                                lineJoin: .round,
+                                dash: [trailLength, perimeter],
+                                dashPhase: phase
+                            )
+                        )
+                        .shadow(color: Color.accentCyan.opacity(0.55), radius: 4)
+                }
+                .allowsHitTesting(false)
+            }
+        }
     }
 }
 
