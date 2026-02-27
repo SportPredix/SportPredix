@@ -1132,7 +1132,7 @@ private struct SportPassDetailView: View {
                         .tracking(1.2)
                         .foregroundColor(.accentCyan.opacity(0.95))
 
-                    Text("Ricompense Gemme")
+                    Text("SportPass")
                         .font(.title3.weight(.black))
                         .foregroundColor(.white)
                 }
@@ -1370,8 +1370,7 @@ private struct SportPassDetailView: View {
                             )
                     )
             )
-            .saturation(isClaimed ? 0 : 1)
-            .opacity(isClaimed ? 0.55 : 1)
+            .opacity(isClaimed ? 0.72 : 1)
             .shadow(color: isClaimed ? Color.clear : (isUnlocked ? Color.accentCyan.opacity(0.2) : Color.clear), radius: 8, x: 0, y: 2)
         }
     }
@@ -1390,7 +1389,10 @@ private struct SportPassDetailView: View {
     }
 
     private func statusLabelForeground(isUnlocked: Bool, isClaimed: Bool) -> Color {
-        if isClaimed || isUnlocked {
+        if isClaimed {
+            return .accentCyan
+        }
+        if isUnlocked {
             return .black
         }
         return .accentCyan
@@ -1398,7 +1400,7 @@ private struct SportPassDetailView: View {
 
     private func statusLabelBackground(isUnlocked: Bool, isClaimed: Bool) -> Color {
         if isClaimed {
-            return Color.white.opacity(0.12)
+            return Color.accentCyan.opacity(0.18)
         }
         if isUnlocked {
             return Color.accentCyan
