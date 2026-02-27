@@ -321,6 +321,20 @@ struct SportPassTier: Identifiable, Hashable {
     var id: Int { level }
 }
 
+struct SportPassPointReceipt: Identifiable, Codable, Hashable {
+    let id: UUID
+    let points: Int
+    let note: String
+    let date: Date
+
+    init(id: UUID = UUID(), points: Int, note: String, date: Date = Date()) {
+        self.id = id
+        self.points = points
+        self.note = note
+        self.date = date
+    }
+}
+
 final class BettingViewModel: ObservableObject {
     
     @Published var selectedTab = 0
@@ -364,6 +378,7 @@ final class BettingViewModel: ObservableObject {
     @Published private(set) var bestStreakDays = 0
     @Published private(set) var sportPassPoints: Double = 0
     @Published private(set) var sportPassClaimedTierLevels: Set<Int> = []
+    @Published private(set) var sportPassPointReceipts: [SportPassPointReceipt] = []
     
     @Published var currentPicks: [BetPick] = []
     @Published var slips: [BetSlip] = []
@@ -388,6 +403,7 @@ final class BettingViewModel: ObservableObject {
     private let sportPassPointsKey = "sportPassPoints"
     private let sportPassClaimedTiersKey = "sportPassClaimedTiers"
     private let sportPassDailyPointsKey = "sportPassDailyPoints"
+    private let sportPassPointReceiptsKey = "sportPassPointReceipts"
     private let matchesSourceVersionKey = "matchesSourceVersion"
     private let matchesSourceVersion = 7
     // Sostituisci con la raw URL del JSON nella tua repository esterna.
@@ -412,6 +428,7 @@ final class BettingViewModel: ObservableObject {
     private let sportPassDailySoftCap: Double = 180
     private let sportPassOverCapMultiplier: Double = 0.2
     private let sportPassStreakBonusCap: Double = 0.30
+    private let sportPassReceiptHistoryLimit = 80
 
     private static let defaultSportPassTiers: [SportPassTier] = [
         SportPassTier(level: 1, requiredPoints: 100, reward: "10 Gemme"),
@@ -498,6 +515,11 @@ final class BettingViewModel: ObservableObject {
     private func sportPassDailyPointsStorageKey(for userID: String?) -> String {
         guard let userID, !userID.isEmpty else { return sportPassDailyPointsKey }
         return "\(sportPassDailyPointsKey)_\(userID)"
+    }
+
+    private func sportPassPointReceiptsStorageKey(for userID: String?) -> String {
+        guard let userID, !userID.isEmpty else { return sportPassPointReceiptsKey }
+        return "\(sportPassPointReceiptsKey)_\(userID)"
     }
 
     var allAvailableMainLeagues: [String] {
@@ -698,6 +720,7 @@ final class BettingViewModel: ObservableObject {
 
         let localClaimed = Set(UserDefaults.standard.array(forKey: claimedKey) as? [Int] ?? [])
         sportPassClaimedTierLevels = sanitizeClaimedTierLevels(localClaimed)
+        sportPassPointReceipts = loadSportPassPointReceipts(for: userID)
     }
 
     private func addSportPassPointsFromWinningSlip(_ slip: BetSlip) {
@@ -711,6 +734,7 @@ final class BettingViewModel: ObservableObject {
         guard gainedPoints > 0 else { return }
         saveSportPassDailyBuckets(dailyBuckets, for: userID)
         sportPassPoints += gainedPoints
+        appendSportPassPointReceipt(points: gainedPoints, for: slip, at: Date(), userID: userID)
         persistSportPassLocally(for: userID)
         syncSportPassToCloudIfPossible()
     }
@@ -781,6 +805,43 @@ final class BettingViewModel: ObservableObject {
     private func saveSportPassDailyBuckets(_ buckets: [String: Double], for userID: String?) {
         let key = sportPassDailyPointsStorageKey(for: userID)
         UserDefaults.standard.set(buckets, forKey: key)
+    }
+
+    private func loadSportPassPointReceipts(for userID: String?) -> [SportPassPointReceipt] {
+        let key = sportPassPointReceiptsStorageKey(for: userID)
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let decoded = try? JSONDecoder().decode([SportPassPointReceipt].self, from: data) else {
+            return []
+        }
+        return decoded.sorted { $0.date > $1.date }
+    }
+
+    private func persistSportPassPointReceipts(for userID: String?) {
+        let key = sportPassPointReceiptsStorageKey(for: userID)
+        guard let data = try? JSONEncoder().encode(sportPassPointReceipts) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+
+    private func appendSportPassPointReceipt(points: Double, for slip: BetSlip, at date: Date, userID: String?) {
+        let roundedPoints = Int(points.rounded())
+        guard roundedPoints > 0 else { return }
+
+        let entry = SportPassPointReceipt(
+            points: roundedPoints,
+            note: shortSportPassPointReceiptText(for: slip),
+            date: date
+        )
+
+        sportPassPointReceipts.insert(entry, at: 0)
+        if sportPassPointReceipts.count > sportPassReceiptHistoryLimit {
+            sportPassPointReceipts = Array(sportPassPointReceipts.prefix(sportPassReceiptHistoryLimit))
+        }
+        persistSportPassPointReceipts(for: userID)
+    }
+
+    private func shortSportPassPointReceiptText(for slip: BetSlip) -> String {
+        let picksCount = max(1, slip.picks.count)
+        return picksCount == 1 ? "Schedina vinta" : "Schedina \(picksCount)x vinta"
     }
 
     private func sanitizeClaimedTierLevels(_ levels: Set<Int>) -> Set<Int> {
@@ -2043,7 +2104,9 @@ final class BettingViewModel: ObservableObject {
         currentPicks.removeAll()
         sportPassPoints = 0
         sportPassClaimedTierLevels = []
+        sportPassPointReceipts = []
         saveSportPassDailyBuckets([:], for: AuthManager.shared.currentUserID)
+        persistSportPassPointReceipts(for: AuthManager.shared.currentUserID)
         persistSportPassLocally(for: AuthManager.shared.currentUserID)
         syncSportPassToCloudIfPossible()
         saveSlips()

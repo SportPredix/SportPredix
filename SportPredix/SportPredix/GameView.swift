@@ -530,9 +530,12 @@ struct ScratchCardView: View {
                 Text("Costo ticket: \(currentStakeText)")
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(.white)
-                Text("Vincita massima: \(CasinoFormatting.euro(Double(ScratchConfig.ticketCost * 12)))")
+                Text("Vincita massima: \(CasinoFormatting.euro(Double(ScratchConfig.ticketCost * ScratchConfig.maxPayoutMultiplier)))")
                     .font(.subheadline.weight(.semibold))
                     .foregroundColor(.white)
+                Text("Probabilita ticket vincente: \(ScratchConfig.winningTicketOddsText)")
+                    .font(.caption)
+                    .foregroundColor(.gray)
                 Text("Rivelazione manuale casella per casella.")
                     .font(.caption)
                     .foregroundColor(.gray)
@@ -791,14 +794,7 @@ struct ScratchCardView: View {
     }
 
     private func generateRound() -> ScratchRound {
-        let multiplier = weightedValue(from: [
-            (value: 0, weight: 48),
-            (value: 1, weight: 22),
-            (value: 2, weight: 14),
-            (value: 4, weight: 9),
-            (value: 8, weight: 5),
-            (value: 12, weight: 2)
-        ])
+        let multiplier = weightedValue(from: ScratchConfig.payoutWeights)
 
         if multiplier == 0 {
             return ScratchRound(
@@ -845,6 +841,22 @@ struct ScratchCardView: View {
 private enum ScratchConfig {
     static let ticketCost = 50
     static let boardSize = 9
+    static let maxPayoutMultiplier = 10_000
+    static let winningTicketOddsText = "1 su 2.72"
+    // Calibrato su distribuzioni tipiche dei Gratta e Vinci da 1 euro:
+    // circa 36.76% ticket vincenti e ritorno teorico vicino al 70%.
+    static let payoutWeights: [(value: Int, weight: Int)] = [
+        (value: 0, weight: 758_842),
+        (value: 1, weight: 276_360),
+        (value: 2, weight: 126_000),
+        (value: 5, weight: 31_920),
+        (value: 10, weight: 6_000),
+        (value: 50, weight: 720),
+        (value: 100, weight: 120),
+        (value: 500, weight: 24),
+        (value: 1_000, weight: 12),
+        (value: 10_000, weight: 2)
+    ]
 }
 
 private enum SlotConfig {

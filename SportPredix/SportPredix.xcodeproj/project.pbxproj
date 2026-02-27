@@ -27,6 +27,7 @@
 		1396CB342F3BC35000B49CB2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396CB272F3BC34F00B49CB2 /* ContentView.swift */; };
 		1396CB362F3BC37300B49CB2 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1396CB352F3BC37300B49CB2 /* GoogleService-Info.plist */; };
 		14F9A6AC3B7C1102005D4E01 /* LeagueLeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14F9A6AB3B7C1102005D4E01 /* LeagueLeaderboardView.swift */; };
+		E1A9B2023C8A110200ABC001 /* SportPassDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A9B2013C8A110200ABC001 /* SportPassDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -49,6 +50,7 @@
 		1396CB352F3BC37300B49CB2 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		14F9A6AB3B7C1102005D4E01 /* LeagueLeaderboardView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LeagueLeaderboardView.swift; sourceTree = "<group>"; };
 		13CDB0852F3648D90019F0BE /* SportPredix.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SportPredix.entitlements; sourceTree = "<group>"; };
+		E1A9B2013C8A110200ABC001 /* SportPassDetailView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SportPassDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,6 +99,7 @@
 				1396CB1E2F3BC34600B49CB2 /* PreferencesView.swift */,
 				1396CB222F3BC34900B49CB2 /* ProfileView.swift */,
 				1396CB1C2F3BC34600B49CB2 /* SlipDetailView.swift */,
+				E1A9B2013C8A110200ABC001 /* SportPassDetailView.swift */,
 				1396CB202F3BC34700B49CB2 /* SportPredixApp.swift */,
 				1396CB352F3BC37300B49CB2 /* GoogleService-Info.plist */,
 				13CDB0852F3648D90019F0BE /* SportPredix.entitlements */,
@@ -208,6 +211,7 @@
 				14F9A6AC3B7C1102005D4E01 /* LeagueLeaderboardView.swift in Sources */,
 				1396CB2C2F3BC35000B49CB2 /* Models.swift in Sources */,
 				1396CB322F3BC35000B49CB2 /* MatchDetailsView.swift in Sources */,
+				E1A9B2023C8A110200ABC001 /* SportPassDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
