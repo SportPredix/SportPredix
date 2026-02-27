@@ -71,44 +71,28 @@ struct SportPassDetailView: View {
         .navigationTitle("SportPass")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 10) {
-                    Button {
-                        showPointsHistory = true
-                    } label: {
-                        Image(systemName: "list.bullet.rectangle")
-                            .font(.headline.weight(.semibold))
-                            .foregroundColor(.accentCyan)
-                            .frame(width: 30, height: 30)
-                            .background(
-                                Circle()
-                                    .fill(Color.white.opacity(0.08))
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.accentCyan.opacity(0.2), lineWidth: 1)
-                                    )
-                            )
-                    }
-                    .accessibilityLabel("Storico punti SportPass")
-
-                    Button {
-                        showInfoPopup = true
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .font(.headline.weight(.semibold))
-                            .foregroundColor(.accentCyan)
-                            .frame(width: 30, height: 30)
-                            .background(
-                                Circle()
-                                    .fill(Color.white.opacity(0.08))
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.accentCyan.opacity(0.2), lineWidth: 1)
-                                    )
-                            )
-                    }
-                    .accessibilityLabel("Info SportPass")
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showPointsHistory = true
+                } label: {
+                    Image(systemName: "list.bullet")
+                        .font(.headline.weight(.semibold))
+                        .foregroundColor(.accentCyan)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Storico punti SportPass")
+            }
+
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showInfoPopup = true
+                } label: {
+                    Image(systemName: "info.square")
+                        .font(.headline.weight(.semibold))
+                        .foregroundColor(.accentCyan)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Info SportPass")
             }
         }
         .sheet(isPresented: $showPointsHistory) {

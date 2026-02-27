@@ -450,7 +450,17 @@ final class BettingViewModel: ObservableObject {
         SportPassTier(level: 17, requiredPoints: 5100, reward: "145 Gemme"),
         SportPassTier(level: 18, requiredPoints: 5625, reward: "160 Gemme"),
         SportPassTier(level: 19, requiredPoints: 6175, reward: "180 Gemme"),
-        SportPassTier(level: 20, requiredPoints: 6750, reward: "220 Gemme")
+        SportPassTier(level: 20, requiredPoints: 6750, reward: "220 Gemme"),
+        SportPassTier(level: 21, requiredPoints: 8000, reward: "260 Gemme"),
+        SportPassTier(level: 22, requiredPoints: 9800, reward: "300 Gemme"),
+        SportPassTier(level: 23, requiredPoints: 12000, reward: "350 Gemme"),
+        SportPassTier(level: 24, requiredPoints: 14750, reward: "410 Gemme"),
+        SportPassTier(level: 25, requiredPoints: 18100, reward: "480 Gemme"),
+        SportPassTier(level: 26, requiredPoints: 22200, reward: "560 Gemme"),
+        SportPassTier(level: 27, requiredPoints: 27250, reward: "650 Gemme"),
+        SportPassTier(level: 28, requiredPoints: 33400, reward: "760 Gemme"),
+        SportPassTier(level: 29, requiredPoints: 41000, reward: "890 Gemme"),
+        SportPassTier(level: 30, requiredPoints: 50000, reward: "1050 Gemme")
     ]
 
     var sportPassTiers: [SportPassTier] {
