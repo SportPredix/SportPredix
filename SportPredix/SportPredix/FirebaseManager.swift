@@ -34,6 +34,7 @@ class FirebaseManager: ObservableObject {
             "balance": 1000.0,
             "sportPassPoints": 0.0,
             "sportPassClaimedTiers": [],
+            "sportPassPointReceipts": [],
             "streakDays": 0,
             "consecutiveAccessDays": 0,
             "bestStreakDays": 0,
@@ -224,17 +225,23 @@ class FirebaseManager: ObservableObject {
         userID: String,
         points: Double,
         claimedTierLevels: [Int],
+        pointReceipts: [[String: Any]]? = nil,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         let db = Firestore.firestore()
         let safePoints = max(0, points)
         let uniqueLevels = Array(Set(claimedTierLevels)).sorted()
-
-        db.collection("users").document(userID).setData([
+        var payload: [String: Any] = [
             "sportPassPoints": safePoints,
             "sportPassClaimedTiers": uniqueLevels,
             "lastUpdated": FieldValue.serverTimestamp()
-        ], merge: true) { error in
+        ]
+
+        if let pointReceipts {
+            payload["sportPassPointReceipts"] = pointReceipts
+        }
+
+        db.collection("users").document(userID).setData(payload, merge: true) { error in
             if let error = error {
                 completion(.failure(error))
             } else {

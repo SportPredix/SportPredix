@@ -844,6 +844,74 @@ final class BettingViewModel: ObservableObject {
         return picksCount == 1 ? "Schedina vinta" : "Schedina \(picksCount)x vinta"
     }
 
+    private func sportPassPointReceiptsCloudPayload() -> [[String: Any]] {
+        Array(sportPassPointReceipts.prefix(sportPassReceiptHistoryLimit)).map { receipt in
+            [
+                "id": receipt.id.uuidString,
+                "points": receipt.points,
+                "note": receipt.note,
+                "date": Timestamp(date: receipt.date)
+            ]
+        }
+    }
+
+    private func sportPassPointReceiptsSignature() -> String {
+        guard let data = try? JSONEncoder().encode(sportPassPointReceipts) else { return "" }
+        return data.base64EncodedString()
+    }
+
+    private func parseSportPassPointReceiptsFromCloud(_ raw: Any?) -> [SportPassPointReceipt] {
+        guard let entries = raw as? [Any] else { return [] }
+        var parsed: [SportPassPointReceipt] = []
+
+        for item in entries {
+            guard let dictionary = item as? [String: Any] else { continue }
+            guard
+                let idString = dictionary["id"] as? String,
+                let id = UUID(uuidString: idString),
+                let points = intValue(from: dictionary["points"]),
+                points > 0
+            else {
+                continue
+            }
+
+            let note = (dictionary["note"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let resolvedNote = note?.isEmpty == false ? note ?? "Schedina vinta" : "Schedina vinta"
+            let date = dateValue(from: dictionary["date"]) ?? Date()
+            parsed.append(SportPassPointReceipt(id: id, points: points, note: resolvedNote, date: date))
+        }
+
+        parsed.sort { $0.date > $1.date }
+        if parsed.count > sportPassReceiptHistoryLimit {
+            return Array(parsed.prefix(sportPassReceiptHistoryLimit))
+        }
+        return parsed
+    }
+
+    private func mergeSportPassPointReceipts(
+        local: [SportPassPointReceipt],
+        remote: [SportPassPointReceipt]
+    ) -> [SportPassPointReceipt] {
+        var byID: [UUID: SportPassPointReceipt] = [:]
+
+        for receipt in remote + local {
+            if let existing = byID[receipt.id] {
+                if receipt.date > existing.date {
+                    byID[receipt.id] = receipt
+                }
+            } else {
+                byID[receipt.id] = receipt
+            }
+        }
+
+        let merged = byID.values.sorted { $0.date > $1.date }
+        if merged.count > sportPassReceiptHistoryLimit {
+            return Array(merged.prefix(sportPassReceiptHistoryLimit))
+        }
+        return merged
+    }
+
     private func sanitizeClaimedTierLevels(_ levels: Set<Int>) -> Set<Int> {
         let validLevels = Set(sportPassTiers.map(\.level))
         return levels.intersection(validLevels)
@@ -855,24 +923,28 @@ final class BettingViewModel: ObservableObject {
             sportPassClaimedTierLevels.sorted(),
             forKey: sportPassClaimedTiersStorageKey(for: userID)
         )
+        persistSportPassPointReceipts(for: userID)
     }
 
     private func syncSportPassToCloudIfPossible() {
         guard let userID = AuthManager.shared.currentUserID, !userID.isEmpty else { return }
 
         let claimed = sanitizeClaimedTierLevels(sportPassClaimedTierLevels)
-        let signature = "\(sportPassPoints)|\(claimed.sorted().map(String.init).joined(separator: ","))"
+        let receiptsSignature = sportPassPointReceiptsSignature()
+        let signature = "\(sportPassPoints)|\(claimed.sorted().map(String.init).joined(separator: ","))|\(receiptsSignature)"
         guard signature != lastSyncedSportPassSignature else { return }
 
         sportPassSyncTask?.cancel()
         let safePoints = max(0, sportPassPoints)
         let claimedLevels = claimed.sorted()
+        let receiptsPayload = sportPassPointReceiptsCloudPayload()
 
         let task = DispatchWorkItem { [weak self] in
             FirebaseManager.shared.updateSportPassProgress(
                 userID: userID,
                 points: safePoints,
-                claimedTierLevels: claimedLevels
+                claimedTierLevels: claimedLevels,
+                pointReceipts: receiptsPayload
             ) { result in
                 guard case .success = result else { return }
                 DispatchQueue.main.async {
@@ -893,13 +965,25 @@ final class BettingViewModel: ObservableObject {
         let remoteClaimedRaw = data["sportPassClaimedTiers"] as? [Any] ?? []
         let remoteClaimed = Set(remoteClaimedRaw.compactMap { intValue(from: $0) })
         let mergedClaimed = sanitizeClaimedTierLevels(sportPassClaimedTierLevels.union(remoteClaimed))
+        let remoteReceipts = parseSportPassPointReceiptsFromCloud(data["sportPassPointReceipts"])
+        let mergedReceipts = mergeSportPassPointReceipts(
+            local: sportPassPointReceipts,
+            remote: remoteReceipts
+        )
 
-        let changed = mergedPoints != sportPassPoints || mergedClaimed != sportPassClaimedTierLevels
+        let changed =
+            mergedPoints != sportPassPoints ||
+            mergedClaimed != sportPassClaimedTierLevels ||
+            mergedReceipts != sportPassPointReceipts
         sportPassPoints = mergedPoints
         sportPassClaimedTierLevels = mergedClaimed
+        sportPassPointReceipts = mergedReceipts
         persistSportPassLocally(for: userID)
 
-        if changed || data["sportPassPoints"] == nil || data["sportPassClaimedTiers"] == nil {
+        if changed ||
+            data["sportPassPoints"] == nil ||
+            data["sportPassClaimedTiers"] == nil ||
+            data["sportPassPointReceipts"] == nil {
             syncSportPassToCloudIfPossible()
         }
     }
@@ -3177,7 +3261,7 @@ struct GamesContentView: View {
                             .foregroundColor(.accentCyan)
                             .font(.caption)
                         
-                        Text("Gioco responsabile â€¢ Maggiorenni â€¢ Vietato ai minori")
+                        Text("Gioco responsabile - maggiorenni - vietato ai minori")
                             .font(.caption2)
                             .foregroundColor(.gray)
                     }
