@@ -387,6 +387,7 @@ final class BettingViewModel: ObservableObject {
     private let streakConsecutiveKey = "streakConsecutiveAccessDays"
     private let sportPassPointsKey = "sportPassPoints"
     private let sportPassClaimedTiersKey = "sportPassClaimedTiers"
+    private let sportPassDailyPointsKey = "sportPassDailyPoints"
     private let matchesSourceVersionKey = "matchesSourceVersion"
     private let matchesSourceVersion = 7
     // Sostituisci con la raw URL del JSON nella tua repository esterna.
@@ -404,6 +405,13 @@ final class BettingViewModel: ObservableObject {
     private var isLoadingPromoCodes = false
     private var isFetchingMatchesBundle = false
     private var lastSyncedSportPassSignature: String?
+    private let sportPassBaseMultiplier: Double = 12
+    private let sportPassPickStepMultiplier: Double = 0.05
+    private let sportPassPickMultiplierCap: Double = 0.25
+    private let sportPassStakeFactorCap: Double = 0.12
+    private let sportPassDailySoftCap: Double = 180
+    private let sportPassOverCapMultiplier: Double = 0.2
+    private let sportPassStreakBonusCap: Double = 0.30
 
     private static let defaultSportPassTiers: [SportPassTier] = [
         SportPassTier(level: 1, requiredPoints: 100, reward: "10 Gemme"),
@@ -485,6 +493,11 @@ final class BettingViewModel: ObservableObject {
     private func sportPassClaimedTiersStorageKey(for userID: String?) -> String {
         guard let userID, !userID.isEmpty else { return sportPassClaimedTiersKey }
         return "\(sportPassClaimedTiersKey)_\(userID)"
+    }
+
+    private func sportPassDailyPointsStorageKey(for userID: String?) -> String {
+        guard let userID, !userID.isEmpty else { return sportPassDailyPointsKey }
+        return "\(sportPassDailyPointsKey)_\(userID)"
     }
 
     var allAvailableMainLeagues: [String] {
@@ -668,13 +681,19 @@ final class BettingViewModel: ObservableObject {
         if let storedValue = UserDefaults.standard.object(forKey: pointsKey) as? NSNumber {
             sportPassPoints = max(0, storedValue.doubleValue)
         } else {
-            // Migrazione iniziale: calcola i punti dal netto delle schedine gia valutate come vinte.
-            let migrated = slips.reduce(0.0) { partial, slip in
-                guard slip.isEvaluated, slip.isWon == true else { return partial }
-                return partial + max(0, slip.potentialWin - slip.stake)
+            // Migrazione iniziale: ricalcola i punti con il nuovo sistema normalizzato.
+            var migratedDailyBuckets: [String: Double] = [:]
+            var migrated = 0.0
+            for slip in slips where slip.isEvaluated && slip.isWon == true {
+                migrated += awardedSportPassPoints(
+                    for: slip,
+                    evaluationDate: slip.date,
+                    existingDailyBuckets: &migratedDailyBuckets
+                )
             }
             sportPassPoints = max(0, migrated)
             UserDefaults.standard.set(sportPassPoints, forKey: pointsKey)
+            UserDefaults.standard.set(migratedDailyBuckets, forKey: sportPassDailyPointsStorageKey(for: userID))
         }
 
         let localClaimed = Set(UserDefaults.standard.array(forKey: claimedKey) as? [Int] ?? [])
@@ -682,11 +701,86 @@ final class BettingViewModel: ObservableObject {
     }
 
     private func addSportPassPointsFromWinningSlip(_ slip: BetSlip) {
-        let gainedPoints = max(0, slip.potentialWin - slip.stake)
+        let userID = AuthManager.shared.currentUserID
+        var dailyBuckets = loadSportPassDailyBuckets(for: userID)
+        let gainedPoints = awardedSportPassPoints(
+            for: slip,
+            evaluationDate: Date(),
+            existingDailyBuckets: &dailyBuckets
+        )
         guard gainedPoints > 0 else { return }
+        saveSportPassDailyBuckets(dailyBuckets, for: userID)
         sportPassPoints += gainedPoints
-        persistSportPassLocally(for: AuthManager.shared.currentUserID)
+        persistSportPassLocally(for: userID)
         syncSportPassToCloudIfPossible()
+    }
+
+    private func awardedSportPassPoints(
+        for slip: BetSlip,
+        evaluationDate: Date,
+        existingDailyBuckets: inout [String: Double]
+    ) -> Double {
+        let rawPoints = rawSportPassPoints(for: slip)
+        guard rawPoints > 0 else { return 0 }
+
+        let key = sportPassDayKey(from: evaluationDate)
+        let alreadyAwardedToday = max(0, existingDailyBuckets[key] ?? 0)
+
+        let availableAtFullRate = max(0, sportPassDailySoftCap - alreadyAwardedToday)
+        let fullRatePortion = min(rawPoints, availableAtFullRate)
+        let overflowPortion = max(0, rawPoints - fullRatePortion)
+        let awarded = max(0, (fullRatePortion + (overflowPortion * sportPassOverCapMultiplier)).rounded())
+
+        let updatedDayTotal = alreadyAwardedToday + awarded
+        existingDailyBuckets[key] = updatedDayTotal
+        return awarded
+    }
+
+    private func rawSportPassPoints(for slip: BetSlip) -> Double {
+        let clampedOdd = max(1, slip.totalOdd)
+        let base = sportPassBaseMultiplier * log2(clampedOdd + 1)
+
+        let extraPicks = max(0, slip.picks.count - 1)
+        let pickMultiplier = 1 + min(sportPassPickMultiplierCap, Double(extraPicks) * sportPassPickStepMultiplier)
+
+        let normalizedStake = max(0, slip.stake)
+        let stakeFactor = 1 + min(sportPassStakeFactorCap, sqrt(normalizedStake) / 40)
+
+        let streakFactor = 1 + min(sportPassStreakBonusCap, Double(max(0, streakDays)) * 0.01)
+        return max(0, base * pickMultiplier * stakeFactor * streakFactor)
+    }
+
+    private func sportPassDayKey(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "it_IT")
+        formatter.timeZone = TimeZone.current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    private func loadSportPassDailyBuckets(for userID: String?) -> [String: Double] {
+        let key = sportPassDailyPointsStorageKey(for: userID)
+        if let buckets = UserDefaults.standard.dictionary(forKey: key) as? [String: Double] {
+            return buckets
+        }
+        if let rawBuckets = UserDefaults.standard.dictionary(forKey: key) {
+            var parsed: [String: Double] = [:]
+            for (day, value) in rawBuckets {
+                if let number = value as? NSNumber {
+                    parsed[day] = number.doubleValue
+                } else if let doubleValue = value as? Double {
+                    parsed[day] = doubleValue
+                }
+            }
+            return parsed
+        }
+        return [:]
+    }
+
+    private func saveSportPassDailyBuckets(_ buckets: [String: Double], for userID: String?) {
+        let key = sportPassDailyPointsStorageKey(for: userID)
+        UserDefaults.standard.set(buckets, forKey: key)
     }
 
     private func sanitizeClaimedTierLevels(_ levels: Set<Int>) -> Set<Int> {
@@ -1949,6 +2043,7 @@ final class BettingViewModel: ObservableObject {
         currentPicks.removeAll()
         sportPassPoints = 0
         sportPassClaimedTierLevels = []
+        saveSportPassDailyBuckets([:], for: AuthManager.shared.currentUserID)
         persistSportPassLocally(for: AuthManager.shared.currentUserID)
         syncSportPassToCloudIfPossible()
         saveSlips()

@@ -1081,9 +1081,9 @@ private struct SportPassDetailView: View {
             Button("Ho capito", role: .cancel) { }
         } message: {
             Text(
-                "Guadagni punti solo quando una schedina viene valutata come vinta. " +
-                "I punti assegnati sono il netto della vincita: vincita potenziale - puntata. " +
-                "Esempio: se punti 20 e la vincita potenziale e 65, ottieni 45 punti SportPass."
+                "I punti SportPass si ottengono solo con schedine vinte. " +
+                "Il punteggio non dipende direttamente da quanto punti: conta soprattutto la difficolta della schedina (quota totale) e, in parte, numero di eventi e costanza. " +
+                "C'e un soft cap giornaliero: oltre la soglia giornaliera i punti extra valgono meno, cosi il pass resta bilanciato per tutti."
             )
         }
     }
@@ -1306,17 +1306,12 @@ private struct SportPassDetailView: View {
                         )
                 }
 
-                Text("Sblocca a \(sportPassPointsText(tier.requiredPoints)) punti")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-
                 HStack(spacing: 6) {
-                    Image(systemName: "diamond.fill")
-                        .font(.caption.bold())
-                        .foregroundColor(.accentCyan)
-                    Text("Ricompensa progressiva")
+                    GemIcon(color: .accentCyan, lineWidth: 1.6)
+                        .frame(width: 11, height: 11)
+                    Text("Sblocca a \(sportPassPointsText(tier.requiredPoints)) punti")
                         .font(.caption2)
-                        .foregroundColor(.accentCyan.opacity(0.95))
+                        .foregroundColor(.gray)
                 }
 
                 if isClaimable {
