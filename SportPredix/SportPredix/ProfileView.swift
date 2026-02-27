@@ -201,51 +201,46 @@ private struct SportPassShimmerTitle: View {
 private struct SportPassOrbitBorder: View {
     var cornerRadius: CGFloat = 16
     var lineWidth: CGFloat = 1.1
-    @State private var travel: CGFloat = 0
-    private let trailLength: CGFloat = 0.16
+    private let trailLength: CGFloat = 18
+    private let cycleDuration: TimeInterval = 1.9
 
     var body: some View {
-        let head = travel
-        let tail = max(0, head - trailLength)
-        let wraps = head > 1
+        TimelineView(.animation) { timeline in
+            GeometryReader { geometry in
+                let w = max(1, geometry.size.width)
+                let h = max(1, geometry.size.height)
+                let r = min(cornerRadius, min(w, h) * 0.5)
+                let perimeter = max(1, (2 * (w + h - (2 * r))) + (2 * .pi * r))
+                let progress = CGFloat(
+                    (timeline.date.timeIntervalSinceReferenceDate
+                        .truncatingRemainder(dividingBy: cycleDuration)) / cycleDuration
+                )
+                let phase = -progress * (perimeter + trailLength)
 
-        return RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .stroke(Color.accentCyan.opacity(0.22), lineWidth: lineWidth)
-            .overlay {
                 ZStack {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .trim(from: tail, to: min(head, 1))
+                        .stroke(Color.accentCyan.opacity(0.22), lineWidth: lineWidth)
+
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .stroke(
                             LinearGradient(
-                                colors: [Color.clear, Color.white.opacity(0.98), Color.accentCyan.opacity(0.92)],
+                                colors: [Color.white.opacity(0.98), Color.accentCyan.opacity(0.95)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             ),
-                            style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
-                        )
-
-                    if wraps {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .trim(from: 0, to: head - 1)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [Color.clear, Color.white.opacity(0.98), Color.accentCyan.opacity(0.92)],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                ),
-                                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+                            style: StrokeStyle(
+                                lineWidth: lineWidth,
+                                lineCap: .round,
+                                lineJoin: .round,
+                                dash: [trailLength, perimeter],
+                                dashPhase: phase
                             )
-                    }
+                        )
+                        .shadow(color: Color.accentCyan.opacity(0.55), radius: 4)
                 }
-                .shadow(color: Color.accentCyan.opacity(0.45), radius: 4)
                 .allowsHitTesting(false)
             }
-            .onAppear {
-                travel = 0
-                withAnimation(.linear(duration: 2.6).repeatForever(autoreverses: false)) {
-                    travel = 1 + trailLength
-                }
-            }
+        }
     }
 }
 
@@ -1050,6 +1045,9 @@ struct ProfileView: View {
 private struct SportPassDetailView: View {
     @EnvironmentObject var vm: BettingViewModel
     @State private var showInfoPopup = false
+    @State private var claimingTierLevels: Set<Int> = []
+    @State private var claimFeedback: String?
+    @State private var claimFeedbackColor: Color = .gray
 
     var body: some View {
         ZStack {
@@ -1246,6 +1244,12 @@ private struct SportPassDetailView: View {
                     )
             }
 
+            if let claimFeedback {
+                Text(claimFeedback)
+                    .font(.caption)
+                    .foregroundColor(claimFeedbackColor)
+            }
+
             ForEach(Array(vm.sportPassTiers.enumerated()), id: \.element.id) { index, tier in
                 rewardRoadRow(tier: tier, isLast: index == vm.sportPassTiers.count - 1)
             }
@@ -1264,6 +1268,9 @@ private struct SportPassDetailView: View {
     private func rewardRoadRow(tier: SportPassTier, isLast: Bool) -> some View {
         let isUnlocked = vm.sportPassPoints >= tier.requiredPoints
         let isCurrentTarget = vm.sportPassNextTier?.level == tier.level
+        let isClaimed = vm.isSportPassTierClaimed(tier)
+        let isClaimable = vm.canClaimSportPassTier(tier)
+        let isClaiming = claimingTierLevels.contains(tier.level)
 
         return HStack(alignment: .top, spacing: 12) {
             VStack(spacing: 0) {
@@ -1293,14 +1300,14 @@ private struct SportPassDetailView: View {
 
                     Spacer()
 
-                    Text(statusLabel(isUnlocked: isUnlocked, isCurrentTarget: isCurrentTarget))
+                    Text(statusLabel(isUnlocked: isUnlocked, isClaimed: isClaimed, isCurrentTarget: isCurrentTarget))
                         .font(.caption2.bold())
-                        .foregroundColor(isUnlocked ? .black : .accentCyan)
+                        .foregroundColor(statusLabelForeground(isUnlocked: isUnlocked, isClaimed: isClaimed))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(
                             Capsule(style: .continuous)
-                                .fill(isUnlocked ? Color.accentCyan : Color.white.opacity(0.06))
+                                .fill(statusLabelBackground(isUnlocked: isUnlocked, isClaimed: isClaimed))
                         )
                 }
 
@@ -1316,6 +1323,43 @@ private struct SportPassDetailView: View {
                         .font(.caption2)
                         .foregroundColor(.accentCyan.opacity(0.95))
                 }
+
+                if isClaimed {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption.bold())
+                            .foregroundColor(.green)
+                        Text("Ricompensa riscattata")
+                            .font(.caption2.bold())
+                            .foregroundColor(.green)
+                    }
+                } else if isClaimable {
+                    Button {
+                        claimTierReward(tier)
+                    } label: {
+                        HStack(spacing: 6) {
+                            if isClaiming {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(.black)
+                            } else {
+                                Image(systemName: "gift.fill")
+                                    .font(.caption.bold())
+                            }
+                            Text(isClaiming ? "Riscatto..." : "Riscatta")
+                                .font(.caption.bold())
+                        }
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.accentCyan)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isClaiming)
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -1323,7 +1367,7 @@ private struct SportPassDetailView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: isUnlocked
+                            colors: (isUnlocked || isClaimed)
                                 ? [Color.accentCyan.opacity(0.2), Color.blue.opacity(0.22)]
                                 : [Color.white.opacity(0.04), Color.white.opacity(0.02)],
                             startPoint: .topLeading,
@@ -1333,23 +1377,71 @@ private struct SportPassDetailView: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(
-                                isUnlocked ? Color.accentCyan.opacity(0.45) : Color.white.opacity(0.1),
+                                (isUnlocked || isClaimed) ? Color.accentCyan.opacity(0.45) : Color.white.opacity(0.1),
                                 lineWidth: 1
                             )
                     )
             )
-            .shadow(color: isUnlocked ? Color.accentCyan.opacity(0.2) : Color.clear, radius: 8, x: 0, y: 2)
+            .shadow(color: (isUnlocked || isClaimed) ? Color.accentCyan.opacity(0.2) : Color.clear, radius: 8, x: 0, y: 2)
         }
     }
 
-    private func statusLabel(isUnlocked: Bool, isCurrentTarget: Bool) -> String {
+    private func statusLabel(isUnlocked: Bool, isClaimed: Bool, isCurrentTarget: Bool) -> String {
+        if isClaimed {
+            return "RISCATTATA"
+        }
         if isUnlocked {
-            return "RISCATTATO"
+            return "DA RISCATTARE"
         }
         if isCurrentTarget {
             return "PROSSIMO"
         }
         return "BLOCCATO"
+    }
+
+    private func statusLabelForeground(isUnlocked: Bool, isClaimed: Bool) -> Color {
+        if isClaimed || isUnlocked {
+            return .black
+        }
+        return .accentCyan
+    }
+
+    private func statusLabelBackground(isUnlocked: Bool, isClaimed: Bool) -> Color {
+        if isClaimed {
+            return Color.green.opacity(0.85)
+        }
+        if isUnlocked {
+            return Color.accentCyan
+        }
+        return Color.white.opacity(0.06)
+    }
+
+    private func claimTierReward(_ tier: SportPassTier) {
+        guard !claimingTierLevels.contains(tier.level) else { return }
+        claimingTierLevels.insert(tier.level)
+
+        vm.claimSportPassReward(tier) { result in
+            claimingTierLevels.remove(tier.level)
+
+            switch result {
+            case .success(let amount):
+                let formatted = GemFormatting.amount(amount)
+                claimFeedback = "Ricompensa livello \(tier.level) riscattata: +\(formatted) Gemme."
+                claimFeedbackColor = .green
+            case .alreadyClaimed:
+                claimFeedback = "Ricompensa livello \(tier.level) gia riscattata."
+                claimFeedbackColor = .gray
+            case .notUnlocked(let requiredPoints):
+                claimFeedback = "Livello \(tier.level) bloccato: servono \(sportPassPointsText(requiredPoints)) punti."
+                claimFeedbackColor = .orange
+            case .authRequired:
+                claimFeedback = "Devi essere autenticato per riscattare le ricompense."
+                claimFeedbackColor = .orange
+            case .invalidTier:
+                claimFeedback = "Ricompensa non valida."
+                claimFeedbackColor = .red
+            }
+        }
     }
 
     private func sportPassPointsText(_ value: Double) -> String {

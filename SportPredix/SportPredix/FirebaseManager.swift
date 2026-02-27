@@ -33,6 +33,7 @@ class FirebaseManager: ObservableObject {
             "email": email,
             "balance": 1000.0,
             "sportPassPoints": 0.0,
+            "sportPassClaimedTiers": [],
             "streakDays": 0,
             "consecutiveAccessDays": 0,
             "bestStreakDays": 0,
@@ -208,6 +209,30 @@ class FirebaseManager: ObservableObject {
 
         db.collection("users").document(userID).setData([
             "sportPassPoints": safePoints,
+            "lastUpdated": FieldValue.serverTimestamp()
+        ], merge: true) { error in
+            if let error = error {
+                completion(.failure(error))
+            } else {
+                completion(.success(()))
+            }
+        }
+    }
+
+    // MARK: - Aggiorna stato SportPass (punti + tier riscattati)
+    func updateSportPassProgress(
+        userID: String,
+        points: Double,
+        claimedTierLevels: [Int],
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let db = Firestore.firestore()
+        let safePoints = max(0, points)
+        let uniqueLevels = Array(Set(claimedTierLevels)).sorted()
+
+        db.collection("users").document(userID).setData([
+            "sportPassPoints": safePoints,
+            "sportPassClaimedTiers": uniqueLevels,
             "lastUpdated": FieldValue.serverTimestamp()
         ], merge: true) { error in
             if let error = error {

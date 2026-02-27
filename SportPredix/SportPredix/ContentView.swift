@@ -244,6 +244,14 @@ enum PromoCodeRedemptionResult {
     case success(PromoCode)
 }
 
+enum SportPassClaimResult {
+    case authRequired
+    case invalidTier
+    case notUnlocked(requiredPoints: Double)
+    case alreadyClaimed
+    case success(claimedAmount: Double)
+}
+
 struct PromoCode: Decodable {
     let code: String
     let bonus: Double
@@ -355,6 +363,7 @@ final class BettingViewModel: ObservableObject {
     @Published private(set) var streakDays = 0
     @Published private(set) var bestStreakDays = 0
     @Published private(set) var sportPassPoints: Double = 0
+    @Published private(set) var sportPassClaimedTierLevels: Set<Int> = []
     
     @Published var currentPicks: [BetPick] = []
     @Published var slips: [BetSlip] = []
@@ -377,6 +386,7 @@ final class BettingViewModel: ObservableObject {
     private let streakLastVisitKey = "streakLastVisit"
     private let streakConsecutiveKey = "streakConsecutiveAccessDays"
     private let sportPassPointsKey = "sportPassPoints"
+    private let sportPassClaimedTiersKey = "sportPassClaimedTiers"
     private let matchesSourceVersionKey = "matchesSourceVersion"
     private let matchesSourceVersion = 7
     // Sostituisci con la raw URL del JSON nella tua repository esterna.
@@ -386,12 +396,14 @@ final class BettingViewModel: ObservableObject {
     private var betStatsSyncTask: DispatchWorkItem?
     private var slipsSyncTask: DispatchWorkItem?
     private var streakSyncTask: DispatchWorkItem?
+    private var sportPassSyncTask: DispatchWorkItem?
     private var isLoadingRemoteBalance = false
     private var isLoadingRemoteSlips = false
     private var lastSyncedSlipsSignature: String?
     private var lastSyncedStreakSignature: String?
     private var isLoadingPromoCodes = false
     private var isFetchingMatchesBundle = false
+    private var lastSyncedSportPassSignature: String?
 
     private static let defaultSportPassTiers: [SportPassTier] = [
         SportPassTier(level: 1, requiredPoints: 100, reward: "10 Gemme"),
@@ -468,6 +480,11 @@ final class BettingViewModel: ObservableObject {
     private func sportPassPointsStorageKey(for userID: String?) -> String {
         guard let userID, !userID.isEmpty else { return sportPassPointsKey }
         return "\(sportPassPointsKey)_\(userID)"
+    }
+
+    private func sportPassClaimedTiersStorageKey(for userID: String?) -> String {
+        guard let userID, !userID.isEmpty else { return sportPassClaimedTiersKey }
+        return "\(sportPassClaimedTiersKey)_\(userID)"
     }
 
     var allAvailableMainLeagues: [String] {
@@ -600,7 +617,9 @@ final class BettingViewModel: ObservableObject {
                     self.remoteTotalLosses = 0
                     self.lastSyncedSlipsSignature = nil
                     self.lastSyncedStreakSignature = nil
+                    self.lastSyncedSportPassSignature = nil
                     self.streakSyncTask?.cancel()
+                    self.sportPassSyncTask?.cancel()
                     self.slips = self.loadSlips(for: nil)
                     self.loadStreak(for: nil)
                     self.refreshDailyStreakIfNeeded(for: nil)
@@ -609,6 +628,7 @@ final class BettingViewModel: ObservableObject {
                 }
                 self.lastSyncedSlipsSignature = nil
                 self.lastSyncedStreakSignature = nil
+                self.lastSyncedSportPassSignature = nil
                 self.migrateLegacySlipsKeyIfNeeded(for: userID)
                 self.slips = self.loadSlips(for: userID)
                 self.loadSportPass(for: userID)
@@ -642,26 +662,145 @@ final class BettingViewModel: ObservableObject {
     }
 
     private func loadSportPass(for userID: String?) {
-        let key = sportPassPointsStorageKey(for: userID)
-        if let storedValue = UserDefaults.standard.object(forKey: key) as? NSNumber {
+        let pointsKey = sportPassPointsStorageKey(for: userID)
+        let claimedKey = sportPassClaimedTiersStorageKey(for: userID)
+
+        if let storedValue = UserDefaults.standard.object(forKey: pointsKey) as? NSNumber {
             sportPassPoints = max(0, storedValue.doubleValue)
-            return
+        } else {
+            // Migrazione iniziale: calcola i punti dal netto delle schedine gia valutate come vinte.
+            let migrated = slips.reduce(0.0) { partial, slip in
+                guard slip.isEvaluated, slip.isWon == true else { return partial }
+                return partial + max(0, slip.potentialWin - slip.stake)
+            }
+            sportPassPoints = max(0, migrated)
+            UserDefaults.standard.set(sportPassPoints, forKey: pointsKey)
         }
 
-        // Migrazione iniziale: calcola i punti dal netto delle schedine gia valutate come vinte.
-        let migrated = slips.reduce(0.0) { partial, slip in
-            guard slip.isEvaluated, slip.isWon == true else { return partial }
-            return partial + max(0, slip.potentialWin - slip.stake)
-        }
-        sportPassPoints = max(0, migrated)
-        UserDefaults.standard.set(sportPassPoints, forKey: key)
+        let localClaimed = Set(UserDefaults.standard.array(forKey: claimedKey) as? [Int] ?? [])
+        sportPassClaimedTierLevels = sanitizeClaimedTierLevels(localClaimed)
     }
 
     private func addSportPassPointsFromWinningSlip(_ slip: BetSlip) {
         let gainedPoints = max(0, slip.potentialWin - slip.stake)
         guard gainedPoints > 0 else { return }
         sportPassPoints += gainedPoints
-        UserDefaults.standard.set(sportPassPoints, forKey: sportPassPointsStorageKey(for: AuthManager.shared.currentUserID))
+        persistSportPassLocally(for: AuthManager.shared.currentUserID)
+        syncSportPassToCloudIfPossible()
+    }
+
+    private func sanitizeClaimedTierLevels(_ levels: Set<Int>) -> Set<Int> {
+        let validLevels = Set(sportPassTiers.map(\.level))
+        return levels.intersection(validLevels)
+    }
+
+    private func persistSportPassLocally(for userID: String?) {
+        UserDefaults.standard.set(sportPassPoints, forKey: sportPassPointsStorageKey(for: userID))
+        UserDefaults.standard.set(
+            sportPassClaimedTierLevels.sorted(),
+            forKey: sportPassClaimedTiersStorageKey(for: userID)
+        )
+    }
+
+    private func syncSportPassToCloudIfPossible() {
+        guard let userID = AuthManager.shared.currentUserID, !userID.isEmpty else { return }
+
+        let claimed = sanitizeClaimedTierLevels(sportPassClaimedTierLevels)
+        let signature = "\(sportPassPoints)|\(claimed.sorted().map(String.init).joined(separator: ","))"
+        guard signature != lastSyncedSportPassSignature else { return }
+
+        sportPassSyncTask?.cancel()
+        let safePoints = max(0, sportPassPoints)
+        let claimedLevels = claimed.sorted()
+
+        let task = DispatchWorkItem { [weak self] in
+            FirebaseManager.shared.updateSportPassProgress(
+                userID: userID,
+                points: safePoints,
+                claimedTierLevels: claimedLevels
+            ) { result in
+                guard case .success = result else { return }
+                DispatchQueue.main.async {
+                    self?.lastSyncedSportPassSignature = signature
+                }
+            }
+        }
+
+        sportPassSyncTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: task)
+    }
+
+    private func mergeSportPassFromCloudIfNeeded(userID: String, data: [String: Any]) {
+        let localPoints = max(0, sportPassPoints)
+        let remotePoints = max(0, doubleValue(from: data["sportPassPoints"]) ?? 0)
+        let mergedPoints = max(localPoints, remotePoints)
+
+        let remoteClaimedRaw = data["sportPassClaimedTiers"] as? [Any] ?? []
+        let remoteClaimed = Set(remoteClaimedRaw.compactMap { intValue(from: $0) })
+        let mergedClaimed = sanitizeClaimedTierLevels(sportPassClaimedTierLevels.union(remoteClaimed))
+
+        let changed = mergedPoints != sportPassPoints || mergedClaimed != sportPassClaimedTierLevels
+        sportPassPoints = mergedPoints
+        sportPassClaimedTierLevels = mergedClaimed
+        persistSportPassLocally(for: userID)
+
+        if changed || data["sportPassPoints"] == nil || data["sportPassClaimedTiers"] == nil {
+            syncSportPassToCloudIfPossible()
+        }
+    }
+
+    func isSportPassTierClaimed(_ tier: SportPassTier) -> Bool {
+        sportPassClaimedTierLevels.contains(tier.level)
+    }
+
+    func canClaimSportPassTier(_ tier: SportPassTier) -> Bool {
+        sportPassPoints >= tier.requiredPoints && !isSportPassTierClaimed(tier)
+    }
+
+    func claimSportPassReward(
+        _ tier: SportPassTier,
+        completion: @escaping (SportPassClaimResult) -> Void
+    ) {
+        guard AuthManager.shared.currentUserID != nil else {
+            completion(.authRequired)
+            return
+        }
+
+        guard sportPassTiers.contains(where: { $0.level == tier.level }) else {
+            completion(.invalidTier)
+            return
+        }
+
+        guard sportPassPoints >= tier.requiredPoints else {
+            completion(.notUnlocked(requiredPoints: tier.requiredPoints))
+            return
+        }
+
+        guard !sportPassClaimedTierLevels.contains(tier.level) else {
+            completion(.alreadyClaimed)
+            return
+        }
+
+        let claimedAmount = gemAmount(from: tier.reward)
+        sportPassClaimedTierLevels.insert(tier.level)
+        persistSportPassLocally(for: AuthManager.shared.currentUserID)
+        syncSportPassToCloudIfPossible()
+
+        if claimedAmount > 0 {
+            balance += claimedAmount
+        }
+
+        completion(.success(claimedAmount: claimedAmount))
+    }
+
+    private func gemAmount(from reward: String) -> Double {
+        let normalized = reward.replacingOccurrences(of: ",", with: ".")
+        guard let regex = try? NSRegularExpression(pattern: #"([0-9]+(?:\.[0-9]+)?)"#),
+              let match = regex.firstMatch(in: normalized, range: NSRange(normalized.startIndex..., in: normalized)),
+              let range = Range(match.range(at: 1), in: normalized) else {
+            return 0
+        }
+        return max(0, Double(String(normalized[range])) ?? 0)
     }
 
     private func refreshDailyStreakIfNeeded(for userID: String?, referenceDate: Date = Date()) {
@@ -736,6 +875,7 @@ final class BettingViewModel: ObservableObject {
                     self.remoteTotalWins = self.intValue(from: data["totalWins"]) ?? 0
                     self.remoteTotalLosses = self.intValue(from: data["totalLosses"]) ?? 0
                     self.mergeStreakFromCloudIfNeeded(userID: userID, data: data)
+                    self.mergeSportPassFromCloudIfNeeded(userID: userID, data: data)
                 case .failure:
                     break
                 }
@@ -1808,7 +1948,9 @@ final class BettingViewModel: ObservableObject {
         slips.removeAll()
         currentPicks.removeAll()
         sportPassPoints = 0
-        UserDefaults.standard.set(0.0, forKey: sportPassPointsStorageKey(for: AuthManager.shared.currentUserID))
+        sportPassClaimedTierLevels = []
+        persistSportPassLocally(for: AuthManager.shared.currentUserID)
+        syncSportPassToCloudIfPossible()
         saveSlips()
     }
     
@@ -1922,6 +2064,21 @@ final class BettingViewModel: ObservableObject {
             return Int(value)
         case let value as String:
             return Int(value)
+        default:
+            return nil
+        }
+    }
+
+    private func doubleValue(from raw: Any?) -> Double? {
+        switch raw {
+        case let value as Double:
+            return value
+        case let value as NSNumber:
+            return value.doubleValue
+        case let value as Int:
+            return Double(value)
+        case let value as String:
+            return Double(value)
         default:
             return nil
         }
