@@ -201,6 +201,7 @@ private struct SportPassShimmerTitle: View {
 struct ProfileView: View {
     @EnvironmentObject var authManager: AuthManager
     @EnvironmentObject var vm: BettingViewModel
+    @EnvironmentObject var storeKitManager: StoreKitManager
     @State private var showLogoutAlert = false
     @State private var showRedeemPopup = false
     @State private var promoCodeInput = ""
@@ -449,7 +450,7 @@ struct ProfileView: View {
 
                     Spacer()
 
-                    Text("LIV \(vm.sportPassCurrentTier)")
+                    Text(storeKitManager.hasSportPassAccess ? "LIV \(vm.sportPassCurrentTier)" : "PREMIUM")
                         .font(.caption.bold())
                         .foregroundColor(.black)
                         .padding(.horizontal, 8)
@@ -462,16 +463,25 @@ struct ProfileView: View {
 
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("\(sportPassPointsText(vm.sportPassPoints)) punti")
-                            .font(.subheadline.bold())
-                            .foregroundColor(.white)
+                        if storeKitManager.hasSportPassAccess {
+                            Text("\(sportPassPointsText(vm.sportPassPoints)) punti")
+                                .font(.subheadline.bold())
+                                .foregroundColor(.white)
 
-                        if let nextTier = vm.sportPassNextTier {
-                            Text("Prossimo L\(nextTier.level) a \(sportPassPointsText(nextTier.requiredPoints))")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                            if let nextTier = vm.sportPassNextTier {
+                                Text("Prossimo L\(nextTier.level) a \(sportPassPointsText(nextTier.requiredPoints))")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            } else {
+                                Text("Pass completato")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
                         } else {
-                            Text("Pass completato")
+                            Text("Pass bloccato")
+                                .font(.subheadline.bold())
+                                .foregroundColor(.white)
+                            Text("Tocca per acquistare e sbloccare le ricompense")
                                 .font(.caption)
                                 .foregroundColor(.gray)
                         }
@@ -490,7 +500,7 @@ struct ProfileView: View {
                             )
                             .frame(width: 40, height: 40)
 
-                        Image(systemName: "diamond.fill")
+                        Image(systemName: storeKitManager.hasSportPassAccess ? "diamond.fill" : "lock.fill")
                             .font(.system(size: 15, weight: .black))
                             .foregroundColor(.white)
                     }
@@ -502,16 +512,18 @@ struct ProfileView: View {
                         Capsule(style: .continuous)
                             .fill(Color.white.opacity(0.08))
 
-                        Capsule(style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.accentCyan, Color.mint],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
+                        if storeKitManager.hasSportPassAccess {
+                            Capsule(style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.accentCyan, Color.mint],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
                                 )
-                            )
-                            .frame(width: max(10, geometry.size.width * max(0, min(1, vm.sportPassProgressToNextTier))))
-                            .animation(.easeInOut(duration: 0.25), value: vm.sportPassProgressToNextTier)
+                                .frame(width: max(10, geometry.size.width * max(0, min(1, vm.sportPassProgressToNextTier))))
+                                .animation(.easeInOut(duration: 0.25), value: vm.sportPassProgressToNextTier)
+                        }
                     }
                 }
                 .frame(height: 8)
@@ -2700,6 +2712,7 @@ struct ProfileThemesView: View {
     ProfileView()
         .environmentObject(AuthManager.shared)
         .environmentObject(BettingViewModel())
+        .environmentObject(StoreKitManager())
 }
 
 
