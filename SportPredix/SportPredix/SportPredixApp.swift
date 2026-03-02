@@ -21,7 +21,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct SportPredixApp: App {
     @StateObject private var authManager = AuthManager.shared
-    @StateObject private var storeKitManager = StoreKitManager()
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     
     init() {
@@ -30,17 +29,12 @@ struct SportPredixApp: App {
     
     var body: some Scene {
         WindowGroup {
-            Group {
-                if authManager.isLoggedIn {
-                    ContentView()
-                } else {
-                    AuthView()
-                }
-            }
-            .environmentObject(authManager)
-            .environmentObject(storeKitManager)
-            .task {
-                await storeKitManager.start()
+            if authManager.isLoggedIn {
+                ContentView()
+                    .environmentObject(authManager)
+            } else {
+                AuthView()
+                    .environmentObject(authManager)
             }
         }
     }

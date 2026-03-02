@@ -48,15 +48,11 @@ struct SportPassOrbitBorder: View {
 
 struct SportPassDetailView: View {
     @EnvironmentObject var vm: BettingViewModel
-    @EnvironmentObject var storeKitManager: StoreKitManager
     @State private var showInfoPopup = false
     @State private var showPointsHistory = false
     @State private var claimingTierLevels: Set<Int> = []
     @State private var claimFeedback: String?
     @State private var claimFeedbackColor: Color = .gray
-    @State private var purchaseFeedback: String?
-    @State private var purchaseFeedbackColor: Color = .gray
-    @State private var isRestoringPurchase = false
 
     var body: some View {
         ZStack {
@@ -64,13 +60,8 @@ struct SportPassDetailView: View {
 
             ScrollView {
                 VStack(spacing: 18) {
-                    if storeKitManager.hasSportPassAccess {
-                        heroCard
-                        rewardsRoadCard
-                    } else {
-                        lockedHeroCard
-                        paywallCard
-                    }
+                    heroCard
+                    rewardsRoadCard
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
@@ -80,18 +71,16 @@ struct SportPassDetailView: View {
         .navigationTitle("SportPass")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if storeKitManager.hasSportPassAccess {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showPointsHistory = true
-                    } label: {
-                        Image(systemName: "list.bullet")
-                            .font(.headline.weight(.semibold))
-                            .foregroundColor(.accentCyan)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Storico punti SportPass")
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showPointsHistory = true
+                } label: {
+                    Image(systemName: "list.bullet")
+                        .font(.headline.weight(.semibold))
+                        .foregroundColor(.accentCyan)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Storico punti SportPass")
             }
 
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -108,10 +97,6 @@ struct SportPassDetailView: View {
         }
         .sheet(isPresented: $showPointsHistory) {
             SportPassPointsHistorySheet(receipts: vm.sportPassPointReceipts)
-        }
-        .task {
-            await storeKitManager.start()
-            await storeKitManager.refreshStoreState()
         }
         .alert("Come guadagnare punti SportPass", isPresented: $showInfoPopup) {
             Button("Ho capito", role: .cancel) { }
@@ -165,172 +150,6 @@ struct SportPassDetailView: View {
             )
         }
         .ignoresSafeArea()
-    }
-
-    private var lockedHeroCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("PASS PREMIUM")
-                        .font(.caption.bold())
-                        .tracking(1.2)
-                        .foregroundColor(.accentCyan.opacity(0.95))
-
-                    Text("SportPass")
-                        .font(.title3.weight(.black))
-                        .foregroundColor(.white)
-                }
-
-                Spacer()
-
-                HStack(spacing: 6) {
-                    Image(systemName: "lock.fill")
-                    Text("BLOCCATO")
-                }
-                .font(.caption.bold())
-                .foregroundColor(.black)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(Color.accentCyan)
-                )
-            }
-
-            Text("Acquista il pass per accedere alla road ricompense e riscattare i livelli.")
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.9))
-
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.seal.fill")
-                    .foregroundColor(.accentCyan)
-                Text("Sblocca tutti i livelli e premi del pass")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
-
-            HStack(spacing: 8) {
-                Image(systemName: "clock.arrow.circlepath")
-                    .foregroundColor(.accentCyan)
-                Text("Ripristino acquisti disponibile su tutti i tuoi dispositivi")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
-        }
-        .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.black.opacity(0.74))
-                .overlay(
-                    SportPassOrbitBorder(cornerRadius: 16, lineWidth: 1.4)
-                )
-        )
-        .shadow(color: Color.accentCyan.opacity(0.34), radius: 14, x: 0, y: 2)
-    }
-
-    private var paywallCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Attiva il tuo SportPass")
-                .font(.headline.weight(.black))
-                .foregroundColor(.white)
-
-            if let purchaseFeedback {
-                Text(purchaseFeedback)
-                    .font(.caption)
-                    .foregroundColor(purchaseFeedbackColor)
-            }
-
-            if storeKitManager.isLoadingProduct {
-                HStack(spacing: 10) {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text("Caricamento offerta...")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
-            } else {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("SportPass Premium")
-                            .font(.subheadline.bold())
-                            .foregroundColor(.white)
-                        Text("Prezzo: \(sportPassDisplayPrice)")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
-
-                    Spacer()
-                }
-            }
-
-            Button {
-                buySportPass()
-            } label: {
-                HStack(spacing: 8) {
-                    if storeKitManager.isProcessingPurchase {
-                        ProgressView()
-                            .controlSize(.small)
-                            .tint(.black)
-                    } else {
-                        Image(systemName: "lock.open.fill")
-                            .font(.caption.bold())
-                    }
-                    Text(storeKitManager.isProcessingPurchase ? "Acquisto in corso..." : "Acquista ora")
-                        .font(.caption.bold())
-                }
-                .foregroundColor(.black)
-                .frame(maxWidth: .infinity)
-                .frame(height: 40)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(Color.accentCyan)
-                )
-            }
-            .buttonStyle(.plain)
-            .disabled(storeKitManager.isProcessingPurchase || storeKitManager.isLoadingProduct || isRestoringPurchase)
-            .opacity((storeKitManager.isProcessingPurchase || storeKitManager.isLoadingProduct || isRestoringPurchase) ? 0.6 : 1)
-
-            Button {
-                restoreSportPass()
-            } label: {
-                HStack(spacing: 8) {
-                    if isRestoringPurchase {
-                        ProgressView()
-                            .controlSize(.small)
-                            .tint(.accentCyan)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.caption.bold())
-                            .foregroundColor(.accentCyan)
-                    }
-                    Text(isRestoringPurchase ? "Ripristino..." : "Ripristina acquisti")
-                        .font(.caption.bold())
-                        .foregroundColor(.accentCyan)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 40)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(Color.white.opacity(0.06))
-                )
-                .overlay(
-                    Capsule(style: .continuous)
-                        .stroke(Color.accentCyan.opacity(0.35), lineWidth: 1)
-                )
-            }
-            .buttonStyle(.plain)
-            .disabled(storeKitManager.isProcessingPurchase || isRestoringPurchase)
-            .opacity((storeKitManager.isProcessingPurchase || isRestoringPurchase) ? 0.6 : 1)
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.black.opacity(0.7))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.accentCyan.opacity(0.2), lineWidth: 1)
-                )
-        )
     }
 
     private var heroCard: some View {
@@ -650,54 +469,6 @@ struct SportPassDetailView: View {
         reward
             .replacingOccurrences(of: "Gemme", with: "", options: .caseInsensitive)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var sportPassDisplayPrice: String {
-        storeKitManager.sportPassProduct?.displayPrice ?? "--"
-    }
-
-    private func buySportPass() {
-        Task {
-            let result = await storeKitManager.purchaseSportPass()
-            applyPurchaseResult(result)
-        }
-    }
-
-    private func restoreSportPass() {
-        Task {
-            isRestoringPurchase = true
-            defer { isRestoringPurchase = false }
-
-            let result = await storeKitManager.restorePurchases()
-            applyPurchaseResult(result, isRestore: true)
-        }
-    }
-
-    private func applyPurchaseResult(_ result: SportPassPurchaseResult, isRestore: Bool = false) {
-        switch result {
-        case .success:
-            purchaseFeedback = isRestore
-                ? "Acquisto ripristinato: SportPass Premium attivo."
-                : "Acquisto completato: SportPass Premium attivo."
-            purchaseFeedbackColor = .green
-        case .pending:
-            purchaseFeedback = "Transazione in attesa di conferma."
-            purchaseFeedbackColor = .orange
-        case .cancelled:
-            purchaseFeedback = "Acquisto annullato."
-            purchaseFeedbackColor = .gray
-        case .notConfigured:
-            purchaseFeedback = "Configura InAppPurchaseConfig.sportPassProductID con l'ID prodotto di App Store Connect."
-            purchaseFeedbackColor = .red
-        case .notAvailable:
-            purchaseFeedback = isRestore
-                ? "Nessun acquisto da ripristinare oppure prodotto non disponibile."
-                : "Prodotto non disponibile su App Store."
-            purchaseFeedbackColor = .orange
-        case .failed(let message):
-            purchaseFeedback = "Errore StoreKit: \(message)"
-            purchaseFeedbackColor = .red
-        }
     }
 }
 
