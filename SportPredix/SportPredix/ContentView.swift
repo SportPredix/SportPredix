@@ -936,16 +936,26 @@ final class BettingViewModel: ObservableObject {
         persistSportPassPointReceipts(for: userID)
     }
 
+    private func resolvedSportPassCurrentTier(for points: Double) -> (level: Int, requiredPoints: Double) {
+        let safePoints = max(0, points)
+        guard let currentTier = sportPassTiers.last(where: { safePoints >= $0.requiredPoints }) else {
+            return (level: 0, requiredPoints: 0)
+        }
+        return (level: currentTier.level, requiredPoints: currentTier.requiredPoints)
+    }
+
     private func syncSportPassToCloudIfPossible() {
         guard let userID = AuthManager.shared.currentUserID, !userID.isEmpty else { return }
 
+        let safePoints = max(0, sportPassPoints)
         let claimed = sanitizeClaimedTierLevels(sportPassClaimedTierLevels)
+        let currentTier = resolvedSportPassCurrentTier(for: safePoints)
         let receiptsSignature = sportPassPointReceiptsSignature()
-        let signature = "\(sportPassPoints)|\(claimed.sorted().map(String.init).joined(separator: ","))|\(receiptsSignature)"
+        let signature =
+            "\(safePoints)|\(claimed.sorted().map(String.init).joined(separator: ","))|\(currentTier.level)|\(currentTier.requiredPoints)|\(receiptsSignature)"
         guard signature != lastSyncedSportPassSignature else { return }
 
         sportPassSyncTask?.cancel()
-        let safePoints = max(0, sportPassPoints)
         let claimedLevels = claimed.sorted()
         let receiptsPayload = sportPassPointReceiptsCloudPayload()
 
@@ -954,6 +964,8 @@ final class BettingViewModel: ObservableObject {
                 userID: userID,
                 points: safePoints,
                 claimedTierLevels: claimedLevels,
+                currentTierLevel: currentTier.level,
+                currentTierRequiredPoints: currentTier.requiredPoints,
                 pointReceipts: receiptsPayload
             ) { result in
                 guard case .success = result else { return }
@@ -971,6 +983,7 @@ final class BettingViewModel: ObservableObject {
         let localPoints = max(0, sportPassPoints)
         let remotePoints = max(0, doubleValue(from: data["sportPassPoints"]) ?? 0)
         let mergedPoints = max(localPoints, remotePoints)
+        let expectedCurrentTier = resolvedSportPassCurrentTier(for: mergedPoints)
 
         let remoteClaimedRaw = data["sportPassClaimedTiers"] as? [Any] ?? []
         let remoteClaimed = Set(remoteClaimedRaw.compactMap { intValue(from: $0) })
@@ -985,6 +998,13 @@ final class BettingViewModel: ObservableObject {
             mergedPoints != sportPassPoints ||
             mergedClaimed != sportPassClaimedTierLevels ||
             mergedReceipts != sportPassPointReceipts
+
+        let remoteCurrentTierLevel = intValue(from: data["sportPassCurrentTierLevel"])
+        let remoteCurrentTierRequiredPoints = doubleValue(from: data["sportPassCurrentTierRequiredPoints"])
+        let isRemoteCurrentTierInSync =
+            remoteCurrentTierLevel == expectedCurrentTier.level &&
+            ((remoteCurrentTierRequiredPoints ?? -1) - expectedCurrentTier.requiredPoints).magnitude < 0.0001
+
         sportPassPoints = mergedPoints
         sportPassClaimedTierLevels = mergedClaimed
         sportPassPointReceipts = mergedReceipts
@@ -993,7 +1013,10 @@ final class BettingViewModel: ObservableObject {
         if changed ||
             data["sportPassPoints"] == nil ||
             data["sportPassClaimedTiers"] == nil ||
-            data["sportPassPointReceipts"] == nil {
+            data["sportPassPointReceipts"] == nil ||
+            data["sportPassCurrentTierLevel"] == nil ||
+            data["sportPassCurrentTierRequiredPoints"] == nil ||
+            !isRemoteCurrentTierInSync {
             syncSportPassToCloudIfPossible()
         }
     }
@@ -3288,7 +3311,6 @@ struct GamesContentView: View {
         .background(Color.clear)
     }
 }
-
 
 
 

@@ -35,6 +35,8 @@ class FirebaseManager: ObservableObject {
             "sportPassPoints": 0.0,
             "sportPassClaimedTiers": [],
             "sportPassPointReceipts": [],
+            "sportPassCurrentTierLevel": 0,
+            "sportPassCurrentTierRequiredPoints": 0.0,
             "streakDays": 0,
             "consecutiveAccessDays": 0,
             "bestStreakDays": 0,
@@ -225,6 +227,8 @@ class FirebaseManager: ObservableObject {
         userID: String,
         points: Double,
         claimedTierLevels: [Int],
+        currentTierLevel: Int,
+        currentTierRequiredPoints: Double,
         pointReceipts: [[String: Any]]? = nil,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
@@ -234,6 +238,8 @@ class FirebaseManager: ObservableObject {
         var payload: [String: Any] = [
             "sportPassPoints": safePoints,
             "sportPassClaimedTiers": uniqueLevels,
+            "sportPassCurrentTierLevel": max(0, currentTierLevel),
+            "sportPassCurrentTierRequiredPoints": max(0, currentTierRequiredPoints),
             "lastUpdated": FieldValue.serverTimestamp()
         ]
 
